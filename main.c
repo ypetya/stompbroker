@@ -24,6 +24,7 @@
 #include <unistd.h> // for usleep
 #include <errno.h>
 
+
 #define MYPORT 3456    /* the port users will be connecting to */
 #define BACKLOG 10     /* how many pending connections queue will hold */
 
@@ -36,8 +37,12 @@ int main()
     socklen_t		sin_size;
     char			string_read[255];
     char			string_write[255];
-    int 			n,i;
+    int 			n,i,MaxClientID;
     int			last_fd;	/* Thelast sockfd that is connected	*/
+    int         ReadDescriptors;
+
+    fd_set readset,allset;
+    int         clients[FD_SETSIZE];
 
     if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
         perror("socket");
@@ -63,72 +68,100 @@ int main()
         exit(1);
     }
 
-
-
-
     if (listen(sockfd, BACKLOG) == -1) {
         perror("listen");
         printf("error: %s",strerror(errno));
 
         exit(1);
     }
-/*
-    sin_size = sizeof(struct sockaddr);
-    if ((new_fd = accept(sockfd, (struct sockaddr *)&their_addr,&sin_size)) == -1) {
-        perror("accept1");
-        printf("error: %s",strerror(errno));
 
+
+
+    //fcntl(sockfd, F_SETFL, O_NONBLOCK); /* Change the socket into non-blocking state	*/
+    FD_ZERO(&allset);
+    FD_SET(sockfd, &allset);
+
+    for(i=0;i<FD_SETSIZE;i++){
+        clients[i]=-1;
     }
-*/
-//printf("last_fd= %d\n",last_fd);
-//printf("sockfd= %d\n",sockfd);
-//printf("new_fd= %d\n",new_fd);
-
-
-
-    fcntl(last_fd, F_SETFL, O_NONBLOCK); /* Change the socket into non-blocking state	*/
-//    fcntl(new_fd, F_SETFL, O_NONBLOCK); /* Change the socket into non-blocking state	*/
+    MaxClientID=-1;
 
     while(1){
-        for (i=sockfd;i<=last_fd;i++){
-            //printf("Round number %d\n",i);
-            if (i == sockfd){
-                sin_size = sizeof(struct sockaddr_in);
-                if ((new_fd = accept(sockfd, (struct sockaddr *)&their_addr,&sin_size)) == -1) {
-                    //perror("accept2");
-                    //printf("error: %s",strerror(errno));
-                }else{
-                    printf("server: got connection from %s\n", (char *)inet_ntoa(their_addr.sin_addr));
-                    fcntl(new_fd, F_SETFL, O_NONBLOCK);
-                    last_fd = new_fd;
-                    //printf("new_fd= %d\n",new_fd);
+        printf("."); fflush(stdout);
+        readset=allset;
+        ReadDescriptors = select(last_fd+1, &readset, NULL, NULL, NULL); //BLOCKING
+        if(FD_ISSET(sockfd, &readset)){
 
-                }
-            }
-            else{
-                n=recv(i,string_read,sizeof(string_read),0);
-                if (n < 1){
-                    //if(errno == EWOULDBLOCK){printf("EWOULDBLOCK");}
-                    //if(errno == EAGAIN){printf("EAGAIN   ");}
-                    if(errno != EWOULDBLOCK){
-                        perror("recv - non blocking \n");
-                        printf("Round %d, and the data read size is: n=%d \n",i,n);
-                    }
-                }
-                else{
-                    string_read[n] = '\0';
-                    printf("The string is: %s \n",string_read);
-                    if(strlen(string_read) < (sizeof(string_write) - 10) ){
-                        sprintf(string_write,"You said:%s\n",string_read);
+                    sin_size = sizeof(struct sockaddr_in);
+                    if ((new_fd = accept(sockfd, (struct sockaddr *)&their_addr,&sin_size)) == -1) {
+//                        perror("accept2");
+//                        printf("error: %s",strerror(errno));
                     }else{
-                        strcpy(string_write,"Jabber...\n");
-
+                        printf("server: got connection from %s\n", (char *)inet_ntoa(their_addr.sin_addr));
+                        for (i=0;i<FD_SETSIZE;i++){
+                            if(clients[i]<0){
+                                clients[i]=new_fd;
+                                printf("clients[%d]=%d;\n", i,new_fd);
+                                break;
+                            }
                         }
-                    if (send(i, string_write, strlen(string_write), 0) == -1)
-                        perror("send");
-                }
-            }
-        }
+
+                        fcntl(new_fd, F_SETFL, O_NONBLOCK);
+                        if (last_fd < new_fd){
+                            last_fd = new_fd;
+                        }
+                        if(i > MaxClientID ){
+                            MaxClientID=i;
+                        }
+                        FD_SET(new_fd, &allset);
+                        printf("MaxClientID=%d;\n",MaxClientID);
+                        //printf("new_fd= %d\n",new_fd);
+                        if (--ReadDescriptors <= 0){
+                            continue;
+                        }
+                    }
+            }//Listener
+
+            for (i=0;i<=MaxClientID;i++)
+            {
+                     if(clients[i]<0) continue;
+                     new_fd=clients[i];
+                    if(FD_ISSET(new_fd, &readset)){
+                        n=recv(new_fd,string_read,sizeof(string_read),0);
+                        if (n < 1){
+                            if(n==0) {
+                                printf("socket closed nicely: %d \n",i);
+                                close(new_fd);
+                                clients[i]=-1; // set free
+                                // socket closed nicely
+                                FD_CLR(new_fd,&allset);
+                            }
+                            //if(errno == EWOULDBLOCK){printf("EWOULDBLOCK");}
+                            //if(errno == EAGAIN){printf("EAGAIN   ");}
+                            //if(errno != EWOULDBLOCK){
+                                perror("recv - non blocking \n");
+                                printf("read size is: n=%d \n",n);
+                            //}
+                        }
+                        else {
+                            string_read[n] = '\0';
+                            printf("The string is: %s \n",string_read);
+                            if(strlen(string_read) < (sizeof(string_write) - 10) ){
+                                sprintf(string_write,"You said:%s\n",string_read);
+                            }else{
+                                strcpy(string_write,"Jabber...\n");
+
+                                }
+                            if (send(new_fd, string_write, strlen(string_write), 0) == -1){
+                                perror("send");
+                            }
+                        }
+
+                        if (--ReadDescriptors <= 0){
+                            break;
+                            }
+                    }//FSSET
+            } // Client Sockets
         usleep(1000000);
     }
 
