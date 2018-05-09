@@ -91,77 +91,80 @@ int main()
         readset=allset;
         ReadDescriptors = select(last_fd+1, &readset, NULL, NULL, NULL); //BLOCKING
         if(FD_ISSET(sockfd, &readset)){
-
-                    sin_size = sizeof(struct sockaddr_in);
-                    if ((new_fd = accept(sockfd, (struct sockaddr *)&their_addr,&sin_size)) == -1) {
+            sin_size = sizeof(struct sockaddr_in);
+            if ((new_fd = accept(sockfd, (struct sockaddr *)&their_addr,&sin_size)) == -1) {
 //                        perror("accept2");
 //                        printf("error: %s",strerror(errno));
-                    }else{
-                        printf("server: got connection from %s\n", (char *)inet_ntoa(their_addr.sin_addr));
-                        for (i=0;i<FD_SETSIZE;i++){
-                            if(clients[i]<0){
-                                clients[i]=new_fd;
-                                printf("clients[%d]=%d;\n", i,new_fd);
-                                break;
-                            }
-                        }
+            }else{
+                printf("server: got connection from %s\n", (char *)inet_ntoa(their_addr.sin_addr));
+                for (i=0;i<FD_SETSIZE;i++){
+                    if(clients[i]<0){
+                        clients[i]=new_fd;
+                        printf("clients[%d]=%d;\n", i,new_fd);
+                        break;
+                    }
+                }
+                // TODO: In case client was associated : mayne compacting the clients map could help? (by reassigning FD-s)
 
-                        fcntl(new_fd, F_SETFL, O_NONBLOCK);
-                        if (last_fd < new_fd){
-                            last_fd = new_fd;
-                        }
-                        if(i > MaxClientID ){
-                            MaxClientID=i;
-                        }
-                        FD_SET(new_fd, &allset);
-                        printf("MaxClientID=%d;\n",MaxClientID);
-                        //printf("new_fd= %d\n",new_fd);
-                        if (--ReadDescriptors <= 0){
-                            continue;
+                fcntl(new_fd, F_SETFL, O_NONBLOCK);
+                if (last_fd < new_fd){
+                    last_fd = new_fd;
+                }
+                if(i > MaxClientID ){
+                    MaxClientID=i;
+                }
+                FD_SET(new_fd, &allset);
+                printf("MaxClientID=%d;\n",MaxClientID);
+                //printf("new_fd= %d\n",new_fd);
+                if (--ReadDescriptors <= 0){
+                    continue;
+                }
+            }
+        }//Listener
+
+        for (i=0;i<=MaxClientID;i++){
+            if(clients[i]<0) continue;
+            new_fd=clients[i];
+            if(FD_ISSET(new_fd, &readset)){
+                n=recv(new_fd,string_read,sizeof(string_read),0);
+                if (n < 1){
+                    if(n==0) {
+                        printf("socket closed nicely: %d \n",i);
+                        close(new_fd);
+                        clients[i]=-1; // set free
+                        // socket closed nicely
+                        FD_CLR(new_fd,&allset);
+                    }
+                    //if(errno == EWOULDBLOCK){printf("EWOULDBLOCK");}
+                    //if(errno == EAGAIN){printf("EAGAIN   ");}
+                    //if(errno != EWOULDBLOCK){
+                        perror("recv - non blocking \n");
+                        printf("read size is: n=%d \n",n);
+                    //}
+                }
+                else {
+                    string_read[n] = '\0';
+                    printf("%s \n",string_read);
+                    
+                    if(strlen(string_read) < (sizeof(string_write) - 20) ){
+                        sprintf(string_write,"%d said: %s",i,string_read);
+                    }else{
+                        strcpy(string_write,"Jabber...\n");
+                    }
+
+                    for (int j=0;j<=MaxClientID;j++) { // Broadcasting to other FD-s
+                        if(clients[i]<0) continue;
+                        if (send(clients[j], string_write, strlen(string_write), 0) == -1){
+                            perror("send");
                         }
                     }
-            }//Listener
+                }
 
-            for (i=0;i<=MaxClientID;i++)
-            {
-                     if(clients[i]<0) continue;
-                     new_fd=clients[i];
-                    if(FD_ISSET(new_fd, &readset)){
-                        n=recv(new_fd,string_read,sizeof(string_read),0);
-                        if (n < 1){
-                            if(n==0) {
-                                printf("socket closed nicely: %d \n",i);
-                                close(new_fd);
-                                clients[i]=-1; // set free
-                                // socket closed nicely
-                                FD_CLR(new_fd,&allset);
-                            }
-                            //if(errno == EWOULDBLOCK){printf("EWOULDBLOCK");}
-                            //if(errno == EAGAIN){printf("EAGAIN   ");}
-                            //if(errno != EWOULDBLOCK){
-                                perror("recv - non blocking \n");
-                                printf("read size is: n=%d \n",n);
-                            //}
-                        }
-                        else {
-                            string_read[n] = '\0';
-                            printf("The string is: %s \n",string_read);
-                            if(strlen(string_read) < (sizeof(string_write) - 10) ){
-                                sprintf(string_write,"You said:%s\n",string_read);
-                            }else{
-                                strcpy(string_write,"Jabber...\n");
-
-                                }
-                            if (send(new_fd, string_write, strlen(string_write), 0) == -1){
-                                perror("send");
-                            }
-                        }
-
-                        if (--ReadDescriptors <= 0){
-                            break;
-                            }
-                    }//FSSET
-            } // Client Sockets
+                if (--ReadDescriptors <= 0){
+                    break;
+                    }
+            }//FSSET
+        } // Client Sockets
         usleep(1000000);
     }
 
