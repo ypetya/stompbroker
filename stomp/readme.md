@@ -24,10 +24,15 @@ The first character of the line can contain the following status codes:
 ~ Parse arguments
 ~ Logger: Log output if necessary
 ~ Segregate main modules
-~ TCP connection parent listener
-- TCP connection listener
++ TCP connection parent listener
+~ TCP connection listener (it can not read larger messages than buffer)
 - Socket reader
 - STOMP frame parser
 - Implementing command execution / broker
 - Socket writer
 ```
+
+Running
+-------
+
+TODO: in docker container: https://hub.docker.com/_/gcc/
