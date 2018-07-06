@@ -51,7 +51,7 @@ void acceptIncomingDataLoop(int listenSockFD) {
     }
 
     FD_ZERO(&readset);
-    FD_SET(listenSockFD, &readset);
+   
 
     info("server: waiting for connections...\n");
 
@@ -62,6 +62,7 @@ void acceptIncomingDataLoop(int listenSockFD) {
 
     while (YES) {
         fflush(stdout);
+        FD_SET(listenSockFD, &readset);
         int numOfFDsChanged = select(maxClientFD+1, &readset, NULL, NULL, NULL ); // Blocking
         // New connections
         if(FD_ISSET(listenSockFD, &readset)) {

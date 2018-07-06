@@ -8,6 +8,6 @@
  * 
 */
 
-void doStomp(char *input, int inputLen);
+void doStomp(int clientFD, char *input, int inputLen);
 
 #endif

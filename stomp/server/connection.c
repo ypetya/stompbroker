@@ -31,7 +31,7 @@ void *connectionWorkerThread(void *vargp)
         FD_CLR(clientConnectionFD, cinf->fdSet);
     }
     else {
-        doStomp((char*)&readBuffer,n);
+        doStomp(cinf->fd,(char*)&readBuffer,n);
     }
 
     free(cinf);
