@@ -23,6 +23,7 @@
 
 // starting the reader thread
 #include <pthread.h>
+#include "../lock.h"
 
 const int YES = 1;
 
@@ -45,13 +46,15 @@ void acceptIncomingDataLoop(int listenSockFD) {
     int i;
     int newConnectionFD, clientConnectionFD;
     fd_set readset;
-    int clients[FD_SETSIZE],maxClientID=-1;
+    int clients[FD_SETSIZE],
+        maxClientID=-1;
      for(i=0;i<FD_SETSIZE;i++){
         clients[i]=-1;
     }
 
     FD_ZERO(&readset);
    
+    init_locks();
 
     info("server: waiting for connections...\n");
 

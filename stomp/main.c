@@ -3,6 +3,8 @@
 #include "server/listener.c"
 #include "server/connection.c"
 #include "stomp/stomp.c"
+#include "stomp/parser.h"
+#include "lock.c"
 
 /**
  * # Responsibility

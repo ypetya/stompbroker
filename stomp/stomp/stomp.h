@@ -8,6 +8,14 @@
  * 
 */
 
-void doStomp(int clientFD, char *input, int inputLen);
+struct StompInput
+{
+    char *message;
+    size_t messageLength;
+    int clientId;
+    int clientFD;
+};
+
+void doStomp(struct StompInput *input);
 
 #endif

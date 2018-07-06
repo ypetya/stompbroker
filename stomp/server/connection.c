@@ -1,6 +1,7 @@
 #include "connection.h"
 #include "../logger.h"
 
+#include "../lock.h"
 #include "../stomp/stomp.h"
 
 #include <stdio.h>
@@ -26,12 +27,20 @@ void *connectionWorkerThread(void *vargp)
         } else {
             info("server: socked closed with error: %s\n", strerror(errno))
         }
+        lock(cinf->connectionIndex);
         close(clientConnectionFD);
         (*cinf->clientSlot) = -1;
         FD_CLR(clientConnectionFD, cinf->fdSet);
+        unlock(cinf->connectionIndex);
     }
     else {
-        doStomp(cinf->fd,(char*)&readBuffer,n);
+        struct StompInput stomp;
+        stomp.clientId=cinf->connectionIndex;
+        stomp.clientFD=cinf->fd;
+        stomp.message=(char*)&readBuffer;
+        stomp.messageLength=n;
+        
+        doStomp(&stomp);
     }
 
     free(cinf);
