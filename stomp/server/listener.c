@@ -79,7 +79,7 @@ void acceptIncomingDataLoop(int listenSockFD) {
                 for (i=0;i<FD_SETSIZE;i++){
                     if(clients[i]<0){
                         clients[i]=newConnectionFD;
-                        info("clients[%d]=%d;\n", i,newConnectionFD);
+                        info("server: clients[%d]=%d;\n", i,newConnectionFD);
                         break;
                     }
                 }
@@ -90,7 +90,7 @@ void acceptIncomingDataLoop(int listenSockFD) {
                 if(i > maxClientID ) maxClientID=i;
 
                 FD_SET(newConnectionFD, &readset);
-                info("MaxClientID=%d;\n",maxClientID);
+                info("server: MaxClientID=%d;\n",maxClientID);
                 //printf("new_fd= %d\n",new_fd);
                 if (--numOfFDsChanged <= 0){
                     continue;
