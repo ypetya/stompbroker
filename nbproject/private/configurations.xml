@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configurationDescriptor version="100">
+  <logicalFolder name="root" displayName="root" projectFiles="true" kind="ROOT">
+    <df root="." name="0">
+      <df name=".idea">
+        <df name="inspectionProfiles">
+        </df>
+      </df>
+      <df name=".vscode">
+      </df>
+      <df name="examples">
+        <df name="Websocket">
+          <in>Communicate.c</in>
+          <in>Communicate.h</in>
+          <in>Datastructures.c</in>
+          <in>Datastructures.h</in>
+          <in>Errors.c</in>
+          <in>Errors.h</in>
+          <in>Handshake.c</in>
+          <in>Handshake.h</in>
+          <in>Includes.h</in>
+          <in>Websocket.c</in>
+          <in>base64.c</in>
+          <in>base64.h</in>
+          <in>md5.c</in>
+          <in>md5.h</in>
+          <in>sha1.c</in>
+          <in>sha1.h</in>
+          <in>utf8.c</in>
+          <in>utf8.h</in>
+        </df>
+        <in>simple_blocking_stream_server.c</in>
+        <in>simple_stream_client.c</in>
+        <in>thread_return_value.c</in>
+      </df>
+      <df name="lib">
+        <in>random_string.c</in>
+        <in>random_string.h</in>
+        <in>random_string_console.c</in>
+      </df>
+      <df name="stomp">
+        <df name=".idea">
+          <df name="inspectionProfiles">
+          </df>
+        </df>
+        <df name="datastructures">
+          <in>list.c</in>
+          <in>list.h</in>
+        </df>
+        <df name="server">
+          <in>connection.c</in>
+          <in>connection.h</in>
+          <in>listener.c</in>
+          <in>listener.h</in>
+        </df>
+        <df name="stomp">
+          <in>parser.c</in>
+          <in>parser.h</in>
+          <in>stomp.c</in>
+          <in>stomp.h</in>
+        </df>
+        <df name="test">
+        </df>
+        <in>lock.c</in>
+        <in>lock.h</in>
+        <in>main.c</in>
+        <in>parse_args.c</in>
+        <in>parse_args.h</in>
+      </df>
+      <in>main.c</in>
+    </df>
+    <df root="examples" name="1">
+      <df name="Websocket">
+      </df>
+    </df>
+    <df root="stomp" name="2">
+      <df name=".idea">
+        <df name="inspectionProfiles">
+        </df>
+      </df>
+      <df name="datastructures">
+      </df>
+      <df name="server">
+      </df>
+      <df name="stomp">
+      </df>
+      <df name="test">
+      </df>
+      <in>logger.h</in>
+      <in>logger_1.h</in>
+      <in>logger_2.h</in>
+      <in>logger_3.h</in>
+    </df>
+    <df root="examples/Websocket" name="3">
+    </df>
+  </logicalFolder>
+  <projectmakefile></projectmakefile>
+  <confs>
+    <conf name="Default" type="0">
+      <toolsSet>
+        <developmentServer>localhost</developmentServer>
+        <platform>2</platform>
+      </toolsSet>
+      <compile>
+        <compiledirpicklist>
+          <compiledirpicklistitem>.</compiledirpicklistitem>
+          <compiledirpicklistitem>${AUTO_FOLDER}</compiledirpicklistitem>
+        </compiledirpicklist>
+        <compiledir>${AUTO_FOLDER}</compiledir>
+        <compilecommandpicklist>
+          <compilecommandpicklistitem>${MAKE} ${ITEM_NAME}.o</compilecommandpicklistitem>
+          <compilecommandpicklistitem>${AUTO_COMPILE}</compilecommandpicklistitem>
+        </compilecommandpicklist>
+        <compilecommand>${AUTO_COMPILE}</compilecommand>
+      </compile>
+      <dbx_gdbdebugger version="1">
+        <gdb_pathmaps>
+        </gdb_pathmaps>
+        <gdb_interceptlist>
+          <gdbinterceptoptions gdb_all="false" gdb_unhandled="true" gdb_unexpected="true"/>
+        </gdb_interceptlist>
+        <gdb_options>
+          <DebugOptions>
+          </DebugOptions>
+        </gdb_options>
+        <gdb_buildfirst gdb_buildfirst_overriden="false" gdb_buildfirst_old="false"/>
+      </dbx_gdbdebugger>
+      <nativedebugger version="1">
+        <engine>gdb</engine>
+      </nativedebugger>
+      <runprofile version="9">
+        <runcommandpicklist>
+          <runcommandpicklistitem>"${OUTPUT_PATH}"</runcommandpicklistitem>
+        </runcommandpicklist>
+        <runcommand>"${OUTPUT_PATH}"</runcommand>
+        <rundir>.</rundir>
+        <buildfirst>false</buildfirst>
+        <terminal-type>0</terminal-type>
+        <remove-instrumentation>0</remove-instrumentation>
+        <environment>
+        </environment>
+      </runprofile>
+    </conf>
+  </confs>
+</configurationDescriptor>
