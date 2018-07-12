@@ -49,5 +49,6 @@ void queue_free(queue *q) {
 general_list_item* create_general_list_item(void *data) {
     general_list_item* ptr = emalloc(sizeof (general_list_item));
     ptr->data = data;
+    ptr->next = NULL;
     return ptr;
 }

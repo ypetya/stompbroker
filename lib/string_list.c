@@ -8,8 +8,8 @@
 
 #include "emalloc.h"
 #include "string_list.h"
+#include "clone_str.h"
 
-char* clone_str(char* src);
 string_list_item* create_string_list_item(char *src);
 
 void string_list_add(string_list* str_list, char* new_str) {
@@ -48,14 +48,6 @@ void string_list_free_items(string_list* list) {
         free(c);
         c = n;
     }
-}
-
-char* clone_str(char* src) {
-    int len = strlen(src);
-    char* text = emalloc(len + 1);
-    strcpy(text, src);
-    text[len] = '\0';
-    return text;
 }
 
 string_list_item* create_string_list_item(char *src) {

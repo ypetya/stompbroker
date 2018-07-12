@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "clone_str.c"
 #include "string_list.c"
 
 int main(int argc, char const *argv[])

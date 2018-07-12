@@ -12,7 +12,7 @@ extern "C" {
         general_list_item * last;
         int size;
     } queue;
-
+    
     void enqueue(queue * q, void *new_data);
     void* dequeue(queue * q);
     

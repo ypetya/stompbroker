@@ -8,11 +8,12 @@ extern "C" {
 #include <pthread.h>
 #include "queue.h"
 
-    typedef struct queue_st {
+    typedef struct ts_queue_st {
         queue q;
-        pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+        pthread_mutex_t lock;
     } ts_queue;
 
+    void ts_queue_init(ts_queue *q);
     void ts_enqueue(ts_queue * q, void *new_data);
     void* ts_dequeue(ts_queue * q);
     

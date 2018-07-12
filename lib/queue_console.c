@@ -18,15 +18,7 @@
 #include <string.h>
 
 #include "queue.c"
-
-
-char* clone_str(char* src) {
-    int len = strlen(src);
-    char* text = emalloc(len + 1);
-    strcpy(text, src);
-    text[len] = '\0';
-    return text;
-}
+#include "clone_str.c"
 
 int main(int argc, char const *argv[])
 {

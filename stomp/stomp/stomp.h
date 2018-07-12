@@ -8,14 +8,8 @@
  * 
 */
 
-struct StompInput
-{
-    char *message;
-    size_t messageLength;
-    int clientId;
-    int clientFD;
-};
+#include "message.h"
 
-void doStomp(struct StompInput *input);
+void doStomp(ts_queue* output_queue, message *input);
 
 #endif

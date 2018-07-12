@@ -34,12 +34,17 @@
         <in>thread_return_value.c</in>
       </df>
       <df name="lib">
+        <in>clone_str.c</in>
+        <in>clone_str.h</in>
+        <in>constants.h</in>
         <in>queue.c</in>
         <in>queue.h</in>
         <in>queue_console.c</in>
         <in>random_string.c</in>
         <in>random_string.h</in>
         <in>random_string_console.c</in>
+        <in>signal_action_handler.c</in>
+        <in>signal_action_handler.h</in>
         <in>thread_safe_queue.c</in>
         <in>thread_safe_queue.h</in>
       </df>
@@ -53,10 +58,10 @@
           <in>list.h</in>
         </df>
         <df name="server">
-          <in>connection.c</in>
-          <in>connection.h</in>
-          <in>listener.c</in>
-          <in>listener.h</in>
+          <in>listen.c</in>
+          <in>listen.h</in>
+          <in>process.c</in>
+          <in>process.h</in>
         </df>
         <df name="stomp">
           <in>parser.c</in>
@@ -66,17 +71,11 @@
         </df>
         <df name="test">
         </df>
-        <in>lock.c</in>
-        <in>lock.h</in>
         <in>main.c</in>
         <in>parse_args.c</in>
         <in>parse_args.h</in>
       </df>
       <in>main.c</in>
-    </df>
-    <df root="examples" name="1">
-      <df name="Websocket">
-      </df>
     </df>
     <df root="stomp" name="2">
       <df name=".idea">
@@ -86,15 +85,16 @@
       <df name="datastructures">
       </df>
       <df name="server">
+        <in>accept.c</in>
+        <in>accept.h</in>
       </df>
       <df name="stomp">
+        <in>message.c</in>
+        <in>message.h</in>
       </df>
       <df name="test">
       </df>
       <in>logger.h</in>
-      <in>logger_1.h</in>
-      <in>logger_2.h</in>
-      <in>logger_3.h</in>
     </df>
     <df root="examples/Websocket" name="3">
     </df>
