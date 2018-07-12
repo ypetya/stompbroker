@@ -18,6 +18,7 @@
 extern "C" {
 #endif
 
+    void print_random_str(int len);
 
 
 

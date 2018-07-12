@@ -34,6 +34,9 @@
         <in>thread_return_value.c</in>
       </df>
       <df name="lib">
+        <in>queue.c</in>
+        <in>queue.h</in>
+        <in>queue_console.c</in>
         <in>random_string.c</in>
         <in>random_string.h</in>
         <in>random_string_console.c</in>

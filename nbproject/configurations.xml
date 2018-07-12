@@ -19,6 +19,9 @@
         <in>thread_return_value.c</in>
       </df>
       <df name="lib">
+        <in>queue.c</in>
+        <in>queue.h</in>
+        <in>queue_console.c</in>
         <in>random_string.c</in>
         <in>random_string.h</in>
         <in>random_string_console.c</in>
@@ -109,6 +112,12 @@
       <item path="examples/simple_stream_client.c" ex="false" tool="0" flavor2="0">
       </item>
       <item path="examples/thread_return_value.c" ex="false" tool="0" flavor2="0">
+      </item>
+      <item path="lib/queue.c" ex="false" tool="0" flavor2="0">
+      </item>
+      <item path="lib/queue.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="lib/queue_console.c" ex="false" tool="0" flavor2="0">
       </item>
       <item path="lib/random_string.c" ex="false" tool="0" flavor2="0">
       </item>

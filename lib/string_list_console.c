@@ -12,7 +12,8 @@ int main(int argc, char const *argv[])
     
     do
     {
-        printf("Enter string[20]:");
+        printf(">");
+        printf("Enter + string[20]:");
         if(scanf("%20s", string)<0) break;
         printf("\nadd:%s %d\n", string, (int)strlen(string));
         string_list_add(&list,string);
