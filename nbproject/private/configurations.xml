@@ -40,6 +40,8 @@
         <in>random_string.c</in>
         <in>random_string.h</in>
         <in>random_string_console.c</in>
+        <in>thread_safe_queue.c</in>
+        <in>thread_safe_queue.h</in>
       </df>
       <df name="stomp">
         <df name=".idea">

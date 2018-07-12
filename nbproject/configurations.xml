@@ -25,6 +25,8 @@
         <in>random_string.c</in>
         <in>random_string.h</in>
         <in>random_string_console.c</in>
+        <in>thread_safe_queue.c</in>
+        <in>thread_safe_queue.h</in>
       </df>
       <df name="stomp">
         <df name="datastructures">
@@ -124,6 +126,10 @@
       <item path="lib/random_string.h" ex="false" tool="3" flavor2="0">
       </item>
       <item path="lib/random_string_console.c" ex="false" tool="0" flavor2="0">
+      </item>
+      <item path="lib/thread_safe_queue.c" ex="false" tool="0" flavor2="0">
+      </item>
+      <item path="lib/thread_safe_queue.h" ex="false" tool="3" flavor2="0">
       </item>
       <item path="main.c" ex="false" tool="0" flavor2="0">
       </item>
