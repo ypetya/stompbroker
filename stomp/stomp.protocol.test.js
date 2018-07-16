@@ -5,7 +5,7 @@ const TEST_DATA = [
     "CONNECT\naccept-version:1.2\nhost:localhost\n\n", "CONNECTED\nversion:1.2\n\n",
     "CONNECT\naccept-version:1.1\nhost:localhost\n\n", "CONNECTED\nversion:1.2\n\n",
     "CONNECT\r\naccept-version:1.1\nhost:localhost\n\n", "CONNECTED\nversion:1.2\n\n",
-    "CONNECT\naccept-version:1.1\nhost:localhost\nbody\n", "ERROR\ncontent-length:15\ncontent-type:text;charser=utf-8\n\ninvalid message"  
+    "CONNECT\naccept-version:1.1\nhost:localhost\nbody\n", "ERROR\ncontent-length:15\ncontent-type:text;charser=utf-8\n\ninvalid message"
 ];
 
 const net = require('net');
@@ -15,7 +15,7 @@ const connectDurable = port => {
     console.log('connecting...');
     const retry = () => setTimeout(() => connectDurable(port), 5000)
     conn = net.connect(port);
-    conn.once('ready', ()=>{
+    conn.once('ready', () => {
         console.log('connected.');
         connStatus = 'OK';
     });
@@ -27,10 +27,10 @@ const connectDurable = port => {
 }
 
 const request = m => new Promise((resolve, reject) => {
-    conn.once('data', resolve)
-    conn.write(m);
-    setTimeout(() => reject('timeout'), 100);
-});
+        conn.once('data', resolve)
+        conn.write(m);
+        setTimeout(() => reject('timeout'), 100);
+    });
 
 const awaitResponse = async (requestMessage, responseMessage) => {
     const response = await request(requestMessage);
@@ -44,26 +44,34 @@ const awaitResponse = async (requestMessage, responseMessage) => {
 let cursor = 0;
 
 const runSingleTest = async () => {
-    await awaitResponse(TEST_DATA[cursor], TEST_DATA[cursor + 1])
-                    .then(ok => console.log(`${ok}[${cursor}]`))
-                    .catch(err => console.log(`ERR =====\n${err}\n\n`));
-    cursor++;
+    let resp = await awaitResponse(TEST_DATA[cursor], TEST_DATA[cursor + 1])
+            .then(ok => console.log(`${ok}[${cursor}]`))
+            .catch(err => console.log(`ERROR at index ${cursor} ================\n${err}\n\n`));
+    if (resp === 'SUCC') {
+        cursor += 2;
+        if(cursor > TET_DATA.length) cursor = 0;
+    }
+    return resp;
 }
 
+const error = message => {
+    console.log(message);
+    console.log('Error at test execution, retrying in 10 secs....');
+    setTimeout(run, 10000);
+}
 const run = () => {
     try {
 
-        if(connStatus==='OK'){
-            console.log('Running tests...');
-            for(cursor=0;cursor<TEST_DATA.length;cursor+=2) runSingleTest();
-        }
+        if (connStatus === 'OK') {
+            console.log('Running test...');
+            runSingleTest().then(() => {
+                console.log('Done. Restarting in 10sec');
+                setTimeout(run, 10000);
+            })
+        } else error('NOT_CONNECTED');
 
-        console.log('Done. Restarting in 10sec');
-        setTimeout(run, 10000);
-    }
-    catch (err) {
-        console.log('Error at test execution, retrying in 10 secs....');
-        setTimeout(run, 10000);
+    } catch (err) {
+        error(err);
     }
 }
 

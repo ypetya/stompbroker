@@ -28,5 +28,5 @@ void ts_queue_free(ts_queue *q) {
 
 void ts_queue_init(ts_queue *q) {
     // NULL -> default behaviour
-    pthread_mutex_init(&q->lock, PTHREAD_PROCESS_PRIVATE);
+    pthread_mutex_init(&q->lock,(const pthread_mutexattr_t*)PTHREAD_PROCESS_PRIVATE);
 }

@@ -13,6 +13,7 @@ extern "C" {
 
     typedef struct general_list_st {
         general_list_item* list;
+        general_list_item* last;
     } general_list;
 
     void list_free_items(general_list* list);

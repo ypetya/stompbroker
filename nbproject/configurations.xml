@@ -19,6 +19,10 @@
         <in>thread_return_value.c</in>
       </df>
       <df name="lib">
+        <in>associative_array.c</in>
+        <in>associative_array.h</in>
+        <in>avl_tree.c</in>
+        <in>avl_tree.h</in>
         <in>clone_str.c</in>
         <in>clone_str.h</in>
         <in>constants.h</in>
@@ -42,7 +46,6 @@
           <in>process.c</in>
         </df>
         <df name="stomp">
-          <in>parser.c</in>
           <in>stomp.c</in>
         </df>
         <in>main.c</in>
@@ -65,7 +68,7 @@
       <itemPath>lib/string_list_console.c</itemPath>
       <itemPath>lib/string_list_console.out</itemPath>
     </logicalFolder>
-    <df root="stomp" name="2">
+    <df root="stomp" name="1">
       <df name="server">
         <in>accept.c</in>
         <in>accept.h</in>
@@ -73,9 +76,11 @@
       <df name="stomp">
         <in>message.c</in>
         <in>message.h</in>
+        <in>parser.c</in>
+        <in>parser.h</in>
       </df>
     </df>
-    <df root="examples/Websocket" name="3">
+    <df root="examples/Websocket" name="2">
     </df>
     <logicalFolder name="ExternalFiles"
                    displayName="Important Files"
@@ -141,6 +146,14 @@
       <item path="examples/thread_return_value.c" ex="false" tool="0" flavor2="0">
       </item>
       <item path="lib/README.md" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="lib/associative_array.c" ex="false" tool="0" flavor2="0">
+      </item>
+      <item path="lib/associative_array.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="lib/avl_tree.c" ex="false" tool="0" flavor2="0">
+      </item>
+      <item path="lib/avl_tree.h" ex="false" tool="3" flavor2="0">
       </item>
       <item path="lib/build.sh" ex="false" tool="3" flavor2="0">
       </item>
@@ -213,6 +226,8 @@
       <item path="stomp/stomp/message.h" ex="false" tool="3" flavor2="0">
       </item>
       <item path="stomp/stomp/parser.c" ex="false" tool="0" flavor2="0">
+      </item>
+      <item path="stomp/stomp/parser.h" ex="false" tool="3" flavor2="0">
       </item>
       <item path="stomp/stomp/stomp.c" ex="false" tool="0" flavor2="0">
       </item>

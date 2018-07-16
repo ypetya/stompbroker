@@ -34,6 +34,10 @@
         <in>thread_return_value.c</in>
       </df>
       <df name="lib">
+        <in>associative_array.c</in>
+        <in>associative_array.h</in>
+        <in>avl_tree.c</in>
+        <in>avl_tree.h</in>
         <in>clone_str.c</in>
         <in>clone_str.h</in>
         <in>constants.h</in>
@@ -47,6 +51,497 @@
         <in>signal_action_handler.h</in>
         <in>thread_safe_queue.c</in>
         <in>thread_safe_queue.h</in>
+      </df>
+      <df name="node_modules">
+        <df name=".bin">
+        </df>
+        <df name="abbrev">
+        </df>
+        <df name="ajv">
+          <df name="dist">
+          </df>
+          <df name="lib">
+            <df name="compile">
+            </df>
+            <df name="dot">
+              <df name="v5">
+              </df>
+            </df>
+            <df name="dotjs">
+            </df>
+            <df name="refs">
+            </df>
+          </df>
+          <df name="scripts">
+          </df>
+        </df>
+        <df name="ansi-regex">
+        </df>
+        <df name="aproba">
+        </df>
+        <df name="are-we-there-yet">
+        </df>
+        <df name="asn1">
+          <df name="lib">
+            <df name="ber">
+            </df>
+          </df>
+          <df name="tst">
+            <df name="ber">
+            </df>
+          </df>
+        </df>
+        <df name="assert-plus">
+        </df>
+        <df name="asynckit">
+          <df name="lib">
+          </df>
+        </df>
+        <df name="aws-sign2">
+        </df>
+        <df name="aws4">
+        </df>
+        <df name="balanced-match">
+        </df>
+        <df name="bcrypt-pbkdf">
+        </df>
+        <df name="block-stream">
+        </df>
+        <df name="boom">
+          <df name="images">
+          </df>
+          <df name="lib">
+          </df>
+          <df name="test">
+          </df>
+        </df>
+        <df name="brace-expansion">
+        </df>
+        <df name="caseless">
+        </df>
+        <df name="co">
+        </df>
+        <df name="code-point-at">
+        </df>
+        <df name="combined-stream">
+          <df name="lib">
+          </df>
+        </df>
+        <df name="concat-map">
+          <df name="example">
+          </df>
+          <df name="test">
+          </df>
+        </df>
+        <df name="console-control-strings">
+        </df>
+        <df name="core-util-is">
+          <df name="lib">
+          </df>
+        </df>
+        <df name="cryptiles">
+          <df name="lib">
+          </df>
+          <df name="test">
+          </df>
+        </df>
+        <df name="dashdash">
+          <df name="etc">
+          </df>
+          <df name="lib">
+          </df>
+          <df name="node_modules">
+            <df name="assert-plus">
+            </df>
+          </df>
+        </df>
+        <df name="delayed-stream">
+          <df name="lib">
+          </df>
+        </df>
+        <df name="delegates">
+          <df name="test">
+          </df>
+        </df>
+        <df name="ecc-jsbn">
+          <df name="lib">
+          </df>
+        </df>
+        <df name="extend">
+        </df>
+        <df name="extsprintf">
+          <df name="lib">
+          </df>
+        </df>
+        <df name="forever-agent">
+        </df>
+        <df name="form-data">
+          <df name="lib">
+          </df>
+        </df>
+        <df name="fs.realpath">
+        </df>
+        <df name="fstream">
+          <df name="examples">
+          </df>
+          <df name="lib">
+          </df>
+        </df>
+        <df name="gauge">
+        </df>
+        <df name="getpass">
+          <df name="lib">
+          </df>
+          <df name="node_modules">
+            <df name="assert-plus">
+            </df>
+          </df>
+        </df>
+        <df name="glob">
+        </df>
+        <df name="graceful-fs">
+        </df>
+        <df name="har-schema">
+          <df name="lib">
+          </df>
+        </df>
+        <df name="har-validator">
+          <df name="lib">
+            <df name="browser">
+            </df>
+            <df name="node4">
+            </df>
+            <df name="node6">
+            </df>
+            <df name="node7">
+            </df>
+          </df>
+          <df name="src">
+          </df>
+        </df>
+        <df name="has-unicode">
+        </df>
+        <df name="hawk">
+          <df name="dist">
+          </df>
+          <df name="example">
+          </df>
+          <df name="images">
+          </df>
+          <df name="lib">
+          </df>
+          <df name="test">
+          </df>
+        </df>
+        <df name="hoek">
+          <df name="images">
+          </df>
+          <df name="lib">
+          </df>
+          <df name="test">
+            <df name="modules">
+            </df>
+          </df>
+        </df>
+        <df name="http-signature">
+          <df name="lib">
+          </df>
+        </df>
+        <df name="inflight">
+        </df>
+        <df name="inherits">
+        </df>
+        <df name="is-fullwidth-code-point">
+        </df>
+        <df name="is-typedarray">
+        </df>
+        <df name="isarray">
+        </df>
+        <df name="isexe">
+          <df name="test">
+          </df>
+        </df>
+        <df name="isstream">
+        </df>
+        <df name="jsbn">
+        </df>
+        <df name="json-schema">
+          <df name="draft-00">
+          </df>
+          <df name="draft-01">
+          </df>
+          <df name="draft-02">
+          </df>
+          <df name="draft-03">
+            <df name="examples">
+            </df>
+          </df>
+          <df name="draft-04">
+          </df>
+          <df name="lib">
+          </df>
+          <df name="test">
+          </df>
+        </df>
+        <df name="json-stable-stringify">
+          <df name="example">
+          </df>
+          <df name="test">
+          </df>
+        </df>
+        <df name="json-stringify-safe">
+          <df name="test">
+          </df>
+        </df>
+        <df name="jsonify">
+          <df name="lib">
+          </df>
+          <df name="test">
+          </df>
+        </df>
+        <df name="jsprim">
+          <df name="lib">
+          </df>
+          <df name="node_modules">
+            <df name="assert-plus">
+            </df>
+          </df>
+        </df>
+        <df name="mime-db">
+        </df>
+        <df name="mime-types">
+        </df>
+        <df name="minimatch">
+        </df>
+        <df name="minimist">
+          <df name="example">
+          </df>
+          <df name="test">
+          </df>
+        </df>
+        <df name="mkdirp">
+          <df name="bin">
+          </df>
+          <df name="examples">
+          </df>
+          <df name="test">
+          </df>
+        </df>
+        <df name="node-gyp">
+          <df name=".github">
+          </df>
+          <df name="bin">
+          </df>
+          <df name="gyp">
+            <df name="data">
+              <df name="win">
+                <in>large-pdb-shim.cc</in>
+              </df>
+            </df>
+            <df name="pylib">
+              <df name="gyp">
+                <df name="generator">
+                </df>
+              </df>
+            </df>
+            <df name="samples">
+            </df>
+            <df name="tools">
+              <df name="emacs">
+                <df name="testdata">
+                </df>
+              </df>
+              <df name="Xcode">
+                <df name="Specifications">
+                </df>
+              </df>
+            </df>
+          </df>
+          <df name="lib">
+          </df>
+          <df name="src">
+            <in>win_delay_load_hook.cc</in>
+          </df>
+          <df name="test">
+            <df name="fixtures">
+            </df>
+          </df>
+        </df>
+        <df name="nopt">
+          <df name="bin">
+          </df>
+          <df name="examples">
+          </df>
+          <df name="lib">
+          </df>
+          <df name="test">
+          </df>
+        </df>
+        <df name="npmlog">
+        </df>
+        <df name="number-is-nan">
+        </df>
+        <df name="oauth-sign">
+        </df>
+        <df name="object-assign">
+        </df>
+        <df name="once">
+        </df>
+        <df name="os-homedir">
+        </df>
+        <df name="os-tmpdir">
+        </df>
+        <df name="osenv">
+        </df>
+        <df name="path-is-absolute">
+        </df>
+        <df name="performance-now">
+          <df name="lib">
+          </df>
+          <df name="src">
+          </df>
+          <df name="test">
+          </df>
+        </df>
+        <df name="process-nextick-args">
+        </df>
+        <df name="punycode">
+        </df>
+        <df name="qs">
+          <df name="dist">
+          </df>
+          <df name="lib">
+          </df>
+          <df name="test">
+          </df>
+        </df>
+        <df name="readable-stream">
+          <df name="doc">
+            <df name="wg-meetings">
+            </df>
+          </df>
+          <df name="lib">
+            <df name="internal">
+              <df name="streams">
+              </df>
+            </df>
+          </df>
+        </df>
+        <df name="request">
+          <df name="lib">
+          </df>
+        </df>
+        <df name="rimraf">
+        </df>
+        <df name="safe-buffer">
+        </df>
+        <df name="safer-buffer">
+        </df>
+        <df name="semver">
+          <df name="bin">
+          </df>
+        </df>
+        <df name="set-blocking">
+        </df>
+        <df name="signal-exit">
+        </df>
+        <df name="sntp">
+          <df name="examples">
+          </df>
+          <df name="lib">
+          </df>
+          <df name="test">
+          </df>
+        </df>
+        <df name="sshpk">
+          <df name="bin">
+          </df>
+          <df name="lib">
+            <df name="formats">
+            </df>
+          </df>
+          <df name="man">
+            <df name="man1">
+            </df>
+          </df>
+          <df name="node_modules">
+            <df name="assert-plus">
+            </df>
+          </df>
+        </df>
+        <df name="string-width">
+        </df>
+        <df name="string_decoder">
+          <df name="lib">
+          </df>
+        </df>
+        <df name="stringstream">
+        </df>
+        <df name="strip-ansi">
+        </df>
+        <df name="tar">
+          <df name="examples">
+          </df>
+          <df name="lib">
+          </df>
+          <df name="test">
+          </df>
+        </df>
+        <df name="tough-cookie">
+          <df name="lib">
+          </df>
+        </df>
+        <df name="tunnel-agent">
+        </df>
+        <df name="tweetnacl">
+        </df>
+        <df name="util-deprecate">
+        </df>
+        <df name="uuid">
+          <df name="bin">
+          </df>
+          <df name="lib">
+          </df>
+        </df>
+        <df name="verror">
+          <df name="lib">
+          </df>
+          <df name="node_modules">
+            <df name="assert-plus">
+            </df>
+          </df>
+        </df>
+        <df name="which">
+          <df name="bin">
+          </df>
+        </df>
+        <df name="wide-align">
+        </df>
+        <df name="wrappy">
+        </df>
+      </df>
+      <df name="nodejs">
+        <df name="build">
+          <df name="Release">
+            <df name=".deps">
+              <df name="Release">
+                <df name="obj.target">
+                  <df name="binding">
+                  </df>
+                  <df name="stomp">
+                  </df>
+                </df>
+              </df>
+            </df>
+            <df name="obj.target">
+              <df name="binding">
+              </df>
+              <df name="stomp">
+              </df>
+            </df>
+          </df>
+        </df>
+        <in>binding.cc</in>
       </df>
       <df name="stomp">
         <df name=".idea">
@@ -64,20 +559,19 @@
           <in>process.h</in>
         </df>
         <df name="stomp">
-          <in>parser.c</in>
-          <in>parser.h</in>
           <in>stomp.c</in>
           <in>stomp.h</in>
         </df>
         <df name="test">
         </df>
+        <in>logger.h</in>
         <in>main.c</in>
         <in>parse_args.c</in>
         <in>parse_args.h</in>
       </df>
       <in>main.c</in>
     </df>
-    <df root="stomp" name="2">
+    <df root="stomp" name="1">
       <df name=".idea">
         <df name="inspectionProfiles">
         </df>
@@ -91,12 +585,13 @@
       <df name="stomp">
         <in>message.c</in>
         <in>message.h</in>
+        <in>parser.c</in>
+        <in>parser.h</in>
       </df>
       <df name="test">
       </df>
-      <in>logger.h</in>
     </df>
-    <df root="examples/Websocket" name="3">
+    <df root="examples/Websocket" name="2">
     </df>
   </logicalFolder>
   <projectmakefile></projectmakefile>

@@ -25,6 +25,7 @@ typedef struct msg_st {
 
 message * message_create(int fd, char * str, int len);
 void message_destroy(message * m);
+message * message_error(int fd, char *reason);
 
 #ifdef __cplusplus
 }

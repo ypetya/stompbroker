@@ -4,10 +4,15 @@
 
 #include "../../lib/thread_safe_queue.h"
 
+
 void doStomp(ts_queue* output_queue, message *input) {
-    //print("\n\nStomp received: %d %s", input->fd, input->content);
     
-    message * echo = message_create(input->fd,input->content,strlen(input->content));
+    
+    //strncmp(,input->content)
+    
+    //message * echo = message_create(input->fd,input->content,strlen(input->content));
+    
+    message * echo = message_error(input->fd, "Invalid message!\n\0");
     
     ts_enqueue(output_queue, echo);
 }

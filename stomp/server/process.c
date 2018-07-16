@@ -37,7 +37,7 @@ void *writer_thread(void *vargp) {
     int res = 0;
     while (YES) {
 
-        message * msg = ts_dequeue(output_queue);
+        message * msg = (message*)ts_dequeue(output_queue);
         
         if (msg != NULL) {
             // unsafe: info("output queue size: %d\n", output_queue->q.size);
@@ -62,7 +62,7 @@ void *reader_thread(void *vargp) {
 
     while (YES) {
 
-        message * msg = ts_dequeue(input_queue);
+        message * msg = (message*)ts_dequeue(input_queue);
         
         if (msg != NULL) {
             //unsafe: info("input queue size: %d", output_queue->q.size);
