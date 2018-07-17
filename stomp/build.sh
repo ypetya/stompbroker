@@ -6,9 +6,15 @@ if [ "debug" == "$1" ]; then
     DEBUG_OPTS="-g"
     echo "compiling with debug option."
 fi
+if [ "valgrind" == "$1" ]; then
+    DEBUG_OPTS="-g"
+fi
 if gcc main.c -o stompbroker.out -lpthread $DEBUG_OPTS
 then 
     echo 'Build done!'
 else
     echo 'Build failed! :('
+fi
+if [ "valgrind" == "$1" ]; then
+ valgrind --leak-check=yes ./stompbroker.out
 fi

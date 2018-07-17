@@ -47,9 +47,8 @@ int aa_has(aa_item* aa, char * key) {
         return 1;
     } else if (c < 0) {
         return aa_has(aa->left, key);
-    } else if (c > 0) {
-        return aa_has(aa->right, key);
-    }
+    } 
+    return aa_has(aa->right, key);    
 }
 
 aa_item* aa_get(aa_item* aa, char * key) {
@@ -61,9 +60,8 @@ aa_item* aa_get(aa_item* aa, char * key) {
         return aa;
     } else if (c < 0) {
         return aa_get(aa->left, key);
-    } else if (c > 0) {
-        return aa_get(aa->right, key);
     }
+    return aa_get(aa->right, key);
 }
 
 aa_item * aa_item_create(char* key, char* value) {

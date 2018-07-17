@@ -16,12 +16,11 @@
 #include <pthread.h>
 
 #include "accept.h"
-#include "../../lib/signal_action_handler.h"
-
+#include "signal_action_handler.h"
 #include "../../lib/constants.h"
 
 
-int doListen(char *port, int backlog)
+int do_listen(char *port, int backlog)
 {
     int listenSockFD = findPortAndStartListening(port, backlog);
     exitOnSignal();

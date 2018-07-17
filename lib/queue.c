@@ -5,11 +5,10 @@
 
 #include "emalloc.h"
 #include "queue.h"
-
-general_list_item* create_general_list_item(void *data);
+#include "general_list.h"
 
 void enqueue(queue * q, void *new_data) {
-
+    // FIXME: pass in size information?
     general_list_item * new_list_item = create_general_list_item(new_data);
 
     if (q->size == 0) {
@@ -25,7 +24,7 @@ void* dequeue(queue * q) {
     general_list_item * head = q->first;
     if(head==NULL) return NULL;
     void * data = head->data;
-    q->first = q->first->next;
+    q->first = head->next;
     free(head);
     q->size--;
 
@@ -46,9 +45,7 @@ void queue_free(queue *q) {
     }
 }
 
-general_list_item* create_general_list_item(void *data) {
-    general_list_item* ptr = (general_list_item*)emalloc(sizeof (general_list_item));
-    ptr->data = data;
-    ptr->next = NULL;
-    return ptr;
+void queue_init(queue *q) {
+    q->first = q->last = NULL;
+    q->size = 0;
 }

@@ -550,15 +550,21 @@
         </df>
         <df name="datastructures">
           <in>list.c</in>
-          <in>list.h</in>
         </df>
         <df name="server">
+          <in>accept.h</in>
           <in>listen.c</in>
           <in>listen.h</in>
           <in>process.c</in>
           <in>process.h</in>
         </df>
         <df name="stomp">
+          <df name="data_wrappers">
+            <in>session.c</in>
+            <in>session.h</in>
+          </df>
+          <in>message.h</in>
+          <in>parser.h</in>
           <in>stomp.c</in>
           <in>stomp.h</in>
         </df>
@@ -576,23 +582,21 @@
         <df name="inspectionProfiles">
         </df>
       </df>
-      <df name="datastructures">
-      </df>
       <df name="server">
         <in>accept.c</in>
-        <in>accept.h</in>
       </df>
       <df name="stomp">
+        <df name="data_wrappers">
+        </df>
         <in>message.c</in>
-        <in>message.h</in>
         <in>parser.c</in>
-        <in>parser.h</in>
       </df>
       <df name="test">
       </df>
     </df>
     <df root="examples/Websocket" name="2">
     </df>
+    <itemPath>stomp/stomp/datastructures/readme.md</itemPath>
   </logicalFolder>
   <projectmakefile></projectmakefile>
   <confs>

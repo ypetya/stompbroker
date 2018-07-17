@@ -9,13 +9,11 @@ char * next_row(char * text);
 parsed_message* parse_message(message* message) {
     size_t pm_size = sizeof (parsed_message);
     parsed_message* pm = emalloc(pm_size);
-    memset(pm, '\0', pm_size);
 
     pm->command = parse_command(message);
 
     if (pm->command > 0) {
         pm->headers = emalloc(sizeof (associative_array));
-        memset(pm->headers, '\0', pm_size);
 
         char * next_line = next_row(message->content);
         next_line = parse_headers(pm->headers, next_line);
@@ -55,7 +53,7 @@ char * parse_headers(associative_array * aa, char* str) {
     char * nr_ptr = next_row(str);
     char * separator = strchr(str, ':');
     // ERR or end
-    if (separator == NULL || line_end == NULL || (le - separator < 0)) return NULL;
+    if (separator == NULL || le == NULL || (le - separator < 0)) return NULL;
 
     *separator = *le = '\0';
     aa_put(aa, str, separator + 1);
@@ -71,6 +69,6 @@ char * parse_headers(associative_array * aa, char* str) {
 
 int parse_command(message* message) {
     if (FRM_IS(FRM_CONNECT) || FRM_IS(FRM_STOMP)) return FRM_CONNECT_ID;
-
+    if (FRM_IS(FRM_DISCONNECT)) return FRM_DISCONNECT_ID;
     return -1;
 }

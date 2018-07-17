@@ -18,25 +18,8 @@
 extern "C" {
 #endif
 
-    static void *emalloc(size_t size) {
-        void *p = malloc(size);
-        if (p == NULL) {
-            fprintf(stderr, "Out of memory!\n");
-            exit(1);
-        }
-
-        return p;
-    }
-
-    static void *erealloc(void *ptr, size_t size) {
-        void *p = realloc(ptr, size);
-        if (p == NULL) {
-            fprintf(stderr, "Out of memory!\n");
-            exit(1);
-        }
-
-        return p;
-    }
+    static void *emalloc(size_t size);
+    static void *erealloc(void *ptr, size_t size);
 
 
 #ifdef __cplusplus

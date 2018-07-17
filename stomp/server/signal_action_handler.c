@@ -5,6 +5,7 @@
 #include <sys/wait.h>
 #include <signal.h>
 #include "signal_action_handler.h"
+#include "../stomp/stomp.h"
 
 void sigchldHandler(int s);
 void exitOnSignal() {
@@ -12,7 +13,7 @@ void exitOnSignal() {
     signalActionStruct.sa_handler = sigchldHandler; // reap all dead processes
     sigemptyset(&signalActionStruct.sa_mask);
     signalActionStruct.sa_flags = SA_RESTART;
-    if (sigaction(SIGCHLD, &signalActionStruct, NULL) == -1)
+    if (sigaction(SIGINT, &signalActionStruct, NULL) == -1)
     {
         perror("sigaction");
         exit(1);
@@ -27,7 +28,7 @@ void sigchldHandler(int s)
     // waitpid waits childprocesses to end
     while (waitpid(-1, NULL, WNOHANG) > 0);
 
-    // TODO: close connections
+    stomp_stop();
 
     errno = saved_errno;
 }

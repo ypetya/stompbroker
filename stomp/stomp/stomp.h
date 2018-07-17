@@ -9,7 +9,8 @@
 */
 
 #include "message.h"
-
-void doStomp(ts_queue* output_queue, message *input);
-
+#include "../../lib/thread_safe_queue.h"
+void stomp_start();
+void stomp_process(ts_queue* output_queue, message *input);
+void stomp_stop();
 #endif

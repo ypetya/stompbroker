@@ -1,12 +1,22 @@
 #!/usr/bin/env node
 
 const TEST_DATA = [
-    "STOMP\naccept-version:1.2\nhost:localhost\n\n", "CONNECTED\nversion:1.2\n\n",
-    "CONNECT\naccept-version:1.2\nhost:localhost\n\n", "CONNECTED\nversion:1.2\n\n",
-    "CONNECT\naccept-version:1.1\nhost:localhost\n\n", "CONNECTED\nversion:1.2\n\n",
-    "CONNECT\r\naccept-version:1.1\nhost:localhost\n\n", "CONNECTED\nversion:1.2\n\n",
-    "CONNECT\naccept-version:1.1\nhost:localhost\nbody\n", "ERROR\ncontent-length:15\ncontent-type:text;charser=utf-8\n\ninvalid message"
+    "STOMP\naccept-version:1.2\nhost:localhost\n\n", 
+        check_connected,
+    "CONNECT\naccept-version:1.2\nhost:localhost\n\n",
+        check_connected,
+    "CONNECT\naccept-version:1.1\nhost:localhost\n\n",
+        check_connected,
+    "CONNECT\r\naccept-version:1.1\nhost:localhost\n\n",
+        check_connected,
+    "CONNECT\naccept-version:1.1\nhost:localhost\nbody\n",
+        check_connected,
+    
 ];
+
+function check_connected(resp) {
+    if(!resp.match(/CONNECTED/)) return "Not connected!";
+}
 
 const net = require('net');
 let conn, connStatus;
@@ -35,7 +45,12 @@ const request = m => new Promise((resolve, reject) => {
 const awaitResponse = async (requestMessage, responseMessage) => {
     const response = await request(requestMessage);
 
-    if (response != responseMessage) {
+    if(typeof(responseMessage)=='function'){
+        const ret = responseMessage(response.toString());
+        if(typeof(ret)=='string') {
+            throw(`Invalid response\n:${ret}\n`);
+        }
+    } else if (response != responseMessage) {
         throw(`Invalid response:\nExpected to get:${responseMessage}\nGot:\n${response}--\n`);
     }
     return 'SUCC';
@@ -43,13 +58,22 @@ const awaitResponse = async (requestMessage, responseMessage) => {
 
 let cursor = 0;
 
+const delay = async (d) => new Promise(resolve=> setTimeout(resolve,d));
+
 const runSingleTest = async () => {
     let resp = await awaitResponse(TEST_DATA[cursor], TEST_DATA[cursor + 1])
-            .then(ok => console.log(`${ok}[${cursor}]`))
+            .then(ok =>{ console.log(`${ok}[${cursor}]`); return ok;})
             .catch(err => console.log(`ERROR at index ${cursor} ================\n${err}\n\n`));
     if (resp === 'SUCC') {
         cursor += 2;
-        if(cursor > TET_DATA.length) cursor = 0;
+        if(cursor >= TEST_DATA.length){
+            cursor = 0;
+            console.log('All the tests done. Restarting in 10 seconds...');
+            await delay(10000);
+        }
+    } else {
+        console.log('Test failed. Restarting in 10 seconds...');
+        await delay(10000);
     }
     return resp;
 }
@@ -63,10 +87,8 @@ const run = () => {
     try {
 
         if (connStatus === 'OK') {
-            console.log('Running test...');
             runSingleTest().then(() => {
-                console.log('Done. Restarting in 5sec');
-                setTimeout(run, 5000);
+                setTimeout(run, 0);
             })
         } else error('NOT_CONNECTED');
 

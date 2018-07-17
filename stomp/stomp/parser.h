@@ -9,6 +9,8 @@ extern "C" {
 #define FRM_CONNECT "CONNECT"
 #define FRM_CONNECT_ID 1
 #define FRM_STOMP "STOMP"
+#define FRM_DISCONNECT "DISCONNECT"
+#define FRM_DISCONNECT_ID 2
 
 #include "message.h"
 #include "../../lib/associative_array.h"

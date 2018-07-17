@@ -17,6 +17,7 @@ extern "C" {
     void* dequeue(queue * q);
     
     void queue_free(queue *q);
+    void queue_init(queue *q);
 
 #ifdef __cplusplus
 }

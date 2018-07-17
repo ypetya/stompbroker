@@ -22,6 +22,9 @@ worker_thread_data_struct worker_data;
 ts_queue output_queue;
 
 void start_process_threads(ts_queue * input_queue) {
+    
+    stomp_start();
+    
     ts_queue_init(&output_queue);
     
     worker_data.input_q = input_queue;
@@ -66,7 +69,7 @@ void *reader_thread(void *vargp) {
         
         if (msg != NULL) {
             //unsafe: info("input queue size: %d", output_queue->q.size);
-            doStomp(output_queue, msg);
+            stomp_process(output_queue, msg);
             message_destroy(msg);
         }
 

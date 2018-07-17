@@ -99,6 +99,7 @@ void acceptIncomingDataLoop(int listenSockFD) {
                     clients[i] = -1;
                     FD_CLR(clientConnectionFD, &allset);
                     close(clientConnectionFD);
+                    ts_enqueue(&queue, message_disconnect(clientConnectionFD));
                 } else {
 
                     message * incoming_message = message_create(
