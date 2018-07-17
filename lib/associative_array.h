@@ -28,12 +28,13 @@ extern "C" {
     } aa_item;
 
     typedef struct aa_st {
-        aa_item root;
+        aa_item* root;
     } associative_array;
 
     void aa_put(associative_array* aa, char * key, char * value);
     int aa_has(aa_item* aa, char * key);
-    aa_item* aa_get(associative_array* aa, char * key);
+    aa_item* aa_get(aa_item* aa, char * key);
+    void aa_free(associative_array * aa);
 
 
 #ifdef __cplusplus

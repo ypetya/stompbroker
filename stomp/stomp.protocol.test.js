@@ -36,7 +36,7 @@ const awaitResponse = async (requestMessage, responseMessage) => {
     const response = await request(requestMessage);
 
     if (response != responseMessage) {
-        throw(`Invalid response:\nExpected to get:${responseMessage}\nGot:${response}\n\n`);
+        throw(`Invalid response:\nExpected to get:${responseMessage}\nGot:\n${response}--\n`);
     }
     return 'SUCC';
 }
@@ -56,8 +56,8 @@ const runSingleTest = async () => {
 
 const error = message => {
     console.log(message);
-    console.log('Error at test execution, retrying in 10 secs....');
-    setTimeout(run, 10000);
+    console.log('Error at test execution, retrying in 5 secs....');
+    setTimeout(run, 5000);
 }
 const run = () => {
     try {
@@ -65,8 +65,8 @@ const run = () => {
         if (connStatus === 'OK') {
             console.log('Running test...');
             runSingleTest().then(() => {
-                console.log('Done. Restarting in 10sec');
-                setTimeout(run, 10000);
+                console.log('Done. Restarting in 5sec');
+                setTimeout(run, 5000);
             })
         } else error('NOT_CONNECTED');
 

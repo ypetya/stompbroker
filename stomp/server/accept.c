@@ -23,6 +23,7 @@ char readBuffer[BUFFER_SIZE];
 
 void *getInAddr(struct sockaddr *sa);
 
+// TODO: change to sys/epoll
 void acceptIncomingDataLoop(int listenSockFD) {
     int i;
     int newConnectionFD, clientConnectionFD;

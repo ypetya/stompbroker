@@ -6,19 +6,23 @@
 extern "C" {
 #endif
 
-#define FRAME_CONNECT "CONNECT"
-#define FRAME_STOMP "STOMP"
+#define FRM_CONNECT "CONNECT"
+#define FRM_CONNECT_ID 1
+#define FRM_STOMP "STOMP"
 
 #include "message.h"
 #include "../../lib/associative_array.h"
+
     typedef struct parsed_message_st {
         int command;
-        associative_array headers;
-        
+        associative_array *headers;
+
         char* message_body;
     } parsed_message;
+
+    parsed_message* parse_message(message* message);
     
-    parsed_message* parseMessage(message* message);
+    void free_parsed_message(parsed_message* pm); 
 
 #ifdef __cplusplus
 }

@@ -19,18 +19,43 @@ void message_destroy(message * m) {
     free(m);
 }
 
-char * ERROR_TEMPLATE = "ERROR\ncontent-type:text/plain\ncontent-length:%d\n\n%s";
+char * ERROR_TEMPLATE = "ERROR\n"
+    "content-type:text/plain\n"
+    "content-length:%d\n\n%s\n";
+
+int len_of_int(int len) {
+    int digits = 0;
+    for (int counter = len; counter > 0; counter = counter / 10) digits++;
+    
+    return digits;
+}
 
 message * message_error(int fd, char *reason) {
 
     int len = (int) (strlen(reason) + strlen(ERROR_TEMPLATE) - 4);
-    int digits = 0;
-    for (int counter = len; counter > 0; counter = counter / 10) digits++;
+    int digits = len_of_int(len);
     char * frame = emalloc(len + digits + 1);
     sprintf(frame, ERROR_TEMPLATE, len + digits, reason);
-    message * error = message_create(fd, frame, len + digits);
+    
+    return message_create(fd, frame, len + digits);
+}
 
-    printf(frame);
+char * CONNECTED_TEMPLATE = "CONNECTED\n"
+    "content-type:text/plain\n"
+    "content-length:%d\n"
+    "session:%d\n"
+    "server:kisp-stomp\n"
+    "heart-beat:0,0\n"; // heart-beat not supported yet
 
-    return error;
+message * message_connected(int fd, int session_id) {
+    int len = (int) (strlen(CONNECTED_TEMPLATE) - 4);
+    int digits = len_of_int(len) + len_of_int(session_id);
+    char * frame = emalloc(len + digits + 1);
+    sprintf(frame, CONNECTED_TEMPLATE, len + digits, session_id);
+    
+    return message_create(fd, frame, len + digits);
+}
+
+message * message_message(int fd, int destination, int message_id, char * subscription) {
+    
 }

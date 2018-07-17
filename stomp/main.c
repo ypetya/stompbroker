@@ -5,6 +5,7 @@
 #include "../lib/queue.c"
 #include "../lib/thread_safe_queue.c"
 #include "../lib/clone_str.c"
+#include "../lib/associative_array.c"
 #include "parse_args.c"
 #include "server/listen.c"
 #include "server/process.c"

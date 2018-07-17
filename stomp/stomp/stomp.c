@@ -3,16 +3,19 @@
 #include <sys/socket.h>
 
 #include "../../lib/thread_safe_queue.h"
-
+#include "parser.h"
 
 void doStomp(ts_queue* output_queue, message *input) {
     
+    parsed_message * pm = parse_message(input);
     
-    //strncmp(,input->content)
+    switch(pm->command) {
+        default: {
+            message * err = message_error(input->fd, "Invalid message!\n\0");
+        
+            ts_enqueue(output_queue, err);
+        }
+    }
     
-    //message * echo = message_create(input->fd,input->content,strlen(input->content));
-    
-    message * echo = message_error(input->fd, "Invalid message!\n\0");
-    
-    ts_enqueue(output_queue, echo);
+    free_parsed_message(pm);
 }
