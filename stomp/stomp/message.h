@@ -33,6 +33,8 @@ extern "C" {
             int message_id, char* dest, char* body);
 
     message * message_poison_pill();
+    
+    message * message_diagnostic(int fd, char * key, char * value);
 
 #ifdef __cplusplus
 }

@@ -1,8 +1,12 @@
 #!/usr/bin/env node
 
 const TEST_DATA_FOR_CONNECT = [
+    "DIAG\n\nsession-size",
+    "DIAG\ncontent-type:text/plain\ncontent-length:64\nsession-size:0\n",
     "STOMP\naccept-version:1.2\nhost:localhost\n\n",
     check_connected,
+    "DIAG\n\nsession-size",
+    "DIAG\ncontent-type:text/plain\ncontent-length:64\nsession-size:1\n",
     "DISCONNECT\nreceipt:77\n",
     "RECEIPT\ncontent-type:text/plain\ncontent-length:64\nreceipt-id:77\n",
     "CONNECT\naccept-version:1.2\nhost:localhost\n\n",
@@ -19,8 +23,10 @@ const TEST_DATA_FOR_CONNECT = [
     "RECEIPT\ncontent-type:text/plain\ncontent-length:64\nreceipt-id:77\n",
     "CONNECT\naccept-version:1.1\nhost:localhost\nbody\n",
     check_connected,
-    "SUBSCRIBE\ndestination:/*\nid:1\nreceipt-id:m-99\n",
+    "SUBSCRIBE\ndestination:/*\nid:1\nreceipt:m-99\n",
     "RECEIPT\ncontent-type:text/plain\ncontent-length:66\nreceipt-id:m-99\n",
+    "DISCONNECT\nreceipt:77\n", // at this point subscription should be removed!
+    "RECEIPT\ncontent-type:text/plain\ncontent-length:64\nreceipt-id:77\n"
  ];
 
 function check_connected(resp) {

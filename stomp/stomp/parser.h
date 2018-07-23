@@ -17,6 +17,8 @@ extern "C" {
 #define FRM_UNSUBSCRIBE_ID 4
 #define FRM_SEND "SEND"
 #define FRM_SEND_ID 5
+#define FRM_DIAGNOSTIC "DIAG"
+#define FRM_DIAGNOSTIC_ID 6
     
 #include "message.h"
 #include "../../lib/associative_array.h"

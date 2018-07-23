@@ -24,10 +24,11 @@ extern "C" {
     
     /** 
      @return return index if inserted, -1 if already exists.*/
-    int session_storage_add_new(int client_fd);
-    int session_storage_find(int client_fd);
-    void session_storage_remove(int client_id);
+    int session_storage_add_new(int external_id);
+    int session_storage_find(int external_id);
+    void session_storage_remove(int index);
 
+    int session_storage_size();
 
 #ifdef __cplusplus
 }

@@ -41,7 +41,7 @@ message * message_error(int fd, char *reason) {
     int digits = len_of_int(len);
     char * frame = emalloc(len + digits + 1);
     sprintf(frame, ERROR_TEMPLATE, len + digits, reason);
-
+    debug("Constucting ERROR frame:\n%s", frame); 
     return message_create(fd, frame, len + digits);
 }
 
@@ -58,13 +58,14 @@ message * message_connected(int fd, int session_id) {
 
     char * frame = emalloc(len + digits + 1);
     sprintf(frame, CONNECTED_TEMPLATE, len + digits, session_id);
-
+    debug("---\n%s", frame); 
     return message_create(fd, frame, len + digits);
 }
 
 char * DISCONNECT_TEMPLATE = "DISCONNECT\n";
 
 message * message_disconnect(int fd) {
+    debug("---\nDISCONNECT"); 
     return message_create(fd, DISCONNECT_TEMPLATE, strlen(DISCONNECT_TEMPLATE));
 }
 
@@ -79,7 +80,7 @@ message * message_receipt(int fd, char* receipt_id) {
 
     char * frame = emalloc(len + digits + 1);
     sprintf(frame, RECEIPT_TEMPLATE, len + digits, receipt_id);
-
+    debug("---\n%s", frame); 
     return message_create(fd, frame, len + digits);
 }
 
@@ -98,6 +99,22 @@ message * message_send(int fd, int subscription_id, int message_id, char* dest,
 
     char * frame = emalloc(len + digits + 1);
     sprintf(frame, MESSAGE_TEMPLATE, len + digits, subscription_id, message_id, dest, body);
-
+    debug("---\n%s", frame);
     return message_create(fd, frame, len + digits);
 }
+
+char * MESSAGE_DIAGNOSTIC_TEMPLATE="DIAG\n"
+    "content-type:text/plain\n"
+    "content-length:%d\n"
+    "%s:%s\n";
+
+message * message_diagnostic(int fd, char * key, char * value) {
+    int len = (int) (strlen(MESSAGE_DIAGNOSTIC_TEMPLATE) - 4);
+    int digits = len_of_int(len) + strlen(key) + strlen(value);
+
+    char * frame = emalloc(len + digits + 1);
+    sprintf(frame, MESSAGE_DIAGNOSTIC_TEMPLATE, len + digits, key, value);
+    debug("---\n%s", frame);
+    return message_create(fd, frame, len + digits);
+}
+    

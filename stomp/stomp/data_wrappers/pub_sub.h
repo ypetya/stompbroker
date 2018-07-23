@@ -28,6 +28,7 @@ extern "C" {
 #include "../../../lib/general_list.h"
     void pubsub_find_matching(char* topic_mask, general_list * matches);
 
+    int pubsub_size();
 
 #ifdef __cplusplus
 }

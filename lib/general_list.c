@@ -36,6 +36,12 @@ void list_print(general_list* list) {
     }
 }
 
+void list_free_items(general_list* list);
+void list_free(general_list* list) {
+    list_free_items(list);
+    free(list);
+}
+
 void list_free_items(general_list* list) {
     general_list_item* c = list->list;
     general_list_item* n;

@@ -17,7 +17,8 @@ extern "C" {
         int size;
     } general_list;
 
-    void list_free_items(general_list* list);
+    void list_free(general_list* list);
+    //void list_free_items(general_list* list);
     void list_print(general_list* list);
     void list_add(general_list* str_list, void* new_data);
 

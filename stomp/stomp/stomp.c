@@ -74,6 +74,22 @@ void stomp_process(ts_queue* output_queue, message *input) {
             } else resp = message_error(input->fd, "Not connected!\n");
             break;
         }
+        case FRM_DIAGNOSTIC_ID:
+        { /** This DIAGNOSTIC frame returns internal info*/
+            if(pm->message_body==NULL) {
+                resp = message_error(input->fd, "Empty message_body!\n");
+                break;
+            }
+            debug("Diagnostic query %s\n", pm->message_body);
+            char buf[10];
+            if (strncmp(pm->message_body, "session-size",12) == 0) {
+                sprintf(buf, "%d", session_storage_size());
+            } else if (strncmp(pm->message_body, "pubsub-size",11) == 0) {
+                sprintf(buf, "%d", session_storage_size());
+            } else break;
+            resp = message_diagnostic(input->fd, pm->message_body, buf);
+            break;
+        }
         default:
             resp = message_error(input->fd, "Invalid message!\n");
     }

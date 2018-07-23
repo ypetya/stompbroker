@@ -12,7 +12,7 @@ void pubsub_init() {
 }
 
 void pubsub_dispose() {
-    list_free_items(topics);
+    list_free(topics);
 }
 
 void pubsub_subscribe(char* topic_str, int client_session_id, int connection_id) {
@@ -53,4 +53,8 @@ void pubsub_find_matching(char* topic_mask, general_list * matches) {
 
         c = c->next;
     }
+}
+
+int pubsub_size() {
+    return topics->size;
 }

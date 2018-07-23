@@ -11,47 +11,50 @@
 
 general_list * clients;
 
-
-int session_storage_add_new(int client_fd) {
-    for(general_list_item * client = clients->list;
+int session_storage_add_new(int external_id) {
+    for (general_list_item * client = clients->list;
             client != NULL;
             client = client->next) {
-        if(*(int*)client->data == client_fd) return -1;
+        if (*(int*) client->data == external_id) return -1;
     }
-    
-    int * data = emalloc(sizeof(int));
-    memcpy(data,&client_fd,sizeof(int));
-    
+
+    int * data = emalloc(sizeof (int));
+    memcpy(data, &external_id, sizeof (int));
+
     list_add(clients, data);
-    info("Session new:%d\n", clients->size -1);
+    debug("Session new index %d for fd %d\n", clients->size - 1, external_id);
     return clients->size - 1; //:) - single thread funky
 }
-
 
 void session_storage_init() {
     clients = emalloc(sizeof (general_list));
 }
 
-
 void session_storage_dispose(ts_queue* q_out) {
-    for(general_list_item* client = clients->list;
+    for (general_list_item* client = clients->list;
             client != NULL;
             client = client->next) {
-        message * disconnect = message_disconnect(*((int *)client->data));
-        ts_enqueue(q_out, disconnect );
+        message * disconnect = message_disconnect(*((int *) client->data));
+        ts_enqueue(q_out, disconnect);
     }
-    
-    list_free_items(clients);
+
+    list_free(clients);
 }
 
-int session_storage_find_client_id(int client_id){
-    info("Session find fd:%d", client_id);
-    int ret = list_index_of(clients, &client_id);
-    info(" -> %d\n", ret);
+// external_id is the file descriptor of the socket
+
+int session_storage_find_client_id(int external_id) {
+    debug("Session find by external_id:%d", external_id);
+    int ret = list_index_of(clients, &external_id);
+    debug(" -> index: %d\n", ret);
     return ret;
 }
 
-void session_storage_remove(int client_id) {
-    info("Session delete:%d\n", client_id);
-    list_remove_at(clients, client_id);
+void session_storage_remove(int index) {
+    debug("Session delete by index %d\n", index);
+    list_remove_at(clients, index);
+}
+
+int session_storage_size() {
+    return clients->size;
 }

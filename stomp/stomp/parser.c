@@ -17,8 +17,10 @@ parsed_message* parse_message(message* message) {
 
         char * next_line = next_row(message->content);
         next_line = parse_headers(pm, pm->headers, next_line);
-        next_line = next_row(next_line);
-        if (next_line != NULL) pm->message_body = clone_str(next_line);
+        //next_line = next_row(next_line);
+        if (next_line != NULL) {
+            pm->message_body = clone_str(next_line);
+        }
     }
 
     return pm;
@@ -62,24 +64,31 @@ char * parse_headers(parsed_message *pm, associative_array * aa, char* str) {
     char * le = line_end(str);
     char * nr_ptr = next_row(str);
     char * separator = strchr(str, ':');
-    // ERR or end
-    if (separator == NULL || le == NULL || (le - separator < 0)) return NULL;
+    if (separator == NULL && nr_ptr != NULL) return nr_ptr;
 
-    *separator = *le = '\0';
-    aa_put(aa, str, separator + 1);
-    if (strcmp(str, "receipt") == 0) {
-        if (pm->receipt_id != NULL) free(pm->receipt_id);
-        pm->receipt_id = clone_str(separator + 1);
-    } else if (strcmp(str, "id") == 0) {
-        pm->id = atoi(str);
-    } else if (strcmp(str, "destination") == 0) {
-        if (pm->topic != NULL) free(pm->topic);
-        pm->topic = clone_str(separator + 1);
+    if (le > separator) {
+
+        *separator = *le = '\0';
+        aa_put(aa, str, separator + 1);
+        if (strcmp(str, "receipt") == 0) {
+            if (pm->receipt_id != NULL) free(pm->receipt_id);
+            pm->receipt_id = clone_str(separator + 1);
+            debug("Header receipt: %s", pm->receipt_id);
+        } else if (strcmp(str, "id") == 0) {
+            pm->id = atoi(str);
+            debug("Header id: %d", pm->id);
+        } else if (strcmp(str, "destination") == 0) {
+            if (pm->topic != NULL) free(pm->topic);
+            pm->topic = clone_str(separator + 1);
+            debug("Header destination: %s", pm->topic);
+        }
+        *separator = ':';
+        *le = '\n';
+
+        return parse_headers(pm, aa, nr_ptr);
+    } else {
+        return nr_ptr;
     }
-    *separator = ':';
-    *le = '\n';
-
-    return parse_headers(pm, aa, nr_ptr);
 }
 
 #ifndef FRM_IS
@@ -92,6 +101,7 @@ int parse_command(message* message) {
     if (FRM_IS(FRM_SUBSCRIBE)) return FRM_SUBSCRIBE_ID;
     if (FRM_IS(FRM_UNSUBSCRIBE)) return FRM_UNSUBSCRIBE_ID;
     if (FRM_IS(FRM_SEND)) return FRM_SEND_ID;
+    if (FRM_IS(FRM_DIAGNOSTIC)) return FRM_DIAGNOSTIC_ID;
 
     return -1;
 }
