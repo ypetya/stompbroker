@@ -18,19 +18,21 @@
 extern "C" {
 #endif
 
-typedef struct msg_st {
-    int fd;
-    char * content;
-} message;
+    typedef struct msg_st {
+        int fd;
+        char * content;
+    } message;
 
-message * message_create(int fd, char * str, int len);
-void message_destroy(message * m);
-message * message_error(int fd, char *reason);
-message * message_connected(int fd, int session_id);
-message * message_disconnect(int fd);
-message * message_receipt(int fd, char* receipt_id);
+    message * message_create(int fd, char * str, int len);
+    void message_destroy(message * m);
+    message * message_error(int fd, char *reason);
+    message * message_connected(int fd, int session_id);
+    message * message_disconnect(int fd);
+    message * message_receipt(int fd, char* receipt_id);
+    message * message_send(int fd, int subscription_id,
+            int message_id, char* dest, char* body);
 
-message * message_poison_pill();
+    message * message_poison_pill();
 
 #ifdef __cplusplus
 }

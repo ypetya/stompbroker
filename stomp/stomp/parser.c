@@ -11,7 +11,7 @@ parsed_message* parse_message(message* message) {
     parsed_message* pm = emalloc(pm_size);
 
     pm->command = parse_command(message);
-    
+
     if (pm->command > 0) {
         pm->headers = emalloc(sizeof (associative_array));
 
@@ -28,6 +28,7 @@ void free_parsed_message(parsed_message* pm) {
     aa_free(pm->headers);
     free(pm->receipt_id);
     free(pm->message_body);
+    free(pm->topic);
     free(pm);
 }
 
@@ -69,6 +70,11 @@ char * parse_headers(parsed_message *pm, associative_array * aa, char* str) {
     if (strcmp(str, "receipt") == 0) {
         if (pm->receipt_id != NULL) free(pm->receipt_id);
         pm->receipt_id = clone_str(separator + 1);
+    } else if (strcmp(str, "id") == 0) {
+        pm->id = atoi(str);
+    } else if (strcmp(str, "destination") == 0) {
+        if (pm->topic != NULL) free(pm->topic);
+        pm->topic = clone_str(separator + 1);
     }
     *separator = ':';
     *le = '\n';
@@ -83,5 +89,9 @@ char * parse_headers(parsed_message *pm, associative_array * aa, char* str) {
 int parse_command(message* message) {
     if (FRM_IS(FRM_CONNECT) || FRM_IS(FRM_STOMP)) return FRM_CONNECT_ID;
     if (FRM_IS(FRM_DISCONNECT)) return FRM_DISCONNECT_ID;
+    if (FRM_IS(FRM_SUBSCRIBE)) return FRM_SUBSCRIBE_ID;
+    if (FRM_IS(FRM_UNSUBSCRIBE)) return FRM_UNSUBSCRIBE_ID;
+    if (FRM_IS(FRM_SEND)) return FRM_SEND_ID;
+
     return -1;
 }

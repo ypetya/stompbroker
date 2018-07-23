@@ -82,8 +82,22 @@ message * message_receipt(int fd, char* receipt_id) {
 
     return message_create(fd, frame, len + digits);
 }
-//
-//message * message_message(int fd, int destination, int message_id, char * subscription) {
-//
-//    return NULL;
-//}
+
+char * MESSAGE_TEMPLATE = "MESSAGE\n"
+        "content-type:text/plain\n"
+        "content-length:%d\n"
+        "subscription:%d\n"
+        "message-id:%d\n"
+        "destination:%s\n\n%s";
+
+message * message_send(int fd, int subscription_id, int message_id, char* dest,
+        char* body) {
+    int len = (int) (strlen(MESSAGE_TEMPLATE) - 10);
+    int digits = len_of_int(len) + len_of_int(subscription_id)
+            + len_of_int(message_id) + strlen(dest) + strlen(body);
+
+    char * frame = emalloc(len + digits + 1);
+    sprintf(frame, MESSAGE_TEMPLATE, len + digits, subscription_id, message_id, dest, body);
+
+    return message_create(fd, frame, len + digits);
+}

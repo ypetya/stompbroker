@@ -15,6 +15,8 @@ extern "C" {
 #define FRM_SUBSCRIBE_ID 3
 #define FRM_UNSUBSCRIBE "UNSUBSCRIBE"
 #define FRM_UNSUBSCRIBE_ID 4
+#define FRM_SEND "SEND"
+#define FRM_SEND_ID 5
     
 #include "message.h"
 #include "../../lib/associative_array.h"
@@ -24,6 +26,10 @@ extern "C" {
         associative_array *headers;
         char* receipt_id;
         char* message_body;
+        // SUBSCRIPTION destination
+        char* topic;
+        // SUBSCRIPTION id
+        int id;
     } parsed_message;
 
     parsed_message* parse_message(message* message);

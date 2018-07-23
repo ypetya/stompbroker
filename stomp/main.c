@@ -13,6 +13,7 @@
 #include "server/process.c"
 #include "server/accept.c"
 #include "stomp/data_wrappers/session_storage.c"
+#include "stomp/data_wrappers/pub_sub.c"
 #include "stomp/stomp.c"
 #include "stomp/parser.c"
 #include "stomp/message.c"
