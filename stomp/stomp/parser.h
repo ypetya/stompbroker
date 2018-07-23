@@ -11,14 +11,18 @@ extern "C" {
 #define FRM_STOMP "STOMP"
 #define FRM_DISCONNECT "DISCONNECT"
 #define FRM_DISCONNECT_ID 2
-
+#define FRM_SUBSCRIBE "SUBSCRIBE"
+#define FRM_SUBSCRIBE_ID 3
+#define FRM_UNSUBSCRIBE "UNSUBSCRIBE"
+#define FRM_UNSUBSCRIBE_ID 4
+    
 #include "message.h"
 #include "../../lib/associative_array.h"
 
     typedef struct parsed_message_st {
         int command;
         associative_array *headers;
-
+        char* receipt_id;
         char* message_body;
     } parsed_message;
 

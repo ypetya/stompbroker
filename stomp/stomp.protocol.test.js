@@ -1,21 +1,31 @@
 #!/usr/bin/env node
 
-const TEST_DATA = [
-    "STOMP\naccept-version:1.2\nhost:localhost\n\n", 
-        check_connected,
+const TEST_DATA_FOR_CONNECT = [
+    "STOMP\naccept-version:1.2\nhost:localhost\n\n",
+    check_connected,
+    "DISCONNECT\nreceipt:77\n",
+    "RECEIPT\ncontent-type:text/plain\ncontent-length:64\nreceipt-id:77\n",
     "CONNECT\naccept-version:1.2\nhost:localhost\n\n",
-        check_connected,
+    check_connected,
+    "DISCONNECT\nreceipt:77\n",
+    "RECEIPT\ncontent-type:text/plain\ncontent-length:64\nreceipt-id:77\n",
     "CONNECT\naccept-version:1.1\nhost:localhost\n\n",
-        check_connected,
+    check_connected,
+    "DISCONNECT\nreceipt:77\n",
+    "RECEIPT\ncontent-type:text/plain\ncontent-length:64\nreceipt-id:77\n",
     "CONNECT\r\naccept-version:1.1\nhost:localhost\n\n",
-        check_connected,
+    check_connected,
+    "DISCONNECT\nreceipt:77\n",
+    "RECEIPT\ncontent-type:text/plain\ncontent-length:64\nreceipt-id:77\n",
     "CONNECT\naccept-version:1.1\nhost:localhost\nbody\n",
-        check_connected,
-    
-];
+    check_connected,
+    "SUBSCRIBE\ndestination:/*\nid:1\nreceipt-id:m-99\n",
+    "RECEIPT\ncontent-type:text/plain\ncontent-length:66\nreceipt-id:m-99\n",
+ ];
 
 function check_connected(resp) {
-    if(!resp.match(/CONNECTED/)) return "Not connected!";
+    if (!resp.match(/CONNECTED/))
+        return `Could not connect! Response frame was:\n${resp}`;
 }
 
 const net = require('net');
@@ -45,10 +55,10 @@ const request = m => new Promise((resolve, reject) => {
 const awaitResponse = async (requestMessage, responseMessage) => {
     const response = await request(requestMessage);
 
-    if(typeof(responseMessage)=='function'){
+    if (typeof (responseMessage) == 'function') {
         const ret = responseMessage(response.toString());
-        if(typeof(ret)=='string') {
-            throw(`Invalid response\n:${ret}\n`);
+        if (typeof (ret) == 'string') {
+            throw(`Invalid response:\n${ret}\n`);
         }
     } else if (response != responseMessage) {
         throw(`Invalid response:\nExpected to get:${responseMessage}\nGot:\n${response}--\n`);
@@ -58,15 +68,18 @@ const awaitResponse = async (requestMessage, responseMessage) => {
 
 let cursor = 0;
 
-const delay = async (d) => new Promise(resolve=> setTimeout(resolve,d));
+const delay = async (d) => new Promise(resolve => setTimeout(resolve, d));
 
 const runSingleTest = async () => {
-    let resp = await awaitResponse(TEST_DATA[cursor], TEST_DATA[cursor + 1])
-            .then(ok =>{ console.log(`${ok}[${cursor}]`); return ok;})
+    let resp = await awaitResponse(TEST_DATA_FOR_CONNECT[cursor], TEST_DATA_FOR_CONNECT[cursor + 1])
+            .then(ok => {
+                console.log(`${ok}[${cursor}]`);
+                return ok;
+            })
             .catch(err => console.log(`ERROR at index ${cursor} ================\n${err}\n\n`));
     if (resp === 'SUCC') {
         cursor += 2;
-        if(cursor >= TEST_DATA.length){
+        if (cursor >= TEST_DATA_FOR_CONNECT.length) {
             cursor = 0;
             console.log('All the tests done. Restarting in 10 seconds...');
             await delay(10000);
@@ -90,7 +103,8 @@ const run = () => {
             runSingleTest().then(() => {
                 setTimeout(run, 0);
             })
-        } else error('NOT_CONNECTED');
+        } else
+            error('NOT_CONNECTED');
 
     } catch (err) {
         error(err);

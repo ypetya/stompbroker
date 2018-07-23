@@ -28,6 +28,9 @@ void message_destroy(message * m);
 message * message_error(int fd, char *reason);
 message * message_connected(int fd, int session_id);
 message * message_disconnect(int fd);
+message * message_receipt(int fd, char* receipt_id);
+
+message * message_poison_pill();
 
 #ifdef __cplusplus
 }

@@ -7,6 +7,7 @@
 #include "../../../lib/emalloc.h"
 #include "../../../lib/general_list.h"
 #include "../stomp.h"
+#include "../../../lib//logger.h"
 
 general_list * clients;
 
@@ -22,7 +23,7 @@ int session_storage_add_new(int client_fd) {
     memcpy(data,&client_fd,sizeof(int));
     
     list_add(clients, data);
-    
+    info("Session new:%d\n", clients->size -1);
     return clients->size - 1; //:) - single thread funky
 }
 
@@ -32,22 +33,25 @@ void session_storage_init() {
 }
 
 
-void session_storage_dispose(ts_queue* q) {
+void session_storage_dispose(ts_queue* q_out) {
     for(general_list_item* client = clients->list;
             client != NULL;
             client = client->next) {
-        // FIXME: leak
         message * disconnect = message_disconnect(*((int *)client->data));
-        ts_enqueue(q, disconnect );
+        ts_enqueue(q_out, disconnect );
     }
-    // FIXME: leak
+    
     list_free_items(clients);
 }
 
 int session_storage_find_client_id(int client_id){
-    return list_index_of(clients, &client_id);
+    info("Session find fd:%d", client_id);
+    int ret = list_index_of(clients, &client_id);
+    info(" -> %d\n", ret);
+    return ret;
 }
 
 void session_storage_remove(int client_id) {
+    info("Session delete:%d\n", client_id);
     list_remove_at(clients, client_id);
 }

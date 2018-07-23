@@ -24,7 +24,7 @@ int do_listen(char *port, int backlog)
 {
     int listenSockFD = findPortAndStartListening(port, backlog);
     exitOnSignal();
-    acceptIncomingDataLoop(listenSockFD);
+    accept_incoming_data_loop(listenSockFD);
 
     return 0;
 }

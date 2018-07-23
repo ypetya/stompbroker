@@ -5,7 +5,7 @@
 
 char* clone_str(char* src) {
     int len = strlen(src);
-    char* text = (char*)emalloc(len + 1);
+    char* text = emalloc(len + 1);
     strcpy(text, src);
     // in emalloc
     //text[len] = '\0';
@@ -13,7 +13,7 @@ char* clone_str(char* src) {
 }
 
 char* clone_str_len(char* src, size_t len) {
-    char* text = (char*)emalloc(len + 1);
+    char* text = emalloc(len + 1);
     strncpy(text, src, len);
     // in emalloc
     //text[len] = '\0';

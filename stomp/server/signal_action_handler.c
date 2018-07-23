@@ -5,7 +5,7 @@
 #include <sys/wait.h>
 #include <signal.h>
 #include "signal_action_handler.h"
-#include "../stomp/stomp.h"
+#include "process.h"
 
 void sigchldHandler(int s);
 void exitOnSignal() {
@@ -28,7 +28,8 @@ void sigchldHandler(int s)
     // waitpid waits childprocesses to end
     while (waitpid(-1, NULL, WNOHANG) > 0);
 
-    stomp_stop();
-
+    process_kill_threads();
+    
+    exit(0);
     errno = saved_errno;
 }

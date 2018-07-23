@@ -65,7 +65,7 @@ aa_item* aa_get(aa_item* aa, char * key) {
 }
 
 aa_item * aa_item_create(char* key, char* value) {
-    aa_item * ptr = (aa_item*) emalloc(sizeof (aa_item));
+    aa_item * ptr = emalloc(sizeof (aa_item));
 
     ptr->key = clone_str(key);
     ptr->value = clone_str(value);
@@ -84,6 +84,6 @@ void aa_item_free(aa_item * ptr) {
 }
 
 void aa_free(associative_array * aa) {
-    aa_item_free(aa->root);
+    if(aa!=NULL) aa_item_free(aa->root);
     free(aa);
 }

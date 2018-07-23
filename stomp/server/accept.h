@@ -18,7 +18,7 @@
 extern "C" {
 #endif
 
-void acceptIncomingDataLoop(int listenSockFD);
+void accept_incoming_data_loop(int listenSockFD);
 
 #ifdef __cplusplus
 }

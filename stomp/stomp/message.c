@@ -6,7 +6,7 @@
 #include "../../lib/clone_str.h"
 
 message * message_create(int fd, char * str, int len) {
-    message * new_m = (message*) emalloc(sizeof (message));
+    message * new_m = emalloc(sizeof (message));
 
     new_m->content = clone_str_len(str, len);
     new_m->fd = fd;
@@ -17,6 +17,10 @@ message * message_create(int fd, char * str, int len) {
 void message_destroy(message * m) {
     free(m->content);
     free(m);
+}
+
+message * message_poison_pill() {
+    return message_create(-1, "KILL", 4);
 }
 
 char * ERROR_TEMPLATE = "ERROR\n"
@@ -64,7 +68,22 @@ message * message_disconnect(int fd) {
     return message_create(fd, DISCONNECT_TEMPLATE, strlen(DISCONNECT_TEMPLATE));
 }
 
-message * message_message(int fd, int destination, int message_id, char * subscription) {
+char * RECEIPT_TEMPLATE = "RECEIPT\n"
+        "content-type:text/plain\n"
+        "content-length:%d\n"
+        "receipt-id:%s\n";
 
-    return NULL;
+message * message_receipt(int fd, char* receipt_id) {
+    int len = (int) (strlen(RECEIPT_TEMPLATE) - 4);
+    int digits = len_of_int(len) + strlen(receipt_id);
+
+    char * frame = emalloc(len + digits + 1);
+    sprintf(frame, RECEIPT_TEMPLATE, len + digits, receipt_id);
+
+    return message_create(fd, frame, len + digits);
 }
+//
+//message * message_message(int fd, int destination, int message_id, char * subscription) {
+//
+//    return NULL;
+//}

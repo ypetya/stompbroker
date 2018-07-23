@@ -52,12 +52,9 @@ void list_free_items(general_list* list) {
 
 general_list_item* create_general_list_item(void *data) {
     general_list_item* ptr = emalloc(sizeof (general_list_item));
-    // can not determine data size here so we just take the pointer
-    //printf("%d\n",sizeof(*data));
-    //ptr->data = emalloc(sizeof (*data));
-    //memcpy(ptr->data, data, sizeof (*data));
-
+ 
     ptr->data = data;
+    ptr->next = NULL;
     
     return ptr;
 }

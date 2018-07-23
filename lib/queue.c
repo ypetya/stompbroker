@@ -8,7 +8,6 @@
 #include "general_list.h"
 
 void enqueue(queue * q, void *new_data) {
-    // FIXME: pass in size information?
     general_list_item * new_list_item = create_general_list_item(new_data);
 
     if (q->size == 0) {

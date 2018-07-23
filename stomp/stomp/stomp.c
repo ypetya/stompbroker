@@ -8,10 +8,7 @@
 #include "./data_wrappers//session_storage.h"
 
 
-ts_queue * global_outputqueue;
-
 void stomp_process(ts_queue* output_queue, message *input) {
-    if (global_outputqueue == NULL) global_outputqueue = output_queue;
 
     int client_id = session_storage_find_client_id(input->fd);
     parsed_message * pm = parse_message(input);
@@ -30,8 +27,10 @@ void stomp_process(ts_queue* output_queue, message *input) {
         }
         case FRM_DISCONNECT_ID:
         {
-            if (client_id >= 0)
+            if (client_id >= 0) {
                 session_storage_remove(client_id);
+                debug("Disconnect receipt-id:%s\n",pm->receipt_id);
+            }
             else
                 resp = message_error(input->fd, "Can not disconnect,"
                     " client is not connected yet!\n");
@@ -42,16 +41,19 @@ void stomp_process(ts_queue* output_queue, message *input) {
             resp = message_error(input->fd, "Invalid message!\n");
     }
 
-    if (resp != NULL)ts_enqueue(output_queue, resp);
+    if (resp != NULL){
+        ts_enqueue(output_queue, resp);
+    } else if(pm->receipt_id != NULL){
+        ts_enqueue(output_queue, message_receipt(input->fd, pm->receipt_id));
+    }
 
     free_parsed_message(pm);
 }
 
 void stomp_start() {
-    global_outputqueue = NULL;
     session_storage_init();
 }
 
-void stomp_stop() {
-    session_storage_dispose(global_outputqueue);
+void stomp_stop(ts_queue* output_queue) {
+    session_storage_dispose(output_queue);
 }

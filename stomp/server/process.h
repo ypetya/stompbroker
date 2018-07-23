@@ -3,6 +3,8 @@
 
 #include "../../lib/thread_safe_queue.h"
 
-void start_process_threads(ts_queue * input_queue);
+ts_queue* process_start_threads();
+
+void process_kill_threads();
 
 #endif

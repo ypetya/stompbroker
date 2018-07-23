@@ -16,5 +16,5 @@ else
     echo 'Build failed! :('
 fi
 if [ "valgrind" == "$1" ]; then
- valgrind --leak-check=yes ./stompbroker.out
+ valgrind --leak-check=full --show-leak-kinds=all ./stompbroker.out
 fi

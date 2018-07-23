@@ -19,12 +19,12 @@
 #include <string.h> // memcpy
 
 #define BUFFER_SIZE 1000
-char readBuffer[BUFFER_SIZE];
+char read_buffer[BUFFER_SIZE];
 
-void *getInAddr(struct sockaddr *sa);
+void *get_inbound_address(struct sockaddr *sa);
 
 // TODO: change to sys/epoll
-void acceptIncomingDataLoop(int listenSockFD) {
+void accept_incoming_data_loop(int listenSockFD) {
     int i;
     int newConnectionFD, clientConnectionFD;
     fd_set readset, allset;
@@ -44,9 +44,7 @@ void acceptIncomingDataLoop(int listenSockFD) {
     char * clientAddressStr; //[INET6_ADDRSTRLEN];
     int maxClientFD = listenSockFD;
 
-    ts_queue queue;
-    ts_queue_init(&queue);
-    start_process_threads(&queue);
+    ts_queue * input_queue = process_start_threads();
 
     while (YES) {
         fflush(stdout);
@@ -65,7 +63,7 @@ void acceptIncomingDataLoop(int listenSockFD) {
                 for (i = 0; i < FD_SETSIZE; i++) {
                     if (clients[i] < 0) {
                         clients[i] = newConnectionFD;
-                        info("server: clients[%d]=%d;\n", i, newConnectionFD);
+                        debug("server: clients[%d]=%d;\n", i, newConnectionFD);
                         break;
                     }
                 }
@@ -76,7 +74,7 @@ void acceptIncomingDataLoop(int listenSockFD) {
                 if (i > maxClientID) maxClientID = i;
 
                 FD_SET(newConnectionFD, &allset);
-                info("server: MaxClientID=%d;\n", maxClientID);
+                debug("server: MaxClientID=%d;\n", maxClientID);
 
                 if (--numOfFDsChanged <= 0) {
                     continue;
@@ -89,7 +87,7 @@ void acceptIncomingDataLoop(int listenSockFD) {
             clientConnectionFD = clients[i];
             if (clientConnectionFD < 0) continue;
             if (FD_ISSET(clientConnectionFD, &readset)) {
-                int received_length = recv(clientConnectionFD, readBuffer, sizeof (readBuffer), 0);
+                int received_length = recv(clientConnectionFD, read_buffer, sizeof (read_buffer), 0);
                 if (received_length < 1) {
                     if (received_length == 0) {
                         info("server: socket closed nicely. client[%d]\n", i);
@@ -99,15 +97,15 @@ void acceptIncomingDataLoop(int listenSockFD) {
                     clients[i] = -1;
                     FD_CLR(clientConnectionFD, &allset);
                     close(clientConnectionFD);
-                    ts_enqueue(&queue, message_disconnect(clientConnectionFD));
+                    ts_enqueue(input_queue, message_disconnect(clientConnectionFD));
                 } else {
 
                     message * incoming_message = message_create(
                             clientConnectionFD,
-                            readBuffer,
+                            read_buffer,
                             received_length);
                     
-                    ts_enqueue(&queue, incoming_message);
+                    ts_enqueue(input_queue, incoming_message);
                 }
                 if (--numOfFDsChanged <= 0) break;
             }
@@ -120,7 +118,7 @@ void acceptIncomingDataLoop(int listenSockFD) {
 
 // get sockaddr, IPv4 or IPv6:
 
-void *getInAddr(struct sockaddr *sa) {
+void *get_inbound_address(struct sockaddr *sa) {
     if (sa->sa_family == AF_INET)
         return &(((struct sockaddr_in *) sa)->sin_addr);
 
