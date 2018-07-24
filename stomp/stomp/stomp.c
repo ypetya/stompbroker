@@ -30,8 +30,8 @@ void stomp_process(ts_queue* output_queue, message *input) {
         case FRM_DISCONNECT_ID:
         {
             if (client_id >= 0) {
+                pubsub_remove_client(client_id);
                 session_storage_remove(client_id);
-                debug("Disconnect receipt-id:%s\n", pm->receipt_id);
             } else
                 resp = message_error(input->fd, "Can not disconnect,"
                     " client is not connected yet!\n");
@@ -40,30 +40,32 @@ void stomp_process(ts_queue* output_queue, message *input) {
         }
         case FRM_SUBSCRIBE_ID:
         {
-            if (client_id >= 0) {
+            if (client_id >= 0)
                 pubsub_subscribe(pm->topic, client_id, pm->id);
-            } else resp = message_error(input->fd, "Not connected!\n");
+            else
+                resp = message_error(input->fd, "Not connected!\n");
             break;
         }
         case FRM_UNSUBSCRIBE_ID:
         {
-            if (client_id >= 0) {
+            if (client_id >= 0)
                 pubsub_unsubscribe(pm->topic, client_id, pm->id);
-            } else resp = message_error(input->fd, "Not connected!\n");
+            else
+                resp = message_error(input->fd, "Not connected!\n");
             break;
         }
         case FRM_SEND_ID:
         {
             if (client_id >= 0) {
-                general_list clients;
-                pubsub_find_matching(pm->topic, &clients);
+                general_list * matching_clients = list_new();
+                pubsub_find_matching(pm->topic, matching_clients);
 
-                general_list_item * first = clients.list;
+                general_list_item * first = matching_clients->first;
                 while (first != NULL) {
                     subscription * sub = first->data;
                     message * o = message_send(input->fd,
                             sub->client_id,
-                            message_id++,
+                            message_id,
                             pm->topic,
                             pm->message_body
                             );
@@ -71,21 +73,24 @@ void stomp_process(ts_queue* output_queue, message *input) {
 
                     first = first->next;
                 }
+
+                list_free(matching_clients);
             } else resp = message_error(input->fd, "Not connected!\n");
+
             break;
         }
         case FRM_DIAGNOSTIC_ID:
         { /** This DIAGNOSTIC frame returns internal info*/
-            if(pm->message_body==NULL) {
+            if (pm->message_body == NULL) {
                 resp = message_error(input->fd, "Empty message_body!\n");
                 break;
             }
             debug("Diagnostic query %s\n", pm->message_body);
             char buf[10];
-            if (strncmp(pm->message_body, "session-size",12) == 0) {
+            if (strncmp(pm->message_body, "session-size", 12) == 0) {
                 sprintf(buf, "%d", session_storage_size());
-            } else if (strncmp(pm->message_body, "pubsub-size",11) == 0) {
-                sprintf(buf, "%d", session_storage_size());
+            } else if (strncmp(pm->message_body, "pubsub-size", 11) == 0) {
+                sprintf(buf, "%d", pubsub_size());
             } else break;
             resp = message_diagnostic(input->fd, pm->message_body, buf);
             break;

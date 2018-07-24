@@ -23,7 +23,7 @@ extern "C" {
         char * content;
     } message;
 
-    message * message_create(int fd, char * str, int len);
+    message * message_create(int fd, char * str);
     void message_destroy(message * m);
     message * message_error(int fd, char *reason);
     message * message_connected(int fd, int session_id);

@@ -73,14 +73,14 @@ char * parse_headers(parsed_message *pm, associative_array * aa, char* str) {
         if (strcmp(str, "receipt") == 0) {
             if (pm->receipt_id != NULL) free(pm->receipt_id);
             pm->receipt_id = clone_str(separator + 1);
-            debug("Header receipt: %s", pm->receipt_id);
+            //debug(" * Header receipt: %s\n", pm->receipt_id);
         } else if (strcmp(str, "id") == 0) {
-            pm->id = atoi(str);
-            debug("Header id: %d", pm->id);
+            pm->id = atoi(separator + 1);
+            //debug(" * Header id: %d\n", pm->id);
         } else if (strcmp(str, "destination") == 0) {
             if (pm->topic != NULL) free(pm->topic);
             pm->topic = clone_str(separator + 1);
-            debug("Header destination: %s", pm->topic);
+            //debug(" * Header destination: %s\n", pm->topic);
         }
         *separator = ':';
         *le = '\n';

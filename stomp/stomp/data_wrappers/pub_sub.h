@@ -25,6 +25,8 @@ extern "C" {
     void pubsub_subscribe(char* topic_str, int client_session_id, int connection_id);
     void pubsub_unsubscribe(char* topic_str, int client_session_id, int connection_id);
 
+    void pubsub_remove_client(int client_session_id);
+    
 #include "../../../lib/general_list.h"
     void pubsub_find_matching(char* topic_mask, general_list * matches);
 

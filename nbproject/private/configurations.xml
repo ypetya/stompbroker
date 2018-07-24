@@ -41,6 +41,7 @@
         <in>clone_str.c</in>
         <in>clone_str.h</in>
         <in>constants.h</in>
+        <in>general_list_console.c</in>
         <in>queue.c</in>
         <in>queue.h</in>
         <in>queue_console.c</in>
@@ -48,7 +49,6 @@
         <in>random_string.h</in>
         <in>random_string_console.c</in>
         <in>signal_action_handler.c</in>
-        <in>signal_action_handler.h</in>
         <in>thread_safe_queue.c</in>
         <in>thread_safe_queue.h</in>
       </df>
@@ -557,11 +557,15 @@
           <in>listen.h</in>
           <in>process.c</in>
           <in>process.h</in>
+          <in>signal_action_handler.c</in>
+          <in>signal_action_handler.h</in>
         </df>
         <df name="stomp">
           <df name="data_wrappers">
             <in>session.c</in>
             <in>session.h</in>
+            <in>session_storage.c</in>
+            <in>session_storage.h</in>
           </df>
           <in>message.h</in>
           <in>parser.h</in>
@@ -587,6 +591,8 @@
       </df>
       <df name="stomp">
         <df name="data_wrappers">
+          <in>pub_sub.c</in>
+          <in>pub_sub.h</in>
         </df>
         <in>message.c</in>
         <in>parser.c</in>

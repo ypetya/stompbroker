@@ -22,6 +22,7 @@
         <in>associative_array.c</in>
         <in>avl_tree.c</in>
         <in>clone_str.c</in>
+        <in>general_list_console.c</in>
         <in>queue.c</in>
         <in>queue_console.c</in>
         <in>random_string.c</in>
@@ -69,6 +70,10 @@
         <in>accept.c</in>
       </df>
       <df name="stomp">
+        <df name="data_wrappers">
+          <in>pub_sub.c</in>
+          <in>pub_sub.h</in>
+        </df>
         <in>message.c</in>
         <in>parser.c</in>
       </df>
@@ -187,6 +192,8 @@
       </item>
       <item path="lib/general_list.c" ex="false" tool="0" flavor2="2">
       </item>
+      <item path="lib/general_list_console.c" ex="false" tool="0" flavor2="0">
+      </item>
       <item path="lib/queue.c" ex="false" tool="0" flavor2="2">
       </item>
       <item path="lib/queue_console.c" ex="false" tool="0" flavor2="2">
@@ -216,6 +223,16 @@
       <item path="stomp/server/listen.c" ex="false" tool="0" flavor2="2">
       </item>
       <item path="stomp/server/process.c" ex="false" tool="0" flavor2="2">
+      </item>
+      <item path="stomp/stomp/data_wrappers/pub_sub.c"
+            ex="false"
+            tool="0"
+            flavor2="0">
+      </item>
+      <item path="stomp/stomp/data_wrappers/pub_sub.h"
+            ex="false"
+            tool="3"
+            flavor2="0">
       </item>
       <item path="stomp/stomp/data_wrappers/session.c"
             ex="false"

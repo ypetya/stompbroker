@@ -99,11 +99,10 @@ void accept_incoming_data_loop(int listenSockFD) {
                     close(clientConnectionFD);
                     ts_enqueue(input_queue, message_disconnect(clientConnectionFD));
                 } else {
-
+                    read_buffer[received_length] = '\0';
                     message * incoming_message = message_create(
                             clientConnectionFD,
-                            read_buffer,
-                            received_length);
+                            read_buffer);
                     
                     ts_enqueue(input_queue, incoming_message);
                 }
