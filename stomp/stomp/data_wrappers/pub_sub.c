@@ -1,8 +1,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include "pub_sub.h"
-#include "../../../lib/emalloc.h"
-#include "../../../lib/clone_str.h"
+#include "../../lib/emalloc.h"
+#include "../../lib/clone_str.h"
 
 // TODO: introduce avl-tree for better match ratio
 general_list * topics;

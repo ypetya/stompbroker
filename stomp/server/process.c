@@ -3,7 +3,7 @@
 
 #include "process.h"
 #include "../logger.h"
-#include "../../lib/thread_safe_queue.h"
+#include "../lib/thread_safe_queue.h"
 #include "../stomp/stomp.h"
 
 typedef struct worker_thread_data_st {

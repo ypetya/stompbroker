@@ -21,7 +21,7 @@ extern "C" {
 #define FRM_DIAGNOSTIC_ID 6
     
 #include "message.h"
-#include "../../lib/associative_array.h"
+#include "../lib/associative_array.h"
 
     typedef struct parsed_message_st {
         int command;

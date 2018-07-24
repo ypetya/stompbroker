@@ -2,8 +2,8 @@
 #include <string.h>
 
 #include "message.h"
-#include "../../lib/emalloc.h"
-#include "../../lib/clone_str.h"
+#include "../lib/emalloc.h"
+#include "../lib/clone_str.h"
 
 message * message_create(int fd, char * str) {
     message * new_m = emalloc(sizeof (message));
@@ -41,10 +41,10 @@ message * message_error(int fd, char *reason) {
     size_t len = strlen(reason) + strlen(ERROR_TEMPLATE) + 10;
     char * frame = emalloc(len);
     sprintf(frame, ERROR_TEMPLATE, content_length, reason);
-    
+
     message * m = message_create(fd, frame);
     free(frame);
- 
+
     return m;
 }
 
@@ -60,16 +60,16 @@ message * message_connected(int fd, int session_id) {
 
     char * frame = emalloc(len + digits + 1);
     sprintf(frame, CONNECTED_TEMPLATE, session_id);
-    
+
     message * m = message_create(fd, frame);
-    
+
     free(frame);
     return m;
 }
 
 char * DISCONNECT_TEMPLATE = "DISCONNECT\n";
 
-message * message_disconnect(int fd) { 
+message * message_disconnect(int fd) {
     return message_create(fd, DISCONNECT_TEMPLATE);
 }
 
@@ -83,7 +83,7 @@ message * message_receipt(int fd, char* receipt_id) {
 
     char * frame = emalloc(len + digits + 1);
     sprintf(frame, RECEIPT_TEMPLATE, receipt_id);
-    
+
     message * m = message_create(fd, frame);
     free(frame);
     return m;
@@ -110,9 +110,9 @@ message * message_send(int fd, int subscription_id, int message_id, char* dest,
     return m;
 }
 
-char * MESSAGE_DIAGNOSTIC_TEMPLATE="DIAG\n"
-    "content-type:text/plain\n"
-    "%s:%s\n";
+char * MESSAGE_DIAGNOSTIC_TEMPLATE = "DIAG\n"
+        "content-type:text/plain\n"
+        "%s:%s\n";
 
 message * message_diagnostic(int fd, char * key, char * value) {
     int len = (int) (strlen(MESSAGE_DIAGNOSTIC_TEMPLATE) - 4);
@@ -120,9 +120,8 @@ message * message_diagnostic(int fd, char * key, char * value) {
 
     char * frame = emalloc(total_len + 1);
     sprintf(frame, MESSAGE_DIAGNOSTIC_TEMPLATE, key, value);
-    
+
     message *m = message_create(fd, frame);
     free(frame);
     return m;
 }
-    

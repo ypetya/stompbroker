@@ -4,10 +4,10 @@
  * and open the template in the editor.
  */
 #include <stdlib.h>
-#include "../../../lib/emalloc.h"
-#include "../../../lib/general_list.h"
+#include "../../lib/emalloc.h"
+#include "../../lib/general_list.h"
 #include "../stomp.h"
-#include "../../../lib//logger.h"
+#include "../../lib//logger.h"
 
 general_list * clients;
 

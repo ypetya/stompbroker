@@ -17,7 +17,7 @@
 
 #include "accept.h"
 #include "signal_action_handler.h"
-#include "../../lib/constants.h"
+#include "../lib/constants.h"
 
 
 int do_listen(char *port, int backlog)

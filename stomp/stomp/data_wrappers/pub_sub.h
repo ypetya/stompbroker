@@ -27,7 +27,7 @@ extern "C" {
 
     void pubsub_remove_client(int client_session_id);
     
-#include "../../../lib/general_list.h"
+#include "../../lib/general_list.h"
     void pubsub_find_matching(char* topic_mask, general_list * matches);
 
     int pubsub_size();

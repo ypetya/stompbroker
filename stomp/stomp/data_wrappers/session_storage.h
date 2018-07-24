@@ -19,7 +19,7 @@ extern "C" {
 #endif
 
     void session_storage_init();
-#include "../../../lib/thread_safe_queue.h"
+#include "../../lib/thread_safe_queue.h"
     void session_storage_dispose(ts_queue* output_q);
     
     /** 

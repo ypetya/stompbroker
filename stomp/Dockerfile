@@ -1,5 +1,6 @@
 FROM gcc
-WORKDIR /root
-ADD . stomp/
+ENV wd /root
+WORKDIR ${wd}
+ADD . ${wd}
 EXPOSE 3490
-RUN /root/stomp/build.sh && /root/stompbroker.out
+RUN ./build_and_run.sh

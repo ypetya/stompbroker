@@ -11,9 +11,9 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "../../lib/constants.h"
-#include "../../lib/thread_safe_queue.h"
-#include "../../lib/clone_str.h"
+#include "../lib/constants.h"
+#include "../lib/thread_safe_queue.h"
+#include "../lib/clone_str.h"
 #include "process.h"
 
 #include <string.h> // memcpy

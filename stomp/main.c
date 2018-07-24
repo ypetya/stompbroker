@@ -1,12 +1,12 @@
 
 // pick-up all the implementations
 
-#include "../lib/emalloc.c"
-#include "../lib/general_list.c"
-#include "../lib/queue.c"
-#include "../lib/thread_safe_queue.c"
-#include "../lib/clone_str.c"
-#include "../lib/associative_array.c"
+#include "lib/emalloc.c"
+#include "lib/general_list.c"
+#include "lib/queue.c"
+#include "lib/thread_safe_queue.c"
+#include "lib/clone_str.c"
+#include "lib/associative_array.c"
 #include "server/signal_action_handler.c"
 #include "parse_args.c"
 #include "server/listen.c"

@@ -3,7 +3,7 @@
 #include <sys/socket.h>
 #include <stdint.h>
 
-#include "../../lib/thread_safe_queue.h"
+#include "../lib/thread_safe_queue.h"
 #include "parser.h"
 #include "./data_wrappers/session_storage.h"
 #include "./data_wrappers/pub_sub.h"

@@ -1,6 +1,6 @@
 #include "parser.h"
 #include <stdio.h>
-#include "../../lib/clone_str.h"
+#include "../lib/clone_str.h"
 
 int parse_command(message* message);
 char * parse_headers(parsed_message* pm, associative_array * aa, char* str);
