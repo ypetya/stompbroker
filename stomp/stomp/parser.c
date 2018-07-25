@@ -63,6 +63,7 @@ char * parse_headers(parsed_message *pm, associative_array * aa, char* str) {
 
     char * le = line_end(str);
     char * nr_ptr = next_row(str);
+    // TODO : use strtok
     char * separator = strchr(str, ':');
     if (separator == NULL && nr_ptr != NULL) return nr_ptr;
 

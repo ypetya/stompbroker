@@ -40,7 +40,9 @@ void stomp_process(ts_queue* output_queue, message *input) {
         }
         case FRM_SUBSCRIBE_ID:
         {
-            if (client_id >= 0)
+            if(pm->topic == NULL) 
+                resp = message_error(input->fd, "No topic defined!\n");
+            else if (client_id >= 0)
                 pubsub_subscribe(pm->topic, client_id, pm->id);
             else
                 resp = message_error(input->fd, "Not connected!\n");
@@ -48,7 +50,9 @@ void stomp_process(ts_queue* output_queue, message *input) {
         }
         case FRM_UNSUBSCRIBE_ID:
         {
-            if (client_id >= 0)
+             if(pm->topic == NULL) 
+                resp = message_error(input->fd, "No topic defined!\n");
+            else if (client_id >= 0)
                 pubsub_unsubscribe(pm->topic, client_id, pm->id);
             else
                 resp = message_error(input->fd, "Not connected!\n");
@@ -56,7 +60,9 @@ void stomp_process(ts_queue* output_queue, message *input) {
         }
         case FRM_SEND_ID:
         {
-            if (client_id >= 0) {
+             if(pm->topic == NULL) 
+                resp = message_error(input->fd, "No topic defined!\n");
+            else if (client_id >= 0) {
                 general_list * matching_clients = list_new();
                 pubsub_find_matching(pm->topic, matching_clients);
 
@@ -89,10 +95,13 @@ void stomp_process(ts_queue* output_queue, message *input) {
             char buf[10];
             if (strncmp(pm->message_body, "session-size", 12) == 0) {
                 sprintf(buf, "%d", session_storage_size());
+                resp = message_diagnostic(input->fd, pm->message_body, buf);
             } else if (strncmp(pm->message_body, "pubsub-size", 11) == 0) {
                 sprintf(buf, "%d", pubsub_size());
-            } else break;
-            resp = message_diagnostic(input->fd, pm->message_body, buf);
+                resp = message_diagnostic(input->fd, pm->message_body, buf);
+            } else {
+                resp = message_error(input->fd, "Invalid message!\n");
+            }
             break;
         }
         default:
