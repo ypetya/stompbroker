@@ -65,7 +65,7 @@ void stomp_process(ts_queue* output_queue, message *input) {
                     subscription * sub = first->data;
                     message * o = message_send(input->fd,
                             sub->client_id,
-                            message_id,
+                            message_id++,
                             pm->topic,
                             pm->message_body
                             );

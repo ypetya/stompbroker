@@ -23,7 +23,7 @@ extern "C" {
     void list_print(general_list* list);
     void list_add(general_list* str_list, void* new_data);
 
-    int list_index_of(general_list*list, void* data);
+    int list_index_of(general_list*list, void* data, size_t siz);
     int list_remove_at(general_list*list, int ix);
     
     general_list_item* list_get_at(general_list*list, int ix);

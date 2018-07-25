@@ -48,7 +48,7 @@ void session_storage_dispose(ts_queue* q_out) {
 
 int session_storage_find_client_id(int external_id) {
     debug(" * Session find by external_id:%d\n", external_id);
-    int ret = list_index_of(clients, &external_id);
+    int ret = list_index_of(clients, &external_id, sizeof(int));
     debug(" -> index: %d\n", ret);
     return ret;
 }

@@ -13,8 +13,12 @@ void exitOnSignal() {
     signalActionStruct.sa_handler = sigchldHandler; // reap all dead processes
     sigemptyset(&signalActionStruct.sa_mask);
     signalActionStruct.sa_flags = SA_RESTART;
-    if (sigaction(SIGINT, &signalActionStruct, NULL) == -1)
-    {
+    if (sigaction(SIGINT, &signalActionStruct, NULL) == -1){
+        perror("sigaction");
+        exit(1);
+    }
+    // if we try to write to a closed socket -> do nothing
+    if(sigaction(SIGPIPE,NULL,NULL)){
         perror("sigaction");
         exit(1);
     }

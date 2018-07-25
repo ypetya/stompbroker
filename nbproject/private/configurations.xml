@@ -603,6 +603,7 @@
     <df root="examples/Websocket" name="2">
     </df>
     <itemPath>stomp/stomp/datastructures/readme.md</itemPath>
+    <itemPath>stomp/stomp.queue.test.js</itemPath>
   </logicalFolder>
   <projectmakefile></projectmakefile>
   <confs>

@@ -31,6 +31,10 @@ const TEST_DATA_FOR_CONNECT = [
     "RECEIPT\ncontent-type:text/plain\nreceipt-id:m-a\n",
     "DIAG\n\npubsub-size",
     "DIAG\ncontent-type:text/plain\npubsub-size:2\n",
+    "UNSUBSCRIBE\ndestination:/a_topic\nid:1\nreceipt:m-au\n",
+    "RECEIPT\ncontent-type:text/plain\nreceipt-id:m-au\n",
+    "DIAG\n\npubsub-size",
+    "DIAG\ncontent-type:text/plain\npubsub-size:1\n",
     "DISCONNECT\nreceipt:78\n", // at this point subscription should be removed!
     "RECEIPT\ncontent-type:text/plain\nreceipt-id:78\n",
     "DIAG\n\npubsub-size",

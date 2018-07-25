@@ -45,7 +45,7 @@ void list_free(general_list* list) {
 }
 
 general_list * list_new() {
-    general_list * list = emalloc(sizeof(general_list));
+    general_list * list = emalloc(sizeof (general_list));
     return list;
 }
 
@@ -72,21 +72,18 @@ general_list_item* create_general_list_item(void *data) {
     return ptr;
 }
 
-int list_index_of(general_list * list, void* data) {
+int list_index_of(general_list * list, void* data, size_t siz) {
     int ret_val = -1;
-    size_t siz = sizeof (*data);
-    size_t siz_c;
 
     general_list_item* c = list->first;
 
     if (c != NULL) {
 
-        for (ret_val = 0; c != NULL;
-                ret_val++,
-                c = c->next) {
-            siz_c = sizeof (*c->data);
-            if (siz == siz_c &&
-                    memcmp(c->data, data, siz) == 0) break;
+        ret_val = 0;
+        while (c != NULL) {
+            if (memcmp(c->data, data, siz) == 0) break;
+            ret_val++;
+            c = c->next;
         }
     }
 
