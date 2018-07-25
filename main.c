@@ -57,7 +57,6 @@ int main()
     my_addr.sin_addr.s_addr = INADDR_ANY; /* auto-fill with my IP */
     bzero(&(my_addr.sin_zero), 8);        /* zero the rest of the struct */
 
-//?? place sure
     int enable = 1;
     if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0)
         printf("setsockopt(SO_REUSEADDR) failed");
@@ -80,14 +79,14 @@ int main()
     //fcntl(sockfd, F_SETFL, O_NONBLOCK); /* Change the socket into non-blocking state	*/
     FD_ZERO(&allset);
     FD_SET(sockfd, &allset);
-
     for(i=0;i<FD_SETSIZE;i++){
         clients[i]=-1;
     }
     MaxClientID=-1;
 
     while(1){
-        printf("."); fflush(stdout);
+        printf("."); 
+        fflush(stdout);
         readset=allset;
         ReadDescriptors = select(last_fd+1, &readset, NULL, NULL, NULL); //BLOCKING
         if(FD_ISSET(sockfd, &readset)){

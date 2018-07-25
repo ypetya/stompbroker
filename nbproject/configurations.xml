@@ -1,0 +1,260 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configurationDescriptor version="100">
+  <logicalFolder name="root" displayName="root" projectFiles="true" kind="ROOT">
+    <df root="." name="0">
+      <df name="examples">
+        <df name="Websocket">
+          <in>Communicate.c</in>
+          <in>Datastructures.c</in>
+          <in>Errors.c</in>
+          <in>Handshake.c</in>
+          <in>Websocket.c</in>
+          <in>base64.c</in>
+          <in>md5.c</in>
+          <in>sha1.c</in>
+          <in>utf8.c</in>
+        </df>
+        <in>simple_blocking_stream_server.c</in>
+        <in>simple_stream_client.c</in>
+        <in>thread_return_value.c</in>
+      </df>
+      <df name="lib">
+        <in>associative_array.c</in>
+        <in>avl_tree.c</in>
+        <in>clone_str.c</in>
+        <in>general_list_console.c</in>
+        <in>queue.c</in>
+        <in>queue_console.c</in>
+        <in>random_string.c</in>
+        <in>random_string_console.c</in>
+        <in>signal_action_handler.c</in>
+        <in>thread_safe_queue.c</in>
+      </df>
+      <df name="stomp">
+        <df name="datastructures">
+          <in>list.c</in>
+        </df>
+        <df name="server">
+          <in>listen.c</in>
+          <in>process.c</in>
+        </df>
+        <df name="stomp">
+          <df name="data_wrappers">
+            <in>session.c</in>
+            <in>session.h</in>
+          </df>
+          <in>stomp.c</in>
+        </df>
+        <in>main.c</in>
+        <in>parse_args.c</in>
+      </df>
+      <in>main.c</in>
+    </df>
+    <logicalFolder name="lib" displayName="lib" projectFiles="true" root="lib">
+      <itemPath>lib/README.md</itemPath>
+      <itemPath>lib/build.sh</itemPath>
+      <itemPath>lib/emalloc.c</itemPath>
+      <itemPath>lib/emalloc.h</itemPath>
+      <itemPath>lib/general_list.c</itemPath>
+      <itemPath>lib/general_list.h</itemPath>
+      <itemPath>lib/logger.h</itemPath>
+      <itemPath>lib/queue_console.out</itemPath>
+      <itemPath>lib/random_string_console.out</itemPath>
+      <itemPath>lib/string_list.c</itemPath>
+      <itemPath>lib/string_list.h</itemPath>
+      <itemPath>lib/string_list_console.c</itemPath>
+      <itemPath>lib/string_list_console.out</itemPath>
+    </logicalFolder>
+    <df root="stomp" name="1">
+      <df name="server">
+        <in>accept.c</in>
+      </df>
+      <df name="stomp">
+        <df name="data_wrappers">
+          <in>pub_sub.c</in>
+          <in>pub_sub.h</in>
+        </df>
+        <in>message.c</in>
+        <in>parser.c</in>
+      </df>
+    </df>
+    <df root="examples/Websocket" name="2">
+    </df>
+    <logicalFolder name="ExternalFiles"
+                   displayName="Important Files"
+                   projectFiles="false"
+                   kind="IMPORTANT_FILES_FOLDER">
+      <itemPath>nbproject/private/launcher.properties</itemPath>
+    </logicalFolder>
+    <itemPath>stomp/stomp/datastructures/readme.md</itemPath>
+  </logicalFolder>
+  <sourceFolderFilter>^(nbproject)$</sourceFolderFilter>
+  <sourceRootList>
+    <Elem>.</Elem>
+  </sourceRootList>
+  <projectmakefile></projectmakefile>
+  <confs>
+    <conf name="Default" type="0">
+      <toolsSet>
+        <compilerSet>default</compilerSet>
+        <dependencyChecking>false</dependencyChecking>
+        <rebuildPropChanged>false</rebuildPropChanged>
+      </toolsSet>
+      <flagsDictionary>
+        <element flagsID="0" commonFlags="-mtune=generic -march=x86-64 -ggdb -g"/>
+      </flagsDictionary>
+      <codeAssistance>
+      </codeAssistance>
+      <makefileType>
+        <makeTool>
+          <buildCommandWorkingDir>.</buildCommandWorkingDir>
+          <buildCommand>./build.sh</buildCommand>
+          <cleanCommand>echo clean</cleanCommand>
+          <executablePath></executablePath>
+        </makeTool>
+        <preBuild>
+          <preBuildCommandWorkingDir>.</preBuildCommandWorkingDir>
+          <preBuildCommand></preBuildCommand>
+        </preBuild>
+      </makefileType>
+      <item path="examples/Websocket/Communicate.c" ex="false" tool="0" flavor2="3">
+        <cTool flags="0">
+          <incDir>
+            <pElem>examples/Websocket</pElem>
+          </incDir>
+        </cTool>
+      </item>
+      <item path="examples/Websocket/Datastructures.c"
+            ex="false"
+            tool="0"
+            flavor2="3">
+        <cTool flags="0">
+          <incDir>
+            <pElem>examples/Websocket</pElem>
+          </incDir>
+        </cTool>
+      </item>
+      <item path="examples/Websocket/Errors.c" ex="false" tool="0" flavor2="3">
+        <cTool flags="0">
+          <incDir>
+            <pElem>examples/Websocket</pElem>
+          </incDir>
+        </cTool>
+      </item>
+      <item path="examples/Websocket/Handshake.c" ex="false" tool="0" flavor2="2">
+      </item>
+      <item path="examples/Websocket/Websocket.c" ex="false" tool="0" flavor2="2">
+      </item>
+      <item path="examples/Websocket/base64.c" ex="false" tool="0" flavor2="3">
+        <cTool flags="0">
+          <incDir>
+            <pElem>examples/Websocket</pElem>
+          </incDir>
+        </cTool>
+      </item>
+      <item path="examples/Websocket/md5.c" ex="false" tool="0" flavor2="3">
+        <cTool flags="0">
+          <incDir>
+            <pElem>examples/Websocket</pElem>
+          </incDir>
+        </cTool>
+      </item>
+      <item path="examples/Websocket/sha1.c" ex="false" tool="0" flavor2="3">
+        <cTool flags="0">
+          <incDir>
+            <pElem>examples/Websocket</pElem>
+          </incDir>
+        </cTool>
+      </item>
+      <item path="examples/Websocket/utf8.c" ex="false" tool="0" flavor2="3">
+        <cTool flags="0">
+          <incDir>
+            <pElem>examples/Websocket</pElem>
+          </incDir>
+        </cTool>
+      </item>
+      <item path="examples/simple_blocking_stream_server.c"
+            ex="false"
+            tool="0"
+            flavor2="2">
+      </item>
+      <item path="examples/simple_stream_client.c" ex="false" tool="0" flavor2="2">
+      </item>
+      <item path="examples/thread_return_value.c" ex="false" tool="0" flavor2="2">
+      </item>
+      <item path="lib/associative_array.c" ex="false" tool="0" flavor2="2">
+      </item>
+      <item path="lib/avl_tree.c" ex="false" tool="0" flavor2="2">
+      </item>
+      <item path="lib/clone_str.c" ex="false" tool="0" flavor2="2">
+      </item>
+      <item path="lib/emalloc.c" ex="false" tool="0" flavor2="2">
+      </item>
+      <item path="lib/general_list.c" ex="false" tool="0" flavor2="2">
+      </item>
+      <item path="lib/general_list_console.c" ex="false" tool="0" flavor2="0">
+      </item>
+      <item path="lib/queue.c" ex="false" tool="0" flavor2="2">
+      </item>
+      <item path="lib/queue_console.c" ex="false" tool="0" flavor2="2">
+      </item>
+      <item path="lib/random_string.c" ex="false" tool="0" flavor2="2">
+      </item>
+      <item path="lib/random_string_console.c" ex="false" tool="0" flavor2="2">
+      </item>
+      <item path="lib/signal_action_handler.c" ex="false" tool="0" flavor2="2">
+      </item>
+      <item path="lib/string_list.c" ex="false" tool="0" flavor2="2">
+      </item>
+      <item path="lib/string_list_console.c" ex="false" tool="0" flavor2="2">
+      </item>
+      <item path="lib/thread_safe_queue.c" ex="false" tool="0" flavor2="2">
+      </item>
+      <item path="main.c" ex="false" tool="0" flavor2="2">
+      </item>
+      <item path="stomp/datastructures/list.c" ex="false" tool="0" flavor2="2">
+      </item>
+      <item path="stomp/main.c" ex="false" tool="0" flavor2="2">
+      </item>
+      <item path="stomp/parse_args.c" ex="false" tool="0" flavor2="2">
+      </item>
+      <item path="stomp/server/accept.c" ex="false" tool="0" flavor2="2">
+      </item>
+      <item path="stomp/server/listen.c" ex="false" tool="0" flavor2="2">
+      </item>
+      <item path="stomp/server/process.c" ex="false" tool="0" flavor2="2">
+      </item>
+      <item path="stomp/stomp/data_wrappers/pub_sub.c"
+            ex="false"
+            tool="0"
+            flavor2="0">
+      </item>
+      <item path="stomp/stomp/data_wrappers/pub_sub.h"
+            ex="false"
+            tool="3"
+            flavor2="0">
+      </item>
+      <item path="stomp/stomp/data_wrappers/session.c"
+            ex="false"
+            tool="0"
+            flavor2="0">
+      </item>
+      <item path="stomp/stomp/data_wrappers/session.h"
+            ex="false"
+            tool="3"
+            flavor2="0">
+      </item>
+      <item path="stomp/stomp/datastructures/readme.md"
+            ex="false"
+            tool="3"
+            flavor2="0">
+      </item>
+      <item path="stomp/stomp/message.c" ex="false" tool="0" flavor2="2">
+      </item>
+      <item path="stomp/stomp/parser.c" ex="false" tool="0" flavor2="2">
+      </item>
+      <item path="stomp/stomp/stomp.c" ex="false" tool="0" flavor2="2">
+      </item>
+    </conf>
+  </confs>
+</configurationDescriptor>

@@ -1,0 +1,21 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"string.h": "c",
+			"unistd.h": "c",
+			"socket.h": "c",
+			"inet.h": "c",
+			"signal.h": "c",
+			"wait.h": "c",
+			"netdb.h": "c",
+			"types.h": "c",
+			"stdlib.h": "c",
+			"in.h": "c"
+		}
+	}
+}
