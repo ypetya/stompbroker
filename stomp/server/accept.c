@@ -24,6 +24,7 @@ char read_buffer[BUFFER_SIZE];
 void *get_inbound_address(struct sockaddr *sa);
 
 // TODO: change to sys/epoll
+
 void accept_incoming_data_loop(int listenSockFD) {
     int i;
     int newConnectionFD, clientConnectionFD;
@@ -47,6 +48,7 @@ void accept_incoming_data_loop(int listenSockFD) {
     ts_queue * input_queue = process_start_threads();
 
     while (YES) {
+        // FIXME : really?
         fflush(stdout);
         readset = allset;
         int numOfFDsChanged = select(maxClientFD + 1, &readset, NULL, NULL, NULL); // Blocking
@@ -87,7 +89,7 @@ void accept_incoming_data_loop(int listenSockFD) {
             clientConnectionFD = clients[i];
             if (clientConnectionFD < 0) continue;
             if (FD_ISSET(clientConnectionFD, &readset)) {
-                int received_length = recv(clientConnectionFD, read_buffer, sizeof (read_buffer), 0);
+                int received_length = recv(clientConnectionFD, read_buffer, sizeof (read_buffer) - 1, 0);
                 if (received_length < 1) {
                     if (received_length == 0) {
                         info("server: socket closed nicely. client[%d]\n", i);
@@ -100,11 +102,15 @@ void accept_incoming_data_loop(int listenSockFD) {
                     ts_enqueue(input_queue, message_disconnect(clientConnectionFD));
                 } else {
                     read_buffer[received_length] = '\0';
-                    message * incoming_message = message_create(
-                            clientConnectionFD,
-                            read_buffer);
-                    
-                    ts_enqueue(input_queue, incoming_message);
+                    char * token = strtok(read_buffer, "\0");
+                    while (token != NULL) {
+                        message * incoming_message = message_create(
+                                clientConnectionFD,
+                                token);
+
+                        ts_enqueue(input_queue, incoming_message);
+                        token = strtok(NULL, "\0");
+                    }
                 }
                 if (--numOfFDsChanged <= 0) break;
             }

@@ -87,6 +87,7 @@
       <itemPath>nbproject/private/launcher.properties</itemPath>
     </logicalFolder>
     <itemPath>stomp/stomp/datastructures/readme.md</itemPath>
+    <itemPath>stomp/stomp.chat.js</itemPath>
     <itemPath>stomp/stomp.queue.test.js</itemPath>
   </logicalFolder>
   <sourceFolderFilter>^(nbproject)$</sourceFolderFilter>
@@ -224,6 +225,8 @@
       <item path="stomp/server/listen.c" ex="false" tool="0" flavor2="2">
       </item>
       <item path="stomp/server/process.c" ex="false" tool="0" flavor2="2">
+      </item>
+      <item path="stomp/stomp.chat.js" ex="false" tool="3" flavor2="0">
       </item>
       <item path="stomp/stomp.queue.test.js" ex="false" tool="3" flavor2="0">
       </item>

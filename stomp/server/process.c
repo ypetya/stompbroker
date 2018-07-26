@@ -67,8 +67,9 @@ void *writer_thread(void *vargp) {
                 break;
             }
             debug(">>>\n%s\n", msg->content);
-
-            res = send(msg->fd, msg->content, strlen(msg->content), 0);
+            // len+1 is required! STOMP standard requires to send 
+            // a closing zero octet
+            res = send(msg->fd, msg->content, strlen(msg->content)+1, 0);
             if (res < 0) {
                 perror("Could not send message. Client may disconnected");
             }

@@ -49,6 +49,20 @@ general_list * list_new() {
     return list;
 }
 
+/**
+ * Free items, but do not free data!
+ */
+void list_clear(general_list* list) {
+    general_list_item* c = list->first;
+    general_list_item* n;
+
+    while (c != NULL) {
+        n = c->next;
+        free(c);
+        c = n;
+    }
+}
+
 void list_free_items(general_list* list) {
     general_list_item* c = list->first;
     general_list_item* n;
@@ -56,7 +70,7 @@ void list_free_items(general_list* list) {
     while (c != NULL) {
         n = c->next;
 
-        // FIXME: leak when data contains a struct, which has not been freed
+        // NOTE: leak when data contains a struct, which has not been freed
         free(c->data);
         free(c);
         c = n;

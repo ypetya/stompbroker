@@ -86,7 +86,7 @@ void pubsub_remove_client(int client_session_id) {
 
     while (c != NULL) {
         subscription * sub = c->data;
-
+ 
         if (sub->session_id == client_session_id) {
             free(sub->topic_pattern);
             free(sub); // = c->data

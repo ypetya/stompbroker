@@ -40,7 +40,7 @@ void stomp_process(ts_queue* output_queue, message *input) {
         }
         case FRM_SUBSCRIBE_ID:
         {
-            if(pm->topic == NULL) 
+            if (pm->topic == NULL)
                 resp = message_error(input->fd, "No topic defined!\n");
             else if (client_id >= 0)
                 pubsub_subscribe(pm->topic, client_id, pm->id);
@@ -50,7 +50,7 @@ void stomp_process(ts_queue* output_queue, message *input) {
         }
         case FRM_UNSUBSCRIBE_ID:
         {
-             if(pm->topic == NULL) 
+            if (pm->topic == NULL)
                 resp = message_error(input->fd, "No topic defined!\n");
             else if (client_id >= 0)
                 pubsub_unsubscribe(pm->topic, client_id, pm->id);
@@ -60,7 +60,7 @@ void stomp_process(ts_queue* output_queue, message *input) {
         }
         case FRM_SEND_ID:
         {
-             if(pm->topic == NULL) 
+            if (pm->topic == NULL)
                 resp = message_error(input->fd, "No topic defined!\n");
             else if (client_id >= 0) {
                 general_list * matching_clients = list_new();
@@ -80,7 +80,8 @@ void stomp_process(ts_queue* output_queue, message *input) {
                     first = first->next;
                 }
 
-                list_free(matching_clients);
+                list_clear(matching_clients);
+                free(matching_clients);
             } else resp = message_error(input->fd, "Not connected!\n");
 
             break;

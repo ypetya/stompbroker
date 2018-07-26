@@ -35,22 +35,15 @@
       </df>
       <df name="lib">
         <in>associative_array.c</in>
-        <in>associative_array.h</in>
         <in>avl_tree.c</in>
-        <in>avl_tree.h</in>
         <in>clone_str.c</in>
-        <in>clone_str.h</in>
-        <in>constants.h</in>
         <in>general_list_console.c</in>
         <in>queue.c</in>
-        <in>queue.h</in>
         <in>queue_console.c</in>
         <in>random_string.c</in>
-        <in>random_string.h</in>
         <in>random_string_console.c</in>
         <in>signal_action_handler.c</in>
         <in>thread_safe_queue.c</in>
-        <in>thread_safe_queue.h</in>
       </df>
       <df name="node_modules">
         <df name=".bin">
@@ -551,33 +544,23 @@
         <df name="datastructures">
           <in>list.c</in>
         </df>
+        <df name="lib">
+        </df>
         <df name="server">
-          <in>accept.h</in>
           <in>listen.c</in>
-          <in>listen.h</in>
           <in>process.c</in>
-          <in>process.h</in>
-          <in>signal_action_handler.c</in>
-          <in>signal_action_handler.h</in>
         </df>
         <df name="stomp">
           <df name="data_wrappers">
             <in>session.c</in>
             <in>session.h</in>
-            <in>session_storage.c</in>
-            <in>session_storage.h</in>
           </df>
-          <in>message.h</in>
-          <in>parser.h</in>
           <in>stomp.c</in>
-          <in>stomp.h</in>
         </df>
         <df name="test">
         </df>
-        <in>logger.h</in>
         <in>main.c</in>
         <in>parse_args.c</in>
-        <in>parse_args.h</in>
       </df>
       <in>main.c</in>
     </df>
@@ -586,23 +569,62 @@
         <df name="inspectionProfiles">
         </df>
       </df>
+      <df name="lib">
+        <in>associative_array.c</in>
+        <in>associative_array.h</in>
+        <in>avl_tree.c</in>
+        <in>avl_tree.h</in>
+        <in>clone_str.c</in>
+        <in>clone_str.h</in>
+        <in>constants.h</in>
+        <in>emalloc.c</in>
+        <in>emalloc.h</in>
+        <in>general_list.c</in>
+        <in>general_list.h</in>
+        <in>general_list_console.c</in>
+        <in>logger.h</in>
+        <in>queue.c</in>
+        <in>queue.h</in>
+        <in>queue_console.c</in>
+        <in>random_string.c</in>
+        <in>random_string.h</in>
+        <in>random_string_console.c</in>
+        <in>string_list.c</in>
+        <in>string_list.h</in>
+        <in>string_list_console.c</in>
+        <in>thread_safe_queue.c</in>
+        <in>thread_safe_queue.h</in>
+      </df>
       <df name="server">
         <in>accept.c</in>
+        <in>accept.h</in>
+        <in>listen.h</in>
+        <in>process.h</in>
+        <in>signal_action_handler.c</in>
+        <in>signal_action_handler.h</in>
       </df>
       <df name="stomp">
         <df name="data_wrappers">
           <in>pub_sub.c</in>
           <in>pub_sub.h</in>
+          <in>session_storage.c</in>
+          <in>session_storage.h</in>
         </df>
         <in>message.c</in>
+        <in>message.h</in>
         <in>parser.c</in>
+        <in>parser.h</in>
+        <in>stomp.h</in>
       </df>
       <df name="test">
       </df>
+      <in>logger.h</in>
+      <in>parse_args.h</in>
     </df>
     <df root="examples/Websocket" name="2">
     </df>
     <itemPath>stomp/stomp/datastructures/readme.md</itemPath>
+    <itemPath>stomp/stomp.chat.js</itemPath>
     <itemPath>stomp/stomp.queue.test.js</itemPath>
   </logicalFolder>
   <projectmakefile></projectmakefile>
