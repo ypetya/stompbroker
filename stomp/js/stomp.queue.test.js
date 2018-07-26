@@ -35,7 +35,7 @@ const request = m => new Promise((resolve, reject) => {
 
 async function createSubscriptions(i) {
     for (let ix = 0; ix < i; ix++) {
-        await request(`SUBSCRIBE\ndestination:/queue/${ix}\nid:1\n`);
+        await request(`SUBSCRIBE\ndestination:/queue/${ix}\nid:1\n\0`);
     }
     
     return true;

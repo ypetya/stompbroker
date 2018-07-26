@@ -12,7 +12,7 @@ int message_id = 0;
 
 void stomp_process(ts_queue* output_queue, message *input) {
 
-    int client_id = session_storage_find_client_id(input->fd);
+    int client_id = session_storage_fetch_client_id(input->fd);
     parsed_message * pm = parse_message(input);
     message * resp = NULL;
 
@@ -69,7 +69,9 @@ void stomp_process(ts_queue* output_queue, message *input) {
                 general_list_item * first = matching_clients->first;
                 while (first != NULL) {
                     subscription * sub = first->data;
-                    message * o = message_send(input->fd,
+                    int fd = session_storage_fetch_external_id(sub->session_id);
+                    message * o = message_send(
+                            fd,
                             sub->client_id,
                             message_id++,
                             pm->topic,

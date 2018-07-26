@@ -420,6 +420,12 @@
             </df>
           </df>
         </df>
+        <df name="readline">
+          <df name="test">
+            <df name="fixtures">
+            </df>
+          </df>
+        </df>
         <df name="request">
           <df name="lib">
           </df>
@@ -544,6 +550,18 @@
         <df name="datastructures">
           <in>list.c</in>
         </df>
+        <df name="js">
+          <df name="chat">
+            <df name="node_modules">
+              <df name="readline">
+                <df name="test">
+                  <df name="fixtures">
+                  </df>
+                </df>
+              </df>
+            </df>
+          </df>
+        </df>
         <df name="lib">
         </df>
         <df name="server">
@@ -567,6 +585,18 @@
     <df root="stomp" name="1">
       <df name=".idea">
         <df name="inspectionProfiles">
+        </df>
+      </df>
+      <df name="js">
+        <df name="chat">
+          <df name="node_modules">
+            <df name="readline">
+              <df name="test">
+                <df name="fixtures">
+                </df>
+              </df>
+            </df>
+          </df>
         </df>
       </df>
       <df name="lib">
@@ -624,7 +654,9 @@
     <df root="examples/Websocket" name="2">
     </df>
     <itemPath>stomp/stomp/datastructures/readme.md</itemPath>
-    <itemPath>stomp/stomp.chat.js</itemPath>
+    <itemPath>stomp/js/chat/readme.md</itemPath>
+    <itemPath>stomp/js/chat/stomp.chat.js</itemPath>
+    <itemPath>stomp/js/chat/stomp.chat.lib.js</itemPath>
     <itemPath>stomp/stomp.queue.test.js</itemPath>
   </logicalFolder>
   <projectmakefile></projectmakefile>

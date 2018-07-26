@@ -108,13 +108,14 @@ int list_index_of(general_list * list, void* data, size_t siz) {
 general_list_item* list_get_at(general_list*list, int ix) {
     if (ix < 0 || ix >= list->size) return NULL;
 
-    if (ix == 0) return list->first;
-
     general_list_item* c = list->first;
-    general_list_item* p = NULL;
-    int i;
-    for (i = 0; i < ix; i++, p = c, c = c->next);
 
+    int i = 0;
+    while (i < ix) {
+        i++;
+        c = c->next;
+    }
+    
     return c;
 }
 

@@ -87,7 +87,9 @@
       <itemPath>nbproject/private/launcher.properties</itemPath>
     </logicalFolder>
     <itemPath>stomp/stomp/datastructures/readme.md</itemPath>
-    <itemPath>stomp/stomp.chat.js</itemPath>
+    <itemPath>stomp/js/chat/readme.md</itemPath>
+    <itemPath>stomp/js/chat/stomp.chat.js</itemPath>
+    <itemPath>stomp/js/chat/stomp.chat.lib.js</itemPath>
     <itemPath>stomp/stomp.queue.test.js</itemPath>
   </logicalFolder>
   <sourceFolderFilter>^(nbproject)$</sourceFolderFilter>
@@ -216,6 +218,12 @@
       </item>
       <item path="stomp/datastructures/list.c" ex="false" tool="0" flavor2="2">
       </item>
+      <item path="stomp/js/chat/readme.md" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="stomp/js/chat/stomp.chat.js" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="stomp/js/chat/stomp.chat.lib.js" ex="false" tool="3" flavor2="0">
+      </item>
       <item path="stomp/main.c" ex="false" tool="0" flavor2="2">
       </item>
       <item path="stomp/parse_args.c" ex="false" tool="0" flavor2="2">
@@ -225,8 +233,6 @@
       <item path="stomp/server/listen.c" ex="false" tool="0" flavor2="2">
       </item>
       <item path="stomp/server/process.c" ex="false" tool="0" flavor2="2">
-      </item>
-      <item path="stomp/stomp.chat.js" ex="false" tool="3" flavor2="0">
       </item>
       <item path="stomp/stomp.queue.test.js" ex="false" tool="3" flavor2="0">
       </item>

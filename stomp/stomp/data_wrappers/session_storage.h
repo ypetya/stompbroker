@@ -17,6 +17,11 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+    
+    typedef struct session_st {
+        int external_id;
+        int session_id;
+    } session_item;
 
     void session_storage_init();
 #include "../../lib/thread_safe_queue.h"
@@ -25,7 +30,8 @@ extern "C" {
     /** 
      @return return index if inserted, -1 if already exists.*/
     int session_storage_add_new(int external_id);
-    int session_storage_find(int external_id);
+    int session_storage_fetch_client_id(int external_id);
+    int session_storage_fetch_external_id(int client_id);
     void session_storage_remove(int index);
 
     int session_storage_size();
