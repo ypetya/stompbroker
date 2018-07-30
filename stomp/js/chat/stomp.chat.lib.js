@@ -47,6 +47,7 @@ class Chat {
                             str = str.substring(0, str.length - 1);
                             body = JSON.parse(str);
                         } catch (e) {
+                            // TODO handle diag message
                             console.error('Error', e);
                             console.log('Message', str);
                             return;
@@ -100,6 +101,10 @@ class Chat {
         return await this.request(`SEND\ndestination:${topic}\ncontent-type:text/plain\n\n` +
                 `${JSON.stringify(body)}\0"`);
     }
+    
+    async diag(stat) {
+        return await this.request(`DIAG\n\n${stat}\0`);
+    }
 
     async disconnect() {
         return await this.request('DISCONNECT\n\0');
@@ -118,7 +123,7 @@ class ChatClient extends Chat {
     connected(sessionId) {
         this.id = `/clients/${sessionId}`;
         this.subscribe(this.id);
-        this.send('/chat-servers', {content: 'clients', from: this.id});
+        this.send('/chat-servers', {content: 'New client', from: this.id});
     }
 
     message(cmd, headers, body) {
@@ -136,13 +141,17 @@ class ChatClient extends Chat {
             this.send(l[1], {content: body, from: this.id});
         } else if (l[0] == 'subscribe') {
             this.subscribe(l[1]);
-        } else if (l[0] == 'subscribe') {
+        } else if (l[0] == 'unsubscribe') {
             this.unsubscribe(l[1]);
+        } else if (l[0] == 'diag') {
+            this.diag(l[1]);
         } else {
-            console.log('Usage format:\n' +
+            console.log('Usage format:\n\n' +
                     'send <topic> message body\n' +
                     'subscribe <topic>\n' +
-                    'unsubscribe <topic>\n');
+                    'unsubscribe <topic>\n\n' +
+                    'diag <session-size|pubsub-size>'
+                    );
         }
     }
 }

@@ -2,7 +2,7 @@
 
 const net = require('net');
 
-const conn = net.connect(3490)
+const conn = net.connect(3490, '139.162.186.153');
 conn.setNoDelay(true);
 conn.once('ready', () => {
     conn.write("STOMP\naccept-version:1.2\nhost:localhost\n\n");
@@ -23,24 +23,30 @@ conn.once('close', () => {
 let arrived = 0;
 conn.on('data', (d) => console.log(`Arrived ${arrived++}\n${d.toString()}\n`));
 
-function runTest() {
-    createSubscriptions(10000).then(
-            ()=> setImmediate(sendMessage));
-}
 
 const request = m => new Promise((resolve, reject) => {
-        setImmediate(()=>conn.write(m));
-        setTimeout(resolve,0);
+        setImmediate(() => conn.write(m));
+        setTimeout(resolve, 0);
     });
+
+function runTest() {
+    createSubscriptions(1000).then(
+            async () => {
+        for (var i = 0; i < 1000; i++) {
+            await request("SEND\ndestination:/*\ncontent-type:text/plain\n\n{\"content\":\"Funky!\"}\0");
+            //setImmediate(sendMessage);
+        }
+    });
+}
 
 async function createSubscriptions(i) {
     for (let ix = 0; ix < i; ix++) {
         await request(`SUBSCRIBE\ndestination:/queue/${ix}\nid:1\n\0`);
     }
-    
+
     return true;
 }
 
 function sendMessage() {
-    conn.write("SEND\ndestination:/queue/*\ncontent-type:text/plain\n\nFunky!\n\0");
+    conn.write("SEND\ndestination:/*\ncontent-type:text/plain\n\n{\"content\":\"Funky!\"}\0");
 }
