@@ -550,6 +550,8 @@
         <df name="datastructures">
           <in>list.c</in>
         </df>
+        <df name="docker">
+        </df>
         <df name="js">
           <df name="chat">
             <df name="node_modules">
@@ -586,6 +588,8 @@
       <df name=".idea">
         <df name="inspectionProfiles">
         </df>
+      </df>
+      <df name="docker">
       </df>
       <df name="js">
         <df name="chat">

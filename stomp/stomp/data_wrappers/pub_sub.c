@@ -113,10 +113,15 @@ void pubsub_remove_client(int client_session_id) {
     }
 }
 
-void pubsub_find_matching(char* topic_mask, general_list * matches) {
-
-    if (topics->size == 0) return;
-
+/**
+ * @param topic_mask
+ * @param matches
+ * @return number of matches or -1 on error
+ */
+int pubsub_find_matching(char* topic_mask, general_list * matches) {
+    
+    if (topics->size == 0) return matches->size;
+    // NOTE: This function should be harnessed in a higher abstraction level
     char * topic_mask_wild_card = strchr(topic_mask, '*');
     int len = topic_mask_wild_card == NULL ?
             strlen(topic_mask) :
@@ -142,6 +147,8 @@ void pubsub_find_matching(char* topic_mask, general_list * matches) {
 
         c = c->next;
     }
+    
+    return matches->size;
 }
 
 int pubsub_size() {

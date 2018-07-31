@@ -42,6 +42,11 @@ The first character of the line can contain the following status codes:
 + MESSAGE
 + RECEIPT
 + ERROR
+
+- wildcard : only subscriptions allowed
+- subscription limit
+- input queue limit
+- performace testing
 ```
 
 Running

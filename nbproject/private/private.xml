@@ -10,17 +10,23 @@
     <editor-bookmarks xmlns="http://www.netbeans.org/ns/editor-bookmarks/2" lastBookmarkId="0"/>
     <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
         <group>
+            <file>file:/home/peter/projects/c_connect/stomp/server/accept.c</file>
+            <file>file:/home/peter/projects/c_connect/stomp/js/stomp.queue.test.js</file>
+            <file>file:/home/peter/projects/c_connect/stomp/js/chat/stomp.chat.js</file>
+            <file>file:/home/peter/projects/c_connect/stomp/stomp/data_wrappers/pub_sub.c</file>
+            <file>file:/home/peter/projects/c_connect/stomp/readme.md</file>
+            <file>file:/home/peter/projects/c_connect/stomp/stomp/data_wrappers/session_storage.c</file>
+            <file>file:/home/peter/projects/c_connect/stomp/lib/general_list.h</file>
+            <file>file:/home/peter/projects/c_connect/stomp/stomp/data_wrappers/session_storage.h</file>
             <file>file:/home/peter/projects/c_connect/stomp/stomp/stomp.h</file>
-            <file>file:/home/peter/projects/c_connect/stomp/stomp/message.h</file>
-            <file>file:/home/peter/projects/c_connect/lib/emalloc.c</file>
-            <file>file:/home/peter/projects/c_connect/lib/associative_array.h</file>
+            <file>file:/home/peter/projects/c_connect/stomp/js/chat/stomp.chat.lib.js</file>
+            <file>file:/home/peter/projects/c_connect/stomp/js/chat/package.json</file>
             <file>file:/home/peter/projects/c_connect/stomp/stomp/message.c</file>
-            <file>file:/home/peter/projects/c_connect/lib/general_list.h</file>
-            <file>file:/home/peter/projects/c_connect/lib/emalloc.h</file>
             <file>file:/home/peter/projects/c_connect/stomp/stomp/stomp.c</file>
-            <file>file:/home/peter/projects/c_connect/lib/associative_array.c</file>
+            <file>file:/home/peter/projects/c_connect/stomp/js/chat/readme.md</file>
+            <file>file:/home/peter/projects/c_connect/stomp/lib/general_list.c</file>
+            <file>file:/home/peter/projects/c_connect/stomp/js/stomp.protocol.test.js</file>
             <file>file:/home/peter/projects/c_connect/stomp/stomp/parser.c</file>
-            <file>file:/home/peter/projects/c_connect/lib/general_list.c</file>
         </group>
     </open-files>
 </project-private>

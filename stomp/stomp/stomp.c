@@ -63,7 +63,12 @@ void stomp_process(ts_queue* output_queue, message *input) {
             if (pm->topic == NULL)
                 resp = message_error(input->fd, "No topic defined!\n");
             else if (client_id >= 0) {
-                general_list * matching_clients = list_new();
+                if(strchr(pm->topic, '*')!=NULL) {
+                    resp = message_error(input->fd,
+                            "Can not have wildcard in message destination!\n");
+                    break;
+                };
+                general_list * matching_clients = list_new(); 
                 pubsub_find_matching(pm->topic, matching_clients);
 
                 general_list_item * first = matching_clients->first;
