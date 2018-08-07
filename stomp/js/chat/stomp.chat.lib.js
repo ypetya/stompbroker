@@ -48,8 +48,8 @@ class Chat {
                             body = JSON.parse(str);
                         } catch (e) {
                             // TODO handle diag message
-                            console.error('Error', e);
-                            console.log('Message', str);
+                            // console.error('Error', e);
+                            console.log('Message', arr.join('\n'));
                             return;
                         }
 

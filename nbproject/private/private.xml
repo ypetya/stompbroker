@@ -12,6 +12,8 @@
         <group>
             <file>file:/home/peter/projects/c_connect/stomp/server/accept.c</file>
             <file>file:/home/peter/projects/c_connect/stomp/js/stomp.queue.test.js</file>
+            <file>file:/home/peter/projects/c_connect/stomp/stomp/data_wrappers/pub_sub.h</file>
+            <file>file:/home/peter/projects/c_connect/stomp/server/process.c</file>
             <file>file:/home/peter/projects/c_connect/stomp/js/chat/stomp.chat.js</file>
             <file>file:/home/peter/projects/c_connect/stomp/stomp/data_wrappers/pub_sub.c</file>
             <file>file:/home/peter/projects/c_connect/stomp/readme.md</file>
@@ -19,6 +21,9 @@
             <file>file:/home/peter/projects/c_connect/stomp/lib/general_list.h</file>
             <file>file:/home/peter/projects/c_connect/stomp/stomp/data_wrappers/session_storage.h</file>
             <file>file:/home/peter/projects/c_connect/stomp/stomp/stomp.h</file>
+            <file>file:/home/peter/projects/c_connect/stomp/parse_args.c</file>
+            <file>file:/home/peter/projects/c_connect/stomp/server/listen.c</file>
+            <file>file:/home/peter/projects/c_connect/stomp/parse_args.h</file>
             <file>file:/home/peter/projects/c_connect/stomp/js/chat/stomp.chat.lib.js</file>
             <file>file:/home/peter/projects/c_connect/stomp/js/chat/package.json</file>
             <file>file:/home/peter/projects/c_connect/stomp/stomp/message.c</file>
@@ -26,6 +31,7 @@
             <file>file:/home/peter/projects/c_connect/stomp/js/chat/readme.md</file>
             <file>file:/home/peter/projects/c_connect/stomp/lib/general_list.c</file>
             <file>file:/home/peter/projects/c_connect/stomp/js/stomp.protocol.test.js</file>
+            <file>file:/home/peter/projects/c_connect/stomp/main.c</file>
             <file>file:/home/peter/projects/c_connect/stomp/stomp/parser.c</file>
         </group>
     </open-files>
