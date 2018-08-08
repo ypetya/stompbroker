@@ -1,4 +1,7 @@
 
+
+//#define DEBUG 1
+
 // pick-up all the implementations
 
 #include "lib/emalloc.c"

@@ -78,7 +78,11 @@ void stomp_process(ts_queue* output_queue, message *input) {
                     message * o = message_send(
                             fd,
                             sub->client_id,
+#ifdef DEBUG
+                            message_id,
+#else
                             message_id++,
+#endif
                             pm->topic,
                             pm->message_body
                             );

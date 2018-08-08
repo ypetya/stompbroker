@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+console.log('Run stompbroker with DEBUG_MESSAGE_ID!')
+
 const TEST_DATA_FOR_CONNECT = [
     "DIAG\n\nsession-size",
     "DIAG\ncontent-type:text/plain\nsession-size:0\n",
@@ -41,12 +43,14 @@ const TEST_DATA_FOR_CONNECT = [
     "DIAG\ncontent-type:text/plain\npubsub-size:0\n",
     "STOMP\naccept-version:1.2\nhost:localhost\n\n",
     check_connected,
-    "SUBSCRIBE\ndestination:/queue/a\nid:1\nreceipt:m-queue/a\n",
+    "SUBSCRIBE\ndestination:/queue/*\nid:1\nreceipt:m-queue/a\n",
     "RECEIPT\ncontent-type:text/plain\nreceipt-id:m-queue/a\n",
     "SEND\ndestination:/queue/a\ncontent-type:text/plain\n\nhello queue a\n",
     "MESSAGE\ncontent-type:text/plain\ncontent-length:14\nsubscription:1\nmessage-id:0\ndestination:/queue/a\n\nhello queue a\n",
-    "SEND\ndestination:/queue*\ncontent-type:text/plain\n\nhello queue *\n",
-    "MESSAGE\ncontent-type:text/plain\ncontent-length:14\nsubscription:1\nmessage-id:0\ndestination:/queue*\n\nhello queue *\n",
+    "SEND\ndestination:/queue/\ncontent-type:text/plain\n\nhello queue *\n",
+    "MESSAGE\ncontent-type:text/plain\ncontent-length:14\nsubscription:1\nmessage-id:0\ndestination:/queue/\n\nhello queue *\n",
+    "SEND\ndestination:/queue/abc\ncontent-type:text/plain\ncustom-header:test\n\nhello queue *\n",
+    "MESSAGE\ncontent-type:text/plain\ncontent-length:14\nsubscription:1\nmessage-id:0\ndestination:/queue/abc\ncustom-header:test\n\nhello queue *\n",
     "DISCONNECT\nreceipt:77\n",
     "RECEIPT\ncontent-type:text/plain\nreceipt-id:77\n"
  ];
@@ -88,7 +92,8 @@ const awaitResponse = async (requestMessage, responseMessage) => {
         if (typeof (ret) == 'string') {
             throw(`Invalid response:\n${ret}\n`);
         }
-    } else if (response != responseMessage) {
+    } else if (response.toString().replace('\0','') 
+            != responseMessage.toString().replace('\0','')) {
         throw(`Invalid response:\nExpected to get:\n${responseMessage}\nGot:\n${response}--\n`);
     }
     return 'SUCC';
