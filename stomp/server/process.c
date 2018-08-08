@@ -79,8 +79,6 @@ void *writer_thread(void *vargp) {
         usleep(10);
     }
 
-    //pthread_exit((void *) EXIT_SUCCESS);
-
     return NULL;
 }
 
@@ -107,8 +105,6 @@ void *reader_thread(void *vargp) {
 
         usleep(10);
     }
-
-    //pthread_exit((void *) EXIT_SUCCESS);
 
     return NULL;
 }

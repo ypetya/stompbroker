@@ -15,6 +15,7 @@ extern "C" {
 
     void ts_queue_init(ts_queue *q);
     void ts_enqueue(ts_queue * q, void *new_data);
+    int ts_enqueue_limited(ts_queue * q, void *new_data, unsigned int limit);
     void* ts_dequeue(ts_queue * q);
     
     void ts_queue_free(ts_queue *q);

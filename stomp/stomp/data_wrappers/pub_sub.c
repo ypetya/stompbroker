@@ -121,26 +121,38 @@ void pubsub_remove_client(int client_session_id) {
 int pubsub_find_matching(char* topic_mask, general_list * matches) {
     
     if (topics->size == 0) return matches->size;
-    // NOTE: This function should be harnessed in a higher abstraction level
+    // NOTE: This function should be harnessed in a higher abstraction level \
+not to use wildcards in the topic_mask
     char * topic_mask_wild_card = strchr(topic_mask, '*');
-    int len = topic_mask_wild_card == NULL ?
+    int topic_mask_len = topic_mask_wild_card == NULL ?
             strlen(topic_mask) :
             topic_mask_wild_card - topic_mask;
 
     int len2;
-
+    char * wild_card;
+    
     general_list_item * c = topics->first;
 
     while (c != NULL) {
         subscription * sub = c->data;
 
-        topic_mask_wild_card = strchr(sub->topic_pattern, '*');
-        len2 = topic_mask_wild_card == NULL ?
+        wild_card = strchr(sub->topic_pattern, '*');
+        len2 = wild_card == NULL ?
                 strlen(sub->topic_pattern) :
-                topic_mask_wild_card - sub->topic_pattern;
-        // MIN
-        len = len < len2 ? len : len2;
-
+                wild_card - sub->topic_pattern;
+        
+        // if no wild-card and length does not match
+        // or there is a wildcard but len is shorter
+        // => it is a no match!
+        if( wild_card == NULL && len2!=topic_mask_len
+            || wild_card !=NULL && topic_mask_len < len2
+                ) {
+            c = c->next;
+            continue;
+        }
+        
+        // MIN of topic_mask_len and len2
+        int len = topic_mask_len < len2 ? topic_mask_len : len2;
         if (strncmp(topic_mask, sub->topic_pattern, len) == 0) {
             list_add(matches, sub);
         }

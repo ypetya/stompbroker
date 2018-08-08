@@ -4,12 +4,20 @@ const net = require('net');
 
 const ARGS = {};
 function parseArgs() {
-    console.log('Node STOMP chat.');
+    console.log('Node STOMP chat.\n\n' +
+            'Valid command line options:\n' +
+            '[host:<host>] : host to connect to, default: localhost\n' +
+            '[port:<port>] : port to connect to, default: 3490\n' +
+            '[noEcho:<true|false>] : echo messages back sent by this client,default: false\n');
+
+
     console.log('Command line arguments: ')
     process.argv.forEach((val) => {
         const arg = val.split(":");
-        console.log(`${arg[0]}: ${arg[1]}`);
-        ARGS[arg[0]] = arg[1];
+        if (arg[1]) {
+            console.log(`${arg[0]}: ${arg[1]}`);
+            ARGS[arg[0]] = arg[1];
+        }
     });
     return ARGS;
 }
@@ -90,6 +98,7 @@ class Chat {
     }
 
     async subscribe(topic) {
+        console.log(`Subscribing to : ${topic}`);
         return await this.request(`SUBSCRIBE\ndestination:${topic}\nid:1\n\0`);
     }
 
@@ -101,7 +110,7 @@ class Chat {
         return await this.request(`SEND\ndestination:${topic}\ncontent-type:text/plain\n\n` +
                 `${JSON.stringify(body)}\0"`);
     }
-    
+
     async diag(stat) {
         return await this.request(`DIAG\n\n${stat}\0`);
     }
@@ -114,16 +123,28 @@ class Chat {
 
 const readline = require('readline');
 
+function nTimes(n, cb) {
+    if (n <= 0 || !Number.isFinite(n))
+        return;
+
+    cb(n).then(() => {
+        nTimes.call(this, n - 1, cb);
+    });
+}
+
 class ChatClient extends Chat {
     constructor(props) {
         super(props);
         this.onUserInput = this.onUserInput.bind(this);
+        this.repeat = nTimes.bind(this);
     }
 
     connected(sessionId) {
         this.id = `/clients/${sessionId}`;
-        this.subscribe(this.id);
-        this.send('/chat-servers', {content: 'New client', from: this.id});
+        this.subscribe(this.id)
+                .then(() => this.subscribe('/chat-servers'))
+                .then(() => this.send('/chat-servers',
+                            {content: 'New client', from: this.id}))
     }
 
     message(cmd, headers, body) {
@@ -135,10 +156,15 @@ class ChatClient extends Chat {
     onUserInput(line) {
         const l = line.split(' ');
         let body = line.split(' ');
-        body.splice(0, 2);
 
         if (l[0] == 'send') {
-            this.send(l[1], {content: body, from: this.id});
+            body.splice(0, 2);
+            let msg = {content: body.join(' '), from: this.id};
+            this.send(l[1], msg);
+        } else if (l[0] == 'repeat') {
+            body.splice(0, 3);
+            this.repeat(Number(l[1]), i => this.send(l[2],
+                        {content: `${i}:` + body.join(' '), from: this.id}));
         } else if (l[0] == 'subscribe') {
             this.subscribe(l[1]);
         } else if (l[0] == 'unsubscribe') {
@@ -148,6 +174,7 @@ class ChatClient extends Chat {
         } else {
             console.log('Usage format:\n\n' +
                     'send <topic> message body\n' +
+                    'repeat <count> <topic> message body\n' +
                     'subscribe <topic>\n' +
                     'unsubscribe <topic>\n\n' +
                     'diag <session-size|pubsub-size>'

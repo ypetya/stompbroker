@@ -4,19 +4,29 @@
 /**
  * # Responsiblity:
  * 
+ * - Parse config values - from command line?
  * - Provide config values
-*/
+ */
 
-#define DEFAULT_PORT 3490  // the port users will be connecting to
-#define DEFAULT_BACKLOG 10     // how many pending connections queue will hold
+// the port users will be connecting to
+#define DEFAULT_PORT 3490
+// how many pending connections queue will hold
+#define DEFAULT_BACKLOG 10
+// maximum input queue size
+#define DEFAULT_INPUT_QUEUE_LIMIT 1000000
+// maximum size of a single message
+#define DEFAULT_INPUT_BUFFER_SIZE 4000
 
 struct CONFIG_STRUCTURE {
     char * port;
     int backlog;
+    unsigned int max_input_queue_size;
+    int input_buffer_size;
 };
 
-typedef struct CONFIG_STRUCTURE ConfigStruct;
+typedef struct CONFIG_STRUCTURE stomp_app_config;
 
-ConfigStruct parseArgs();
+stomp_app_config* config_get_config();
+stomp_app_config config_parse_args();
 
 #endif

@@ -27,7 +27,7 @@
 */
 int main(void)
 {
-    ConfigStruct config = parseArgs();
+    stomp_app_config config = config_parse_args();
     
     return do_listen(config.port, config.backlog);
 }

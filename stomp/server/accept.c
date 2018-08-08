@@ -14,18 +14,21 @@
 #include "../lib/constants.h"
 #include "../lib/thread_safe_queue.h"
 #include "../lib/clone_str.h"
+#include "../parse_args.h"
 #include "process.h"
 
 #include <string.h> // memcpy
 
-#define BUFFER_SIZE 1000
-char read_buffer[BUFFER_SIZE];
 
 void *get_inbound_address(struct sockaddr *sa);
 
 // TODO: change to sys/epoll
 
 void accept_incoming_data_loop(int listenSockFD) {
+    stomp_app_config * config = config_get_config();
+    
+    char read_buffer[config->input_buffer_size];
+
     int i;
     int newConnectionFD, clientConnectionFD;
     fd_set readset, allset;
@@ -108,7 +111,12 @@ void accept_incoming_data_loop(int listenSockFD) {
                                 clientConnectionFD,
                                 token);
 
-                        ts_enqueue(input_queue, incoming_message);
+                        if (ts_enqueue_limited(input_queue,
+                                incoming_message,
+                                config->max_input_queue_size
+                                ) < 0)
+                            warn("server: Dropping message, input_queue limit reached! (%d)\n",
+                                config->max_input_queue_size);
                         token = strtok(NULL, "\0");
                     }
                 }

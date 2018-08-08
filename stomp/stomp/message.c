@@ -96,6 +96,8 @@ char * MESSAGE_TEMPLATE = "MESSAGE\n"
         "message-id:%d\n"
         "destination:%s\n\n%s";
 
+// TODO : custom client headers needs to be transfered!!!!
+// from the SEND frame!
 message * message_send(int fd, int subscription_id, int message_id, char* dest,
         char* body) {
     int template_len = (int) (strlen(MESSAGE_TEMPLATE) - 10);

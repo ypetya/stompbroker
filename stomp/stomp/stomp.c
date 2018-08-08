@@ -107,6 +107,8 @@ void stomp_process(ts_queue* output_queue, message *input) {
             } else if (strncmp(pm->message_body, "pubsub-size", 11) == 0) {
                 sprintf(buf, "%d", pubsub_size());
                 resp = message_diagnostic(input->fd, pm->message_body, buf);
+            } else if (strncmp(pm->message_body, "subs", 4) == 0) {
+                
             } else {
                 resp = message_error(input->fd, "Invalid message!\n");
             }
