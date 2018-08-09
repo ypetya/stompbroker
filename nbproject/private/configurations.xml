@@ -661,6 +661,7 @@
     <itemPath>stomp/js/chat/readme.md</itemPath>
     <itemPath>stomp/js/chat/stomp.chat.js</itemPath>
     <itemPath>stomp/js/chat/stomp.chat.lib.js</itemPath>
+    <itemPath>stomp/js/stomp.connection.test.js</itemPath>
     <itemPath>stomp/stomp.queue.test.js</itemPath>
   </logicalFolder>
   <projectmakefile></projectmakefile>

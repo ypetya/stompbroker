@@ -90,6 +90,7 @@
     <itemPath>stomp/js/chat/readme.md</itemPath>
     <itemPath>stomp/js/chat/stomp.chat.js</itemPath>
     <itemPath>stomp/js/chat/stomp.chat.lib.js</itemPath>
+    <itemPath>stomp/js/stomp.connection.test.js</itemPath>
     <itemPath>stomp/stomp.queue.test.js</itemPath>
   </logicalFolder>
   <sourceFolderFilter>^(nbproject)$</sourceFolderFilter>
@@ -223,6 +224,8 @@
       <item path="stomp/js/chat/stomp.chat.js" ex="false" tool="3" flavor2="0">
       </item>
       <item path="stomp/js/chat/stomp.chat.lib.js" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="stomp/js/stomp.connection.test.js" ex="false" tool="3" flavor2="0">
       </item>
       <item path="stomp/main.c" ex="false" tool="0" flavor2="2">
       </item>

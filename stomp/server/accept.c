@@ -55,6 +55,7 @@ void accept_incoming_data_loop(int listenSockFD) {
         fflush(stdout);
         readset = allset;
         int numOfFDsChanged = select(maxClientFD + 1, &readset, NULL, NULL, NULL); // Blocking
+        
         // New connections
         if (FD_ISSET(listenSockFD, &readset)) {
             //listenSockFD has changes
@@ -71,6 +72,14 @@ void accept_incoming_data_loop(int listenSockFD) {
                         debug("server: clients[%d]=%d;\n", i, newConnectionFD);
                         break;
                     }
+                }
+                if(i==FD_SETSIZE) {
+                    warn("server: No more connections allowed than %d."
+                            " Closing fd: %d.\n", 
+                            FD_SETSIZE,
+                            newConnectionFD);
+                    close(newConnectionFD);
+                    continue;
                 }
 
                 fcntl(newConnectionFD, F_SETFL, O_NONBLOCK | O_NDELAY);

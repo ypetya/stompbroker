@@ -130,11 +130,12 @@ not to use wildcards in the topic_mask
 
     int len2;
     char * wild_card;
+    subscription * sub;
     
     general_list_item * c = topics->first;
 
     while (c != NULL) {
-        subscription * sub = c->data;
+        sub = c->data;
 
         wild_card = strchr(sub->topic_pattern, '*');
         len2 = wild_card == NULL ?

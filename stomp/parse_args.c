@@ -14,7 +14,8 @@ stomp_app_config config_parse_args() {
     config.max_input_queue_size = DEFAULT_INPUT_QUEUE_LIMIT;
     config.input_buffer_size = DEFAULT_INPUT_BUFFER_SIZE;
     
-    info("server: Using default configuration. port:%d \n", DEFAULT_PORT);
+    info("server: FD_SETSIZE : %d\n", FD_SETSIZE);
+    info("server: Port:%d \n", DEFAULT_PORT);
     info("server: Maximum message size: %d\n", DEFAULT_INPUT_BUFFER_SIZE);
     info("server: Input queue limit: %d\n", DEFAULT_INPUT_QUEUE_LIMIT);
     
