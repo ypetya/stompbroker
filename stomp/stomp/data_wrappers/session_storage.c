@@ -30,7 +30,7 @@ int session_storage_add_new(int external_id) {
     s->session_id = session_id++;
 
     list_add(clients, s);
-    debug(" * Session new session %d for fd %d\n", s->session_id, s->external_id);
+    //debug(" * Session new session %d for fd %d\n", s->session_id, s->external_id);
 
     return s->session_id;
 }
@@ -56,7 +56,7 @@ void session_storage_dispose(ts_queue* q_out) {
 
 int session_storage_fetch_client_id(int external_id) {
     int ret = -1;
-    debug(" * Session find by external_id:%d\n", external_id);
+    //debug(" * Session find by external_id:%d\n", external_id);
     for (general_list_item * client = clients->first;
             client != NULL;
             client = client->next) {
@@ -66,13 +66,13 @@ int session_storage_fetch_client_id(int external_id) {
             break;
         }
     }
-    debug(" -> session_id: %d\n", ret);
+    //debug(" -> session_id: %d\n", ret);
     return ret;
 }
 
 int session_storage_fetch_external_id(int session_id) {
     int ret = -1;
-    debug(" * Session find by session_id:%d\n", session_id);
+    //debug(" * Session find by session_id:%d\n", session_id);
     for (general_list_item * client = clients->first;
             client != NULL;
             client = client->next) {
@@ -82,12 +82,12 @@ int session_storage_fetch_external_id(int session_id) {
             break;
         }
     }
-    debug(" -> external_id: %d\n", ret);
+    //debug(" -> external_id: %d\n", ret);
     return ret;
 }
 
 void session_storage_remove(int session_id) {
-    debug(" * Session delete by session_id %d\n", session_id);
+    //debug(" * Session delete by session_id %d\n", session_id);
 
     int i = 0;
     session_item * s;

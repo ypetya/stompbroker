@@ -5,6 +5,18 @@ More information : https://stomp.github.io/stomp-specification-1.2.html
 
 This folder is in the state of "Work in progress"
 
+Performance
+-----------
+
+current implementation uses epoll:
+input queue is processed by a single thread
+
+On my laptop
+for 20000 connections with 20000 '/queue/*' subscriptions
+takes 2 seconds to deliver a single message on localhost ( using 4 nodejs processes as clients with console output)
+
+Further measurements needed
+
 Feature Status
 --------------
 
@@ -42,17 +54,17 @@ The first character of the line can contain the following status codes:
 + MESSAGE
 + RECEIPT
 + ERROR
-
-- wildcard : only subscriptions allowed
-- subscription limit
-- input queue limit
++ using epoll instead of select
++ wildcard : only subscriptions allowed
+~ subscription limit
++ input queue limit
 - performace testing
 ```
 
 Running
 -------
 
-TODO: in docker container: https://hub.docker.com/_/gcc/
+/docker folder -> available docker files: for compiling and running
 
 ### STOMP protocol implementation
 

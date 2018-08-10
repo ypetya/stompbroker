@@ -12,14 +12,14 @@
 const net = require('net');
 const connArr = [];
 
-for (let i = 0; i < 1024; i++) {
+for (let i = 0; i < 5000; i++) {
 
     const conn = net.connect(3490, 'localhost');
     conn.setNoDelay(true);
-    conn.once('ready', onReady.bind(conn,i));
-    conn.once('error', onError.bind(conn,i));
-    conn.once('close', onClose.bind(conn,i));
-    conn.on('data', onData.bind(conn,i));
+    conn.once('ready', onReady.bind(conn, i));
+    conn.once('error', onError.bind(conn, i));
+    conn.once('close', onClose.bind(conn, i));
+    conn.on('data', onData.bind(conn, i));
 
     connArr.push(conn);
 }
@@ -37,18 +37,22 @@ function onReady(i) {
         if (data.indexOf('CONNECTED') == 0) {
             stompArr[i] = 'CONNECTED';
             var matches = data.match(/session:(\d+)/);
-            if(matches.length > 0) {
+            if (matches.length > 0) {
                 const sessionId = matches[1];
                 let stillConnecting = 0;
-                stompArr.forEach(s => { if(s=='CONNECTING') stillConnecting++;});
+                stompArr.forEach(s => {
+                    if (s == 'CONNECTING')
+                        stillConnecting++;
+                });
                 console.log(`connected. session_id: ${sessionId}. Left:${stillConnecting}`);
+                this.write(`SUBSCRIBE\ndestination:/queue/*\nid:${i}\n`);
             }
         }
     }
     );
 }
 
-function onError(i,e) {
+function onError(i, e) {
     console.error(`${i}: ${e.toString()}`);
 }
 
@@ -57,7 +61,8 @@ function onClose(i) {
 }
 
 let arrived = 0;
-function onData(conn,i, d) {
-    arrived++;
-    //console.log(`Arrived ${arrived++}\n${d.toString()}\n`);
+function onData(conn, i, d) {
+    //arrived++;
+    /*${d.toString()}\n*/
+    console.log(`Arrived ${arrived++}\n`);
 }

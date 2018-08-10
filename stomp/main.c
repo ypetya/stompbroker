@@ -14,7 +14,7 @@
 #include "parse_args.c"
 #include "server/listen.c"
 #include "server/process.c"
-#include "server/accept.c"
+#include "server/accept_epoll.c"
 #include "stomp/data_wrappers/session_storage.c"
 #include "stomp/data_wrappers/pub_sub.c"
 #include "stomp/stomp.c"
