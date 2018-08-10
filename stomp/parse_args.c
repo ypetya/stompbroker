@@ -2,6 +2,7 @@
 
 #include "logger.h"
 #include <string.h>
+#include <sys/sysinfo.h>
 
 stomp_app_config config;
 
@@ -13,8 +14,11 @@ stomp_app_config config_parse_args() {
     config.port = (char*) &buffer;
     config.max_input_queue_size = DEFAULT_INPUT_QUEUE_LIMIT;
     config.input_buffer_size = DEFAULT_INPUT_BUFFER_SIZE;
+    config.processors = get_nprocs();
     
-    info("server: FD_SETSIZE : %d\n", FD_SETSIZE);
+    info("server: This system has %d processors configured and "
+        "%d processors available.\n",
+        get_nprocs_conf(), get_nprocs());
     info("server: Port:%d \n", DEFAULT_PORT);
     info("server: Maximum message size: %d\n", DEFAULT_INPUT_BUFFER_SIZE);
     info("server: Input queue limit: %d\n", DEFAULT_INPUT_QUEUE_LIMIT);

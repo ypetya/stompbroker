@@ -22,6 +22,7 @@ struct CONFIG_STRUCTURE {
     int backlog;
     unsigned int max_input_queue_size;
     int input_buffer_size;
+    int processors;
 };
 
 typedef struct CONFIG_STRUCTURE stomp_app_config;
