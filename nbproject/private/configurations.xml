@@ -642,7 +642,8 @@
       <df name="lib">
       </df>
       <df name="server">
-        <in>accept.c</in>
+        <in>accept_epoll.c</in>
+        <in>accept_select.c</in>
       </df>
       <df name="stomp">
         <df name="data_wrappers">

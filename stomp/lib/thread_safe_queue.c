@@ -10,6 +10,16 @@ void ts_enqueue(ts_queue * q, void *new_data) {
     pthread_mutex_unlock(&q->lock);
 }
 
+void ts_enqueue_multiple(ts_queue *q, general_list* new_items) {
+    pthread_mutex_lock(&q->lock);
+    general_list_item * first = new_items->first;
+    while (first != NULL) {
+        enqueue(&q->q, first->data);
+        first = first->next;
+    }
+    pthread_mutex_unlock(&q->lock);
+}
+
 int ts_enqueue_limited(ts_queue * q, void *new_data, unsigned int limit) {
     int ret_val = 0;
 

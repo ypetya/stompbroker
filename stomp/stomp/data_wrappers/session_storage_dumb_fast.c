@@ -14,6 +14,7 @@ int session_id;
 
 general_list * clients;
 
+// Instead of this linked list, some memory mapping / bitmask could work
 int session_storage_add_new(int external_id) {
     if (clients == NULL) return -1;
 
@@ -27,12 +28,14 @@ int session_storage_add_new(int external_id) {
 
     s = emalloc(sizeof (session_item));
     s->external_id = external_id;
-    s->session_id = session_id++;
+    s->session_id = external_id;
+    
+    session_id++;
 
     list_add(clients, s);
     //debug(" * Session new session %d for fd %d\n", s->session_id, s->external_id);
 
-    return s->session_id;
+    return external_id;
 }
 
 void session_storage_init() {
@@ -55,35 +58,12 @@ void session_storage_dispose(ts_queue* q_out) {
 }
 
 int session_storage_fetch_client_id(int external_id) {
-    int ret = -1;
-    //debug(" * Session find by external_id:%d\n", external_id);
-    for (general_list_item * client = clients->first;
-            client != NULL;
-            client = client->next) {
-        session_item * s = client->data;
-        if (s->external_id == external_id) {
-            ret = s->session_id;
-            break;
-        }
-    }
-    //debug(" -> session_id: %d\n", ret);
-    return ret;
+    return external_id;
 }
-
+// This is very important to keep this fast!
+// O(1) solution:
 int session_storage_fetch_external_id(int session_id) {
-    int ret = -1;
-    //debug(" * Session find by session_id:%d\n", session_id);
-    for (general_list_item * client = clients->first;
-            client != NULL;
-            client = client->next) {
-        session_item * s = client->data;
-        if (s->session_id == session_id) {
-            ret = s->external_id;
-            break;
-        }
-    }
-    //debug(" -> external_id: %d\n", ret);
-    return ret;
+    return session_id;
 }
 
 void session_storage_remove(int session_id) {

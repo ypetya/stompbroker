@@ -63,12 +63,13 @@ void stomp_process(ts_queue* output_queue, message *input) {
             if (pm->topic == NULL)
                 resp = message_error(input->fd, "No topic defined!\n");
             else if (client_id >= 0) {
-                if(strchr(pm->topic, '*')!=NULL) {
+                if (strchr(pm->topic, '*') != NULL) {
                     resp = message_error(input->fd,
                             "Can not have wildcard in message destination!\n");
                     break;
                 };
-                general_list * matching_clients = list_new(); 
+                general_list * matching_clients = list_new();
+                general_list * messages_out = list_new();
                 pubsub_find_matching(pm->topic, matching_clients);
 
                 general_list_item * first = matching_clients->first;
@@ -86,10 +87,15 @@ void stomp_process(ts_queue* output_queue, message *input) {
                             pm->topic,
                             pm->message_body
                             );
-                    ts_enqueue(output_queue, o);
+                    list_add(messages_out, o);
 
                     first = first->next;
                 }
+
+                ts_enqueue_multiple(output_queue, messages_out);
+
+                list_clear(messages_out);
+                free(messages_out);
 
                 list_clear(matching_clients);
                 free(matching_clients);
@@ -112,7 +118,7 @@ void stomp_process(ts_queue* output_queue, message *input) {
                 sprintf(buf, "%d", pubsub_size());
                 resp = message_diagnostic(input->fd, pm->message_body, buf);
             } else if (strncmp(pm->message_body, "subs", 4) == 0) {
-                
+
             } else {
                 resp = message_error(input->fd, "Invalid message!\n");
             }

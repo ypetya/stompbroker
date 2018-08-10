@@ -96,6 +96,7 @@ void *writer_thread(void *vargp) {
             res = send(msg->fd, msg->content, strlen(msg->content) + 1, 0);
             if (res < 0) {
                 perror("Could not send message. Client may disconnected");
+                warn("fd:%d",msg->fd);
             }
             message_destroy(msg);
         }

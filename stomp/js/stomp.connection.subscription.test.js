@@ -11,8 +11,8 @@
 
 const net = require('net');
 const connArr = [];
-
-for (let i = 0; i < 5000; i++) {
+const requestedSubCount = Number(process.argv[2]) || 5000;
+for (let i = 0; i < requestedSubCount; i++) {
 
     const conn = net.connect(3490, 'localhost');
     conn.setNoDelay(true);
@@ -64,5 +64,5 @@ let arrived = 0;
 function onData(conn, i, d) {
     //arrived++;
     /*${d.toString()}\n*/
-    console.log(`Arrived ${arrived++}\n`);
+    //console.log(`Arrived ${arrived++}\n`);
 }

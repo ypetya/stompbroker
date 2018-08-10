@@ -67,7 +67,7 @@
     </logicalFolder>
     <df root="stomp" name="1">
       <df name="server">
-        <in>accept.c</in>
+        <in>accept_select.c</in>
       </df>
       <df name="stomp">
         <df name="data_wrappers">
@@ -231,7 +231,7 @@
       </item>
       <item path="stomp/parse_args.c" ex="false" tool="0" flavor2="2">
       </item>
-      <item path="stomp/server/accept.c" ex="false" tool="0" flavor2="2">
+      <item path="stomp/server/accept_select.c" ex="false" tool="0" flavor2="2">
       </item>
       <item path="stomp/server/listen.c" ex="false" tool="0" flavor2="2">
       </item>
