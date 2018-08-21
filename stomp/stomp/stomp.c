@@ -7,8 +7,17 @@
 #include "parser.h"
 #include "./data_wrappers/session_storage.h"
 #include "./data_wrappers/pub_sub.h"
+#include "../lib/associative_array.h"
 
 int message_id = 0;
+
+
+char str_buf[20];
+
+char * itoa(int num) {
+    snprintf(str_buf, 20, "%d", num);
+    return str_buf;
+}
 
 void stomp_process(ts_queue* output_queue, message *input) {
 
@@ -73,26 +82,37 @@ void stomp_process(ts_queue* output_queue, message *input) {
                 pubsub_find_matching(pm->topic, matching_clients);
 
                 general_list_item * first = matching_clients->first;
+
+                associative_array * aa = emalloc(sizeof (associative_array));
+
+                aa_merge(aa, pm->headers->root);
+                aa_put(aa, "content-type", "text/plain");
+                aa_put(aa, "content-length", itoa(strlen(pm->message_body)));
+
                 while (first != NULL) {
                     subscription * sub = first->data;
                     int fd = session_storage_fetch_external_id(sub->session_id);
-                    message * o = message_send(
-                            fd,
-                            sub->client_id,
+
 #ifdef DEBUG
-                            message_id,
+                    aa_put(aa, "message-id", itoa(message_id));
 #else
-                            message_id++,
+                    aa_put(aa, "message-id", itoa(message_id++));
 #endif
-                            pm->topic,
-                            pm->message_body
-                            );
+                    aa_put(aa, "destination", pm->topic);
+                    aa_put(aa, "subscription", itoa(sub->client_id));
+
+                    message * o = message_send_with_headers(fd,
+                            aa,
+                            pm->message_body);
+
                     list_add(messages_out, o);
 
                     first = first->next;
                 }
 
                 ts_enqueue_multiple(output_queue, messages_out);
+
+                aa_free(aa);
 
                 list_clear(messages_out);
                 free(messages_out);

@@ -31,7 +31,8 @@ extern "C" {
     message * message_receipt(int fd, char* receipt_id);
     message * message_send(int fd, int subscription_id,
             int message_id, char* dest, char* body);
-
+    message * message_send_with_headers(int fd, associative_array * headers,
+            char* body);
     message * message_poison_pill();
     
     message * message_diagnostic(int fd, char * key, char * value);

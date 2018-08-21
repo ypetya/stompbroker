@@ -10,12 +10,10 @@ Performance
 
 current implementation uses epoll:
 input queue is processed by a single thread
-
-On my laptop
-for 20000 connections with 20000 '/queue/*' subscriptions
-takes 2 seconds to deliver a single message on localhost ( using 4 nodejs processes as clients with console output)
+and as many output thread as free cores
 
 Further measurements needed
+
 
 Feature Status
 --------------
@@ -33,7 +31,7 @@ The first character of the line can contain the following status codes:
 
 
 ```
-~ Parse arguments
+~ Parse arguments (using pre-defined values, not accepting command line arguments)
 + Logger: Log output if necessary
 + Segregate main modules
 + TCP connection parent listener
@@ -52,12 +50,15 @@ The first character of the line can contain the following status codes:
 - NACK
 + DISCONNECT
 + MESSAGE
++ SEND -> MESSAGE custom headers
 + RECEIPT
 + ERROR
 + using epoll instead of select
 + wildcard : only subscriptions allowed
 ~ subscription limit
 + input queue limit
++ maximum message size
++ multithreaded output processing
 - performace testing
 ```
 

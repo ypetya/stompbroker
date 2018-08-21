@@ -46,11 +46,11 @@ const TEST_DATA_FOR_CONNECT = [
     "SUBSCRIBE\ndestination:/queue/*\nid:1\nreceipt:m-queue/a\n",
     "RECEIPT\ncontent-type:text/plain\nreceipt-id:m-queue/a\n",
     "SEND\ndestination:/queue/a\ncontent-type:text/plain\n\nhello queue a\n",
-    "MESSAGE\ncontent-type:text/plain\ncontent-length:14\nsubscription:1\nmessage-id:0\ndestination:/queue/a\n\nhello queue a\n",
+    "MESSAGE\ndestination:/queue/a\nmessage-id:0\nsubscription:1\ncontent-type:text/plain\ncontent-length:14\n\nhello queue a\n",
     "SEND\ndestination:/queue/\ncontent-type:text/plain\n\nhello queue *\n",
-    "MESSAGE\ncontent-type:text/plain\ncontent-length:14\nsubscription:1\nmessage-id:0\ndestination:/queue/\n\nhello queue *\n",
+    "MESSAGE\ndestination:/queue/\nmessage-id:0\nsubscription:1\ncontent-type:text/plain\ncontent-length:14\n\nhello queue *\n",
     "SEND\ndestination:/queue/abc\ncontent-type:text/plain\ncustom-header:test\n\nhello queue *\n",
-    "MESSAGE\ncontent-type:text/plain\ncontent-length:14\nsubscription:1\nmessage-id:0\ndestination:/queue/abc\ncustom-header:test\n\nhello queue *\n",
+    "MESSAGE\ndestination:/queue/abc\nmessage-id:0\nsubscription:1\ncontent-type:text/plain\ncustom-header:test\ncontent-length:14\n\nhello queue *\n",
     "DISCONNECT\nreceipt:77\n",
     "RECEIPT\ncontent-type:text/plain\nreceipt-id:77\n"
  ];

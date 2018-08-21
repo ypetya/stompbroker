@@ -96,8 +96,7 @@ char * MESSAGE_TEMPLATE = "MESSAGE\n"
         "message-id:%d\n"
         "destination:%s\n\n%s";
 
-// TODO : custom client headers needs to be transfered!!!!
-// from the SEND frame!
+// OBSOLETE: must send custom headers!
 message * message_send(int fd, int subscription_id, int message_id, char* dest,
         char* body) {
     int template_len = (int) (strlen(MESSAGE_TEMPLATE) - 10);
@@ -107,6 +106,23 @@ message * message_send(int fd, int subscription_id, int message_id, char* dest,
 
     char * frame = emalloc(total_len + 1);
     sprintf(frame, MESSAGE_TEMPLATE, content_length, subscription_id, message_id, dest, body);
+    message * m = message_create(fd, frame);
+    free(frame);
+    return m;
+}
+
+char* MESSAGE_TEMPLATE_WITH_HEADERS = "MESSAGE\n"
+        "%s\n\n%s";
+
+message * message_send_with_headers(int fd, associative_array * aa_headers,
+        char* body) {
+    char* headers = aa_create_str_representation(aa_headers->root);
+    int template_len = (int) (strlen(MESSAGE_TEMPLATE_WITH_HEADERS) - 4);
+    int total_len = template_len + strlen(headers);
+    
+    char * frame = emalloc(total_len + 1);
+    sprintf(frame, MESSAGE_TEMPLATE_WITH_HEADERS, headers, body);
+    free(headers);
     message * m = message_create(fd, frame);
     free(frame);
     return m;
