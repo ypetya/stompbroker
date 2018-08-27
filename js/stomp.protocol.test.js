@@ -103,6 +103,7 @@ let cursor = 0;
 
 const delay = async (d) => new Promise(resolve => setTimeout(resolve, d));
 
+// TODO change it to for await of :)
 const runSingleTest = async () => {
     let resp = await awaitResponse(TEST_DATA_FOR_CONNECT[cursor], TEST_DATA_FOR_CONNECT[cursor + 1])
             .then(ok => {

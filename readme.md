@@ -46,7 +46,7 @@ The first character of the line can contain the following status codes:
 - BEGIN
 - COMMIT
 - ABORT
-- ACK
+? ACK (missing, no persistance)
 - NACK
 + DISCONNECT
 + MESSAGE
@@ -60,6 +60,10 @@ The first character of the line can contain the following status codes:
 + maximum message size
 + multithreaded output processing
 - performace testing
+- LICENSE
+- move code one level up
+- publish to github
+~ create tests and nodejs applications, see `js` directory
 ```
 
 Running

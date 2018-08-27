@@ -2,7 +2,7 @@
 
 const net = require('net');
 
-const conn = net.connect(3490, '139.162.186.153');
+const conn = net.connect(3490);
 conn.setNoDelay(true);
 conn.once('ready', () => {
     conn.write("STOMP\naccept-version:1.2\nhost:localhost\n\n");
