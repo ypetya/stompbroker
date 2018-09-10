@@ -133,6 +133,8 @@ void aa_item_free(aa_item * ptr) {
 }
 
 void aa_free(associative_array * aa) {
-    if (aa != NULL) aa_item_free(aa->root);
-    free(aa);
+    if (aa != NULL){
+        aa_item_free(aa->root);
+        free(aa);
+    }
 }

@@ -71,9 +71,3 @@ Running
 
 /docker folder -> available docker files: for compiling and running
 
-### STOMP protocol implementation
-
-The goal is to implement features in v1.2 way.
-Features implemented:
-
-- connecting

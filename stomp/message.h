@@ -18,6 +18,8 @@
 extern "C" {
 #endif
 
+#include "../lib/associative_array.h"
+
     typedef struct msg_st {
         int fd;
         char * content;

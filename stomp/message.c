@@ -118,7 +118,7 @@ message * message_send_with_headers(int fd, associative_array * aa_headers,
         char* body) {
     char* headers = aa_create_str_representation(aa_headers->root);
     int template_len = (int) (strlen(MESSAGE_TEMPLATE_WITH_HEADERS) - 4);
-    int total_len = template_len + strlen(headers);
+    int total_len = template_len + strlen(headers) + strlen(body);
     
     char * frame = emalloc(total_len + 1);
     sprintf(frame, MESSAGE_TEMPLATE_WITH_HEADERS, headers, body);
