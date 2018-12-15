@@ -15,7 +15,10 @@
 			"netdb.h": "c",
 			"types.h": "c",
 			"stdlib.h": "c",
-			"in.h": "c"
+			"in.h": "c",
+			"functional": "cpp",
+			"mutex": "c",
+			"shared_mutex": "c"
 		}
 	}
 }

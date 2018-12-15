@@ -96,21 +96,6 @@ char * MESSAGE_TEMPLATE = "MESSAGE\n"
         "message-id:%d\n"
         "destination:%s\n\n%s";
 
-// OBSOLETE: must send custom headers!
-message * message_send(int fd, int subscription_id, int message_id, char* dest,
-        char* body) {
-    int template_len = (int) (strlen(MESSAGE_TEMPLATE) - 10);
-    int content_length = strlen(body);
-    int total_len = template_len + len_of_int(content_length) + len_of_int(subscription_id)
-            + len_of_int(message_id) + strlen(dest) + strlen(body);
-
-    char * frame = emalloc(total_len + 1);
-    sprintf(frame, MESSAGE_TEMPLATE, content_length, subscription_id, message_id, dest, body);
-    message * m = message_create(fd, frame);
-    free(frame);
-    return m;
-}
-
 char* MESSAGE_TEMPLATE_WITH_HEADERS = "MESSAGE\n"
         "%s\n\n%s";
 

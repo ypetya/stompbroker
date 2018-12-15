@@ -167,3 +167,23 @@ not to use wildcards in the topic_mask
 int pubsub_size() {
     return topics->size;
 }
+
+
+void pubsub_to_str(char* dst, size_t dst_size) {
+     if (topics->size == 0) return;
+
+    general_list_item * c = topics->first;
+
+    while (c != NULL) {
+        subscription * sub = c->data;
+        size_t dst_len = strlen(dst);
+
+        if((strlen(sub->topic_pattern) + dst_len + 2) > dst_size) break;
+
+        if(dst_len > 0) strcat(dst,",");
+        
+        strcat(dst,sub->topic_pattern);
+
+        c=c->next;
+    } 
+}

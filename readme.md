@@ -14,7 +14,6 @@ and as many output thread as free cores
 
 Further measurements needed
 
-
 Feature Status
 --------------
 
@@ -56,14 +55,16 @@ The first character of the line can contain the following status codes:
 + using epoll instead of select
 + wildcard : only subscriptions allowed
 ~ subscription limit
++ connection limit (32000) by default
 + input queue limit
 + maximum message size
 + multithreaded output processing
 - performace testing
-- LICENSE
-- move code one level up
-- publish to github
++ LICENSE
++ move code one level up
++ publish to github
 ~ create tests and nodejs applications, see `js` directory
++ js/stomp.protocol.test.js
 ```
 
 Running

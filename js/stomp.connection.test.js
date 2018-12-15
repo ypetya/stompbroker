@@ -4,7 +4,7 @@
  * Main purpose:
  * 
  * check the connection mechanism and delays:
- * by default an accept_loop with select api can chack 1024 parallel connections
+ * by default an accept_loop with select api can check 1024 parallel connections
  * 1) break this up with poll
  * 2) best implementation is epoll?
  * */

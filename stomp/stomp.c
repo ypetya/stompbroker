@@ -31,9 +31,13 @@ void stomp_process(ts_queue* output_queue, message *input) {
             int new_id = session_storage_add_new(input->fd);
             if (new_id >= 0)
                 resp = message_connected(input->fd, new_id);
-            else
+            else if(new_id == -1) 
                 resp = message_error(input->fd, "Can not connect,"
-                    " client is already connected!\n");
+                    " client is already connected!");
+            else if(new_id == -2) {
+                resp = message_error(input->fd, "Can not connect,"
+                    " maximum connection limit reached!");
+            }
             break;
         }
         case FRM_DISCONNECT_ID:
@@ -43,34 +47,34 @@ void stomp_process(ts_queue* output_queue, message *input) {
                 session_storage_remove(client_id);
             } else
                 resp = message_error(input->fd, "Can not disconnect,"
-                    " client is not connected yet!\n");
+                    " client is not connected yet!");
 
             break;
         }
         case FRM_SUBSCRIBE_ID:
         {
             if (pm->topic == NULL)
-                resp = message_error(input->fd, "No topic defined!\n");
+                resp = message_error(input->fd, "No topic defined!");
             else if (client_id >= 0)
                 pubsub_subscribe(pm->topic, client_id, pm->id);
             else
-                resp = message_error(input->fd, "Not connected!\n");
+                resp = message_error(input->fd, "Not connected!");
             break;
         }
         case FRM_UNSUBSCRIBE_ID:
         {
             if (pm->topic == NULL)
-                resp = message_error(input->fd, "No topic defined!\n");
+                resp = message_error(input->fd, "No topic defined!");
             else if (client_id >= 0)
                 pubsub_unsubscribe(pm->topic, client_id, pm->id);
             else
-                resp = message_error(input->fd, "Not connected!\n");
+                resp = message_error(input->fd, "Not connected!");
             break;
         }
         case FRM_SEND_ID:
         {
             if (pm->topic == NULL)
-                resp = message_error(input->fd, "No topic defined!\n");
+                resp = message_error(input->fd, "No topic defined!");
             else if (client_id >= 0) {
                 if (strchr(pm->topic, '*') != NULL) {
                     resp = message_error(input->fd,
@@ -119,14 +123,14 @@ void stomp_process(ts_queue* output_queue, message *input) {
 
                 list_clear(matching_clients);
                 free(matching_clients);
-            } else resp = message_error(input->fd, "Not connected!\n");
+            } else resp = message_error(input->fd, "Not connected!");
 
             break;
         }
         case FRM_DIAGNOSTIC_ID:
         { /** This DIAGNOSTIC frame returns internal info*/
             if (pm->message_body == NULL) {
-                resp = message_error(input->fd, "Empty message_body!\n");
+                resp = message_error(input->fd, "Empty message_body!");
                 break;
             }
             debug("Diagnostic query %s\n", pm->message_body);
@@ -138,14 +142,17 @@ void stomp_process(ts_queue* output_queue, message *input) {
                 sprintf(buf, "%d", pubsub_size());
                 resp = message_diagnostic(input->fd, pm->message_body, buf);
             } else if (strncmp(pm->message_body, "subs", 4) == 0) {
-
+                char * large_buffer = emalloc(3500);
+                pubsub_to_str(large_buffer,3500);
+                resp = message_diagnostic(input->fd, pm->message_body, large_buffer);
+                free(large_buffer);
             } else {
-                resp = message_error(input->fd, "Invalid message!\n");
+                resp = message_error(input->fd, "Invalid message!");
             }
             break;
         }
         default:
-            resp = message_error(input->fd, "Invalid message!\n");
+            resp = message_error(input->fd, "Invalid message!");
     }
 
     if (resp != NULL) {

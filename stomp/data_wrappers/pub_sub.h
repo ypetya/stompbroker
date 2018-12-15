@@ -32,6 +32,9 @@ extern "C" {
 
     int pubsub_size();
 
+    // For diagnostic only
+    void pubsub_to_str(char* dst, size_t dst_size);
+
 #ifdef __cplusplus
 }
 #endif
