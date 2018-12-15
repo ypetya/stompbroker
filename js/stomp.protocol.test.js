@@ -42,39 +42,43 @@ const TEST_DATA = [
   "DISCONNECT\nreceipt:77\n",
   "RECEIPT\ncontent-type:text/plain\nreceipt-id:77\n",
 
-  "Connect frame ignore invalid header/body",
+  "0> Connect frame ignore invalid header/body",
   "CONNECT\naccept-version:1.1\nhost:localhost\nbody\n",
   check_connected,
 
-  "Subscribe * frame with receipt",
+  "0> Subscribe * frame with receipt",
   "SUBSCRIBE\ndestination:/*\nid:1\nreceipt:m-99\n",
   "RECEIPT\ncontent-type:text/plain\nreceipt-id:m-99\n",
 
-  "increases pubsub-size",
+  "0> increases pubsub-size",
   "DIAG\n\npubsub-size",
   "DIAG\ncontent-type:text/plain\npubsub-size:1\n",
 
-  "Subscribe to topic",
+  "0> Subscribe to topic",
   "SUBSCRIBE\ndestination:/a_topic\nid:1\nreceipt:m-a\n",
   "RECEIPT\ncontent-type:text/plain\nreceipt-id:m-a\n",
 
-  "increases pubsub-size",
+  "0> Increased pubsub-size",
   "DIAG\n\npubsub-size",
   "DIAG\ncontent-type:text/plain\npubsub-size:2\n",
 
-  "Unsubscribe frame",
+  "0> Diag message for listing subscriptions",
+  "DIAG\n\nsubs",
+  "DIAG\ncontent-type:text/plain\nsubs:/*,/a_topic\n",
+
+  "0> Unsubscribe frame",
   "UNSUBSCRIBE\ndestination:/a_topic\nid:1\nreceipt:m-au\n",
   "RECEIPT\ncontent-type:text/plain\nreceipt-id:m-au\n",
 
-  "Decreases pubsub-size",
+  "0> Decreases pubsub-size",
   "DIAG\n\npubsub-size",
   "DIAG\ncontent-type:text/plain\npubsub-size:1\n",
 
-  "Disconnect(removes subscription)",
+  "0> Disconnect with receipt (removes subscription)",
   "DISCONNECT\nreceipt:78\n",
   "RECEIPT\ncontent-type:text/plain\nreceipt-id:78\n",
 
-  "decrases pubsub-size",
+  "0> Decrased pubsub-size",
   "DIAG\n\npubsub-size",
   "DIAG\ncontent-type:text/plain\npubsub-size:0\n",
 
