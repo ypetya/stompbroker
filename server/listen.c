@@ -19,17 +19,18 @@
 #include "signal_action_handler.h"
 #include "../lib/constants.h"
 
+int start_listening(char *port, int backlog);
 
 int do_listen(char *port, int backlog)
 {
-    int listenSockFD = findPortAndStartListening(port, backlog);
+    int listenSockFD = start_listening(port, backlog);
     exitOnSignal();
     accept_incoming_data_loop(listenSockFD);
 
     return 0;
 }
 
-int findPortAndStartListening(char *port, int backlog) {
+int start_listening(char *port, int backlog) {
     int listenSockFD;
     struct addrinfo hints, *servinfo, *p;
     int rv;
