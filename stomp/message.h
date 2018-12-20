@@ -19,11 +19,7 @@ extern "C" {
 #endif
 
 #include "../lib/associative_array.h"
-
-    typedef struct msg_st {
-        int fd;
-        char * content;
-    } message;
+#include "../lib/string_message.h"
 
     message * message_create(int fd, char * str);
     void message_destroy(message * m);

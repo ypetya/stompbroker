@@ -7,6 +7,7 @@
 #include "../stomp/stomp.h"
 #include "../lib/emalloc.h"
 #include "../parse_args.h"
+#include "../websocket/filter.h"
 
 typedef struct worker_thread_data_st {
     ts_queue * input_q;
@@ -124,7 +125,10 @@ void *reader_thread(void *vargp) {
                 break;
             }
             debug("<<<\n%s\n", msg->content);
-            stomp_process(output_queue, msg);
+            
+            if(ws_filter_auth(output_queue, msg) == WS_NO_NEED_OF_HANDSHAKE) {
+                stomp_process(output_queue, msg);
+            }
             message_destroy(msg);
         }
 

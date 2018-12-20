@@ -20,6 +20,7 @@
 #include "stomp/stomp.c"
 #include "stomp/parser.c"
 #include "stomp/message.c"
+#include "websocket/filter.c"
 
 /**
  * # Responsibility

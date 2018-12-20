@@ -1,6 +1,6 @@
 .vscode
 *.out
 examples/Websocket
-nbproject
+#nbproject
 js/chat
 js/electron
