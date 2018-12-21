@@ -16,7 +16,7 @@
   "author": "Peter Kiss <ypetya@gmail.com>",
   "license": "ISC",
   "dependencies": {
-    "sockjs-client": "^1.3.0",
-    "stompjs": "^2.3.3"
+    "stompjs": "^2.3.3",
+    "ws": "^6.1.2"
   }
 }

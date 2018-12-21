@@ -21,7 +21,7 @@
 #include "stomp/parser.c"
 #include "stomp/message.c"
 #include "websocket/filter.c"
-
+#include "server/data/string_message.c"
 /**
  * # Responsibility
  * 

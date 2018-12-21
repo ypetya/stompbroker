@@ -620,6 +620,133 @@
             </df>
           </df>
         </df>
+        <df name="websocket">
+          <df name="node_modules">
+            <df name="async-limiter">
+              <df name="coverage">
+                <df name="lcov-report">
+                  <df name="async-throttle">
+                  </df>
+                </df>
+              </df>
+            </df>
+            <df name="debug">
+              <df name="src">
+              </df>
+            </df>
+            <df name="is-typedarray">
+            </df>
+            <df name="ms">
+            </df>
+            <df name="nan">
+              <df name="doc">
+              </df>
+              <df name="tools">
+              </df>
+              <in>nan.h</in>
+              <in>nan_callbacks.h</in>
+              <in>nan_callbacks_12_inl.h</in>
+              <in>nan_callbacks_pre_12_inl.h</in>
+              <in>nan_converters.h</in>
+              <in>nan_converters_43_inl.h</in>
+              <in>nan_converters_pre_43_inl.h</in>
+              <in>nan_define_own_property_helper.h</in>
+              <in>nan_implementation_12_inl.h</in>
+              <in>nan_implementation_pre_12_inl.h</in>
+              <in>nan_json.h</in>
+              <in>nan_maybe_43_inl.h</in>
+              <in>nan_maybe_pre_43_inl.h</in>
+              <in>nan_new.h</in>
+              <in>nan_object_wrap.h</in>
+              <in>nan_persistent_12_inl.h</in>
+              <in>nan_persistent_pre_12_inl.h</in>
+              <in>nan_private.h</in>
+              <in>nan_string_bytes.h</in>
+              <in>nan_typedarray_contents.h</in>
+              <in>nan_weak.h</in>
+            </df>
+            <df name="stompjs">
+              <df name="browsertests">
+                <df name="integration">
+                </df>
+                <df name="unit">
+                </df>
+              </df>
+              <df name="doc">
+                <df name="i">
+                  <df name="johnny_automatic">
+                  </df>
+                </df>
+                <df name="j">
+                </df>
+              </df>
+              <df name="example">
+                <df name="chat">
+                </df>
+                <df name="css">
+                </df>
+                <df name="webworker">
+                </df>
+              </df>
+              <df name="lib">
+              </df>
+              <df name="src">
+              </df>
+              <df name="test">
+              </df>
+            </df>
+            <df name="typedarray-to-buffer">
+              <df name="test">
+              </df>
+            </df>
+            <df name="websocket">
+              <df name="build">
+                <df name="Release">
+                  <df name=".deps">
+                    <df name="Release">
+                      <df name="obj.target">
+                        <df name="bufferutil">
+                          <df name="src">
+                          </df>
+                        </df>
+                        <df name="validation">
+                          <df name="src">
+                          </df>
+                        </df>
+                      </df>
+                    </df>
+                  </df>
+                  <df name="obj.target">
+                    <df name="bufferutil">
+                      <df name="src">
+                      </df>
+                    </df>
+                    <df name="validation">
+                      <df name="src">
+                      </df>
+                    </df>
+                  </df>
+                </df>
+              </df>
+              <df name="lib">
+              </df>
+              <df name="src">
+                <in>bufferutil.cc</in>
+                <in>validation.cc</in>
+              </df>
+              <df name="vendor">
+              </df>
+            </df>
+            <df name="ws">
+              <df name="lib">
+              </df>
+            </df>
+            <df name="yaeti">
+              <df name="lib">
+              </df>
+            </df>
+          </df>
+        </df>
       </df>
       <df name="lib">
         <in>associative_array.c</in>
@@ -630,7 +757,6 @@
         <in>clone_str.h</in>
         <in>constants.h</in>
         <in>general_list_console.c</in>
-        <in>message.h</in>
         <in>queue.c</in>
         <in>queue.h</in>
         <in>queue_console.c</in>
@@ -642,6 +768,10 @@
         <in>thread_safe_queue.h</in>
       </df>
       <df name="server">
+        <df name="data">
+          <in>string_message.c</in>
+          <in>string_message.h</in>
+        </df>
         <in>accept.h</in>
         <in>accept_epoll.c</in>
         <in>accept_select.c</in>
@@ -672,8 +802,6 @@
             <in>session.h</in>
           </df>
         </df>
-        <df name="websocket">
-        </df>
         <in>main.c</in>
         <in>message.h</in>
         <in>parse_args.c</in>
@@ -703,8 +831,6 @@
       </df>
       <df name="server">
         <in>accept_select.c</in>
-      </df>
-      <df name="websocket">
       </df>
       <in>message.c</in>
       <in>parser.c</in>

@@ -17,7 +17,7 @@
 extern "C" {
 #endif
 
-#include "../lib/string_message.h"
+#include "../server/data/string_message.h"
 #include "../lib/thread_safe_queue.h"
 
     enum ws_filter_auth_status {

@@ -1,4 +1,4 @@
-const SockJS = require('sockjs-client');
+const WebSocket = require('ws');
 const Stomp = require('stompjs');
 
 module.exports = class DurableStompClient {
@@ -17,15 +17,16 @@ module.exports = class DurableStompClient {
     connectSocket() {
         this.retryCount -= 1;
         this.errorTimer = null;
+        
+        this.socket = new WebSocket(this.url);
 
-        this.socket = new SockJS(this.url);
         this.socket.addEventListener('open', () => {
-            this.debug('SockJs onOpen!');
+            this.debug('Websocket onOpen!');
             this.socketState = 'OPEN';
         });
         this.connectStomp();
         this.socket.addEventListener('close', () => {
-            this.debug('SockJs onClosed!');
+            this.debug('Websocket onClosed!');
             this.socketState = 'CLOSED';
             this.stompState = 'CLOSED';
             this.reconnect();

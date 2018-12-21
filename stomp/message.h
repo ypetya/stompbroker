@@ -19,10 +19,8 @@ extern "C" {
 #endif
 
 #include "../lib/associative_array.h"
-#include "../lib/string_message.h"
+#include "../server/data/string_message.h"
 
-    message * message_create(int fd, char * str);
-    void message_destroy(message * m);
     message * message_error(int fd, char *reason);
     message * message_connected(int fd, int session_id);
     message * message_disconnect(int fd);

@@ -20,6 +20,9 @@ extern "C" {
     } message;
 
 
+    message * message_create(int fd, char * str);
+    
+    void message_destroy(message * m);
 #ifdef __cplusplus
 }
 #endif

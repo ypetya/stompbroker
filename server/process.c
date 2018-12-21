@@ -8,6 +8,7 @@
 #include "../lib/emalloc.h"
 #include "../parse_args.h"
 #include "../websocket/filter.h"
+#include "./data/string_message.h"
 
 typedef struct worker_thread_data_st {
     ts_queue * input_q;
