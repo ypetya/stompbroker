@@ -87,21 +87,6 @@
       <df name="stomp">
         <df name="data_wrappers">
         </df>
-        <df name="datastructures">
-          <in>list.c</in>
-        </df>
-        <df name="server">
-          <in>listen.c</in>
-          <in>process.c</in>
-        </df>
-        <df name="stomp">
-          <df name="data_wrappers">
-            <in>session.c</in>
-            <in>session.h</in>
-          </df>
-        </df>
-        <in>main.c</in>
-        <in>parse_args.c</in>
       </df>
       <df name="tetrace_hook">
       </df>

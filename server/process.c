@@ -9,6 +9,7 @@
 #include "../parse_args.h"
 #include "../websocket/filter.h"
 #include "./data/string_message.h"
+#include "./data/session_storage.h"
 
 typedef struct worker_thread_data_st {
     ts_queue * input_q;
@@ -93,12 +94,13 @@ void *writer_thread(void *vargp) {
                 break;
             }
             debug(">>>\n%s\n", msg->content);
+            ws_output_filter(msg);
             // len+1 is required! STOMP standard requires to send 
             // a closing zero octet
             res = send(msg->fd, msg->content, strlen(msg->content) + 1, 0);
             if (res < 0) {
                 perror("Could not send message. Client may disconnected");
-                warn("fd:%d",msg->fd);
+                warn("fd:%d", msg->fd);
             }
             message_destroy(msg);
         }
@@ -124,10 +126,15 @@ void *reader_thread(void *vargp) {
                 debug(" * Reader thread: Poison pill detected.\n");
                 message_destroy(msg);
                 break;
+            } else if (session_storage_add_new(msg->fd) == MAX_SESSION_NUMBER_EXCEEDED) {
+                message_destroy(msg);
+                // Sorry-sorry, no bananas left. :)
+                close(msg->fd);
+                continue;
             }
             debug("<<<\n%s\n", msg->content);
-            
-            if(ws_filter_auth(output_queue, msg) == WS_NO_NEED_OF_HANDSHAKE) {
+
+            if (ws_input_filter(output_queue, msg) == WS_NO_NEED_OF_HANDSHAKE) {
                 stomp_process(output_queue, msg);
             }
             message_destroy(msg);

@@ -4,3 +4,4 @@ examples/Websocket
 #nbproject
 js/chat
 js/electron
+tetrace_hook

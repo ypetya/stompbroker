@@ -59,23 +59,6 @@
           <in>string_message.h</in>
         </df>
       </df>
-      <df name="stomp">
-        <df name="datastructures">
-          <in>list.c</in>
-        </df>
-        <df name="server">
-          <in>listen.c</in>
-          <in>process.c</in>
-        </df>
-        <df name="stomp">
-          <df name="data_wrappers">
-            <in>session.c</in>
-            <in>session.h</in>
-          </df>
-        </df>
-        <in>main.c</in>
-        <in>parse_args.c</in>
-      </df>
       <df name="websocket">
         <in>filter.c</in>
         <in>filter.h</in>
@@ -225,8 +208,6 @@
       </item>
       <item path="server/data/string_message.h" ex="false" tool="3" flavor2="0">
       </item>
-      <item path="stomp/datastructures/list.c" ex="false" tool="0" flavor2="2">
-      </item>
       <item path="stomp/js/chat/readme.md" ex="false" tool="3" flavor2="0">
       </item>
       <item path="stomp/js/chat/stomp.chat.js" ex="false" tool="3" flavor2="0">
@@ -235,33 +216,15 @@
       </item>
       <item path="stomp/js/stomp.connection.test.js" ex="false" tool="3" flavor2="0">
       </item>
-      <item path="stomp/main.c" ex="false" tool="0" flavor2="2">
-      </item>
       <item path="stomp/message.c" ex="false" tool="0" flavor2="2">
-      </item>
-      <item path="stomp/parse_args.c" ex="false" tool="0" flavor2="2">
       </item>
       <item path="stomp/parser.c" ex="false" tool="0" flavor2="2">
       </item>
       <item path="stomp/server/accept_select.c" ex="false" tool="0" flavor2="2">
       </item>
-      <item path="stomp/server/listen.c" ex="false" tool="0" flavor2="2">
-      </item>
-      <item path="stomp/server/process.c" ex="false" tool="0" flavor2="2">
-      </item>
       <item path="stomp/stomp.c" ex="false" tool="0" flavor2="2">
       </item>
       <item path="stomp/stomp.queue.test.js" ex="false" tool="3" flavor2="0">
-      </item>
-      <item path="stomp/stomp/data_wrappers/session.c"
-            ex="false"
-            tool="0"
-            flavor2="0">
-      </item>
-      <item path="stomp/stomp/data_wrappers/session.h"
-            ex="false"
-            tool="3"
-            flavor2="0">
       </item>
       <item path="stomp/stomp/datastructures/readme.md"
             ex="false"

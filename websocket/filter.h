@@ -25,7 +25,24 @@ extern "C" {
         WS_NEED_OF_HANDSHAKE
     };
 
-    int ws_filter_auth(ts_queue *out, message * m);
+    /**
+     * Responsibilities:
+     *  
+     * 1. Respond with websocket hand-shake request on http_requests
+     * 2. decode websocket data frames and mark session to encoded
+     * 
+     * @param out output message queue for sending response
+     * @param m incoming message buffer from file descriptor
+     * @return 
+     */
+    int ws_input_filter(ts_queue *out, message * m);
+    
+    /**
+     * In case of an encoded session is present, encodes data into ws frames data
+     * 
+     * @param m
+     */
+    void ws_output_filter(message *m);
 
 
 

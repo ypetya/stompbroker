@@ -98,7 +98,8 @@ void do_use_fd(int conn_sock, char* read_buffer, ts_queue * input_queue,
         }
         // TODO: epoll_ctl EPOLL_CTL_DEL ????
         close(conn_sock);
-        ts_enqueue(input_queue, message_disconnect(conn_sock));
+        session_storage_remove_external(conn_sock);
+        //ts_enqueue(input_queue, message_disconnect(conn_sock));
     } else {
         read_buffer[received_length] = '\0';
         char * token = strtok(read_buffer, "\0");

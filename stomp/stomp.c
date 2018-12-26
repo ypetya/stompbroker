@@ -5,7 +5,7 @@
 
 #include "../lib/thread_safe_queue.h"
 #include "parser.h"
-#include "./data_wrappers/session_storage.h"
+#include "../server/data/session_storage.h"
 #include "./data_wrappers/pub_sub.h"
 #include "../lib/associative_array.h"
 
@@ -22,27 +22,25 @@ char * itoa(int num) {
 void stomp_process(ts_queue* output_queue, message *input) {
 
     int client_id = session_storage_fetch_client_id(input->fd);
+    int client_connected = session_is_connected(client_id);
     parsed_message * pm = parse_message(input);
     message * resp = NULL;
 
     switch (pm->command) {
         case FRM_CONNECT_ID:
         {
-            int new_id = session_storage_add_new(input->fd);
-            if (new_id >= 0)
-                resp = message_connected(input->fd, new_id);
-            else if(new_id == -1) 
+            if (client_connected != 0)
                 resp = message_error(input->fd, "Can not connect,"
                     " client is already connected!");
-            else if(new_id == -2) {
-                resp = message_error(input->fd, "Can not connect,"
-                    " maximum connection limit reached!");
+            else {
+                session_set_connected(client_id);
+                resp = message_connected(input->fd, client_id);
             }
             break;
         }
         case FRM_DISCONNECT_ID:
         {
-            if (client_id >= 0) {
+            if (client_connected > 0) {
                 pubsub_remove_client(client_id);
                 session_storage_remove(client_id);
             } else
@@ -55,7 +53,7 @@ void stomp_process(ts_queue* output_queue, message *input) {
         {
             if (pm->topic == NULL)
                 resp = message_error(input->fd, "No topic defined!");
-            else if (client_id >= 0)
+            else if (client_connected > 0)
                 pubsub_subscribe(pm->topic, client_id, pm->id);
             else
                 resp = message_error(input->fd, "Not connected!");
@@ -65,7 +63,7 @@ void stomp_process(ts_queue* output_queue, message *input) {
         {
             if (pm->topic == NULL)
                 resp = message_error(input->fd, "No topic defined!");
-            else if (client_id >= 0)
+            else if (client_connected > 0)
                 pubsub_unsubscribe(pm->topic, client_id, pm->id);
             else
                 resp = message_error(input->fd, "Not connected!");
@@ -75,7 +73,7 @@ void stomp_process(ts_queue* output_queue, message *input) {
         {
             if (pm->topic == NULL)
                 resp = message_error(input->fd, "No topic defined!");
-            else if (client_id >= 0) {
+            else if (client_connected > 0) {
                 if (strchr(pm->topic, '*') != NULL) {
                     resp = message_error(input->fd,
                             "Can not have wildcard in message destination!\n");
@@ -135,15 +133,15 @@ void stomp_process(ts_queue* output_queue, message *input) {
             }
             debug("Diagnostic query %s\n", pm->message_body);
             char buf[10];
-            if (strncmp(pm->message_body, "session-size", 12) == 0) {
-                sprintf(buf, "%d", session_storage_size());
+            if (strncmp(pm->message_body, "session-connected-size", 12) == 0) {
+                sprintf(buf, "%d", session_storage_connected_size());
                 resp = message_diagnostic(input->fd, pm->message_body, buf);
             } else if (strncmp(pm->message_body, "pubsub-size", 11) == 0) {
                 sprintf(buf, "%d", pubsub_size());
                 resp = message_diagnostic(input->fd, pm->message_body, buf);
             } else if (strncmp(pm->message_body, "subs", 4) == 0) {
                 char * large_buffer = emalloc(3500);
-                pubsub_to_str(large_buffer,3500);
+                pubsub_to_str(large_buffer, 3500);
                 resp = message_diagnostic(input->fd, pm->message_body, large_buffer);
                 free(large_buffer);
             } else {

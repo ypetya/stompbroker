@@ -4,6 +4,7 @@
 #include "../logger.h"
 #include "../lib/thread_safe_queue.h"
 #include "../server/data/string_message.h"
+#include "../server/data/session_storage.h"
 
 #include "./utils/md5.c"
 #include "./utils/sha1.c"
@@ -16,11 +17,13 @@
  * 
  */
 char* is_http_request(char * buffer);
+char* decode_websocket_frames(char * buffer);
+char* encode_websocket_frame(char * buffer);
 char* parse_sec_websocket_key(char * buffer);
 char* create_accept_key(char * client_key);
 void send_accept_response(char* acceptKey, int fd, ts_queue *out);
 
-int ws_filter_auth(ts_queue *out, message * m) {
+int ws_input_filter(ts_queue *out, message * m) {
     if (is_http_request(m->content)) {
         debug("%s\n", m->content);
 
@@ -34,8 +37,31 @@ int ws_filter_auth(ts_queue *out, message * m) {
 
         return WS_NEED_OF_HANDSHAKE;
     }
+    char* decoded_message = decode_websocket_frames(m->content);
+    if (decoded_message) {
+        free(m->content);
+        m->content = decoded_message;
+        session_set_encoded(m->fd);
+    }
 
     return WS_NO_NEED_OF_HANDSHAKE;
+}
+
+void ws_output_filter(message *m) {
+    if (session_is_encoded(m->fd)) {
+        char* encoded_message = encode_websocket_frame(m->content);
+        free(m->content);
+        m->content = encoded_message;
+    }
+}
+
+char* encode_websocket_frame(char * buffer) {
+    
+}
+
+char* decode_websocket_frames(char * buffer) {
+    //TODO implement websocket decoding
+    return NULL;
 }
 
 char * WEBSOCKET_MAGIC_KEY = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";

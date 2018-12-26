@@ -15,7 +15,7 @@
 #include "server/listen.c"
 #include "server/process.c"
 #include "server/accept_epoll.c"
-#include "stomp/data_wrappers/session_storage_simple.c"
+#include "server/data/session_storage_simple.c"
 #include "stomp/data_wrappers/pub_sub.c"
 #include "stomp/stomp.c"
 #include "stomp/parser.c"

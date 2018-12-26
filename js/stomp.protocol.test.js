@@ -3,17 +3,17 @@
 console.log("Run stompbroker with DEBUG_MESSAGE_ID!");
 
 const TEST_DATA = [
-  "Initial session-size",
-  "DIAG\n\nsession-size",
-  "DIAG\ncontent-type:text/plain\nsession-size:0\n",
+  "Initial session-connected-size",
+  "DIAG\n\nsession-connected-size",
+  "DIAG\ncontent-type:text/plain\nsession-connected-size:0\n",
 
   "Stomp ver. 1.2 connect frame",
   "STOMP\naccept-version:1.2\nhost:localhost\n\n",
   check_connected,
 
   "Session size increment",
-  "DIAG\n\nsession-size",
-  "DIAG\ncontent-type:text/plain\nsession-size:1\n",
+  "DIAG\n\nsession-connected-size",
+  "DIAG\ncontent-type:text/plain\nsession-connected-size:1\n",
 
   "Disconnect with receipt",
   "DISCONNECT\nreceipt:77\n",
