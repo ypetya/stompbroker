@@ -94,10 +94,9 @@ void *writer_thread(void *vargp) {
                 break;
             }
             debug(">>>\n%s\n", msg->content);
-            ws_output_filter(msg);
-            // len+1 is required! STOMP standard requires to send 
-            // a closing zero octet
-            res = send(msg->fd, msg->content, strlen(msg->content), 0);
+            size_t len = ws_output_filter(msg);
+
+            res = send(msg->fd, msg->content, len, 0);
             if (res < 0) {
                 perror("Could not send message. Client may disconnected");
                 warn("fd:%d", msg->fd);

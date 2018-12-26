@@ -33,7 +33,7 @@ extern "C" {
      * 
      * @param out output message queue for sending response
      * @param m incoming message buffer from file descriptor
-     * @return 
+     * @return ws_filter_auth_status
      */
     int ws_input_filter(ts_queue *out, message * m);
     
@@ -41,8 +41,9 @@ extern "C" {
      * In case of an encoded session is present, encodes data into ws frames data
      * 
      * @param m
+     * @return message->content size
      */
-    void ws_output_filter(message *m);
+    size_t ws_output_filter(message *m);
 
 
 

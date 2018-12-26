@@ -20,7 +20,7 @@
  */
 char* is_http_request(char * buffer);
 char* decode_websocket_frame(char * buffer);
-char* encode_websocket_frame(char * buffer);
+int encode_websocket_frame(char * buffer, char** out);
 char* parse_sec_websocket_key(char * buffer);
 char* create_accept_key(char * client_key);
 void send_accept_response(char* acceptKey, int fd, ts_queue *out);
@@ -47,12 +47,15 @@ int ws_input_filter(ts_queue *out, message * m) {
     return WS_NO_NEED_OF_HANDSHAKE;
 }
 
-void ws_output_filter(message *m) {
+size_t ws_output_filter(message *m) {
+    size_t len = strlen(m->content);
     if (session_is_encoded(m->fd)) {
-        char* encoded_message = encode_websocket_frame(m->content);
+        char* encoded_message;
+        len = encode_websocket_frame(m->content, &encoded_message);
         free(m->content);
         m->content = encoded_message;
     }
+    return len;
 }
 
 /** 
@@ -77,8 +80,8 @@ uint64_t ntohl64(uint64_t value) {
     }
 }
 
-char* encode_websocket_frame(char * buffer) {
-    int skip, len = strlen(buffer), orig_len = len;
+int encode_websocket_frame(char * buffer, char** out) {
+    int skip, len = strlen(buffer)+1, orig_len = len;
     char * encoded_message = NULL;
     if (len < 126) {
         len += 2;
@@ -103,7 +106,8 @@ char* encode_websocket_frame(char * buffer) {
         memcpy(encoded_message + 2, &sz64, sizeof (uint64_t));
         memcpy(encoded_message + 10, buffer, orig_len);
     }
-    return encoded_message;
+    *out = encoded_message;
+    return len;
 }
 
 /**
