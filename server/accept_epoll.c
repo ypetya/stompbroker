@@ -99,8 +99,12 @@ void do_use_fd(int conn_sock, char* read_buffer, ts_queue * input_queue,
         // TODO: epoll_ctl EPOLL_CTL_DEL ????
         close(conn_sock);
         session_storage_remove_external(conn_sock);
-        //ts_enqueue(input_queue, message_disconnect(conn_sock));
     } else {
+        if (session_storage_add_new(conn_sock) == MAX_SESSION_NUMBER_EXCEEDED) {
+            // Sorry-sorry, no bananas left. :)
+            close(conn_sock);
+            return;
+        }
         read_buffer[received_length] = '\0';
         char * token = strtok(read_buffer, "\0");
         while (token != NULL) {
@@ -125,8 +129,7 @@ void accept_incoming_data_loop(int listen_sock_fd) {
     accept_epoll(config, listen_sock_fd);
 }
 
-// get sockaddr, IPv4 or IPv6:
-
+/** get sockaddr, IPv4 or IPv6 */
 void *get_inbound_address(struct sockaddr *sa) {
     if (sa->sa_family == AF_INET)
         return &(((struct sockaddr_in *) sa)->sin_addr);

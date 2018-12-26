@@ -97,7 +97,7 @@ void *writer_thread(void *vargp) {
             ws_output_filter(msg);
             // len+1 is required! STOMP standard requires to send 
             // a closing zero octet
-            res = send(msg->fd, msg->content, strlen(msg->content) + 1, 0);
+            res = send(msg->fd, msg->content, strlen(msg->content), 0);
             if (res < 0) {
                 perror("Could not send message. Client may disconnected");
                 warn("fd:%d", msg->fd);
@@ -126,15 +126,11 @@ void *reader_thread(void *vargp) {
                 debug(" * Reader thread: Poison pill detected.\n");
                 message_destroy(msg);
                 break;
-            } else if (session_storage_add_new(msg->fd) == MAX_SESSION_NUMBER_EXCEEDED) {
-                message_destroy(msg);
-                // Sorry-sorry, no bananas left. :)
-                close(msg->fd);
-                continue;
             }
-            debug("<<<\n%s\n", msg->content);
 
             if (ws_input_filter(output_queue, msg) == WS_NO_NEED_OF_HANDSHAKE) {
+                debug("<<<\n%s\n", msg->content);
+
                 stomp_process(output_queue, msg);
             }
             message_destroy(msg);

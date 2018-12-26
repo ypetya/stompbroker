@@ -1,10 +1,12 @@
 
 #include "filter.h"
 #include <string.h>
+#include <inttypes.h>
 #include "../logger.h"
 #include "../lib/thread_safe_queue.h"
 #include "../server/data/string_message.h"
 #include "../server/data/session_storage.h"
+#include "../parse_args.h"
 
 #include "./utils/md5.c"
 #include "./utils/sha1.c"
@@ -17,7 +19,7 @@
  * 
  */
 char* is_http_request(char * buffer);
-char* decode_websocket_frames(char * buffer);
+char* decode_websocket_frame(char * buffer);
 char* encode_websocket_frame(char * buffer);
 char* parse_sec_websocket_key(char * buffer);
 char* create_accept_key(char * client_key);
@@ -25,8 +27,6 @@ void send_accept_response(char* acceptKey, int fd, ts_queue *out);
 
 int ws_input_filter(ts_queue *out, message * m) {
     if (is_http_request(m->content)) {
-        debug("%s\n", m->content);
-
         char * client_key = parse_sec_websocket_key(m->content);
 
         if (client_key != NULL) {
@@ -37,7 +37,7 @@ int ws_input_filter(ts_queue *out, message * m) {
 
         return WS_NEED_OF_HANDSHAKE;
     }
-    char* decoded_message = decode_websocket_frames(m->content);
+    char* decoded_message = decode_websocket_frame(m->content);
     if (decoded_message) {
         free(m->content);
         m->content = decoded_message;
@@ -55,12 +55,114 @@ void ws_output_filter(message *m) {
     }
 }
 
-char* encode_websocket_frame(char * buffer) {
-    
+/** 
+ * Converts the unsigned 64 bit integer from host byte order to network byte 
+ * order.
+ */
+uint64_t ntohl64(uint64_t value) {
+    static const int num = 42;
+
+    /**
+     * If these check is true, the system is using the little endian 
+     * convention. Else the system is using the big endian convention, which
+     * means that we do not have to represent our integers in another way.
+     */
+    if (*(char *) &num == 42) {
+        const uint32_t high = (uint32_t) (value >> 32);
+        const uint32_t low = (uint32_t) (value & 0xFFFFFFFF);
+
+        return (((uint64_t) (htonl(low))) << 32) | htonl(high);
+    } else {
+        return value;
+    }
 }
 
-char* decode_websocket_frames(char * buffer) {
-    //TODO implement websocket decoding
+char* encode_websocket_frame(char * buffer) {
+    int skip, len = strlen(buffer), orig_len = len;
+    char * encoded_message = NULL;
+    if (len < 126) {
+        len += 2;
+        encoded_message = emalloc(sizeof (char)*len);
+        encoded_message[0] = '\x81'; // FIN + CONT
+        encoded_message[1] = len;
+        memcpy(encoded_message + 2, buffer, orig_len);
+    } else if (len < 65536) {
+        len += 4;
+        encoded_message = emalloc(sizeof (char)*len);
+        encoded_message[0] = '\x81'; // FIN + CONT
+        encoded_message[1] = 126;
+        uint16_t sz16 = htons(len);
+        memcpy(encoded_message + 2, &sz16, sizeof (uint16_t));
+        memcpy(encoded_message + 4, buffer, orig_len);
+    } else {
+        len += 10;
+        encoded_message = emalloc(sizeof (char)*len);
+        encoded_message[0] = '\x81'; // FIN + CONT
+        encoded_message[1] = 127;
+        uint64_t sz64 = ntohl64(len);
+        memcpy(encoded_message + 2, &sz64, sizeof (uint64_t));
+        memcpy(encoded_message + 10, buffer, orig_len);
+    }
+    return encoded_message;
+}
+
+/**
+ * Decode websocket data-frame if mask bit is set
+ * 
+ * Not supporting fragmented frames.
+ * Not supporting multiple frames in buffer.
+ * Not supporting larger then cfg->input_buffer_size messages.
+ * Opcode is ignored.
+ * 
+ * @param buffer
+ * @return 
+ */
+char* decode_websocket_frame(char * buffer) {
+    //int rsv123 = buffer[0] & 0xE;
+    int has_mask = has_mask = buffer[1] & 0x80 ? 1 : 0;
+    // Websocket client must send a mask! we use it for frame detection
+    if (has_mask) {
+        int fin = (buffer[0] & 0x80 ? 1 : 0);
+        int op_code = (buffer[0] & 0xF);
+
+        uint64_t payload_len = 0;
+
+        int len = buffer[1] & 0x7f;
+        int skip = 0;
+        char mask[4];
+        if (len < 126) {
+            payload_len += len;
+            memcpy(&mask, buffer + 2, sizeof (mask));
+            skip = 6;
+        } else if (len == 126) {
+            uint16_t sz16;
+            memcpy(&sz16, buffer + 2, sizeof (uint16_t));
+            payload_len += ntohs(sz16);
+            memcpy(&mask, buffer + 4, sizeof (mask));
+            skip = 8;
+        } else if (len == 127) {
+            uint64_t sz64;
+            memcpy(&sz64, buffer + 2, sizeof (uint64_t));
+            payload_len = ntohl64(sz64);
+            memcpy(&mask, buffer + 10, sizeof (mask));
+            skip = 14;
+        }
+        debug(">>> Websocket data frame FIN: %d opcode: 0x%x payload_len: %" PRIu64 "\n", fin, op_code, payload_len);
+
+        stomp_app_config * cfg = config_get_config();
+        if (payload_len < cfg->input_buffer_size) {
+            char * decoded_message = emalloc(sizeof (char) * (payload_len + 1));
+
+            memcpy(decoded_message, buffer + skip, payload_len);
+            for (int i = 0; i < payload_len; i++) decoded_message[i] = decoded_message[i] ^ mask[i % 4];
+
+            return decoded_message;
+        } else {
+            char * invalid = "INVALID\n\nMessage too large\n";
+
+            return clone_str(invalid);
+        }
+    }
     return NULL;
 }
 
@@ -109,7 +211,7 @@ char* parse_sec_websocket_key(char * buffer) {
             eok[2] = '\0';
         }
         char * key = match + WEBSOCKET_KEY_HEADER_LEN;
-        debug("Parsed key:(%s)\n", key)
+        debug(">>> Incoming websocket connection, parsed key:(%s)\n", key)
         return key;
     }
     return NULL;
