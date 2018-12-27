@@ -39,7 +39,7 @@ char * CONNECTED_TEMPLATE = "CONNECTED\n"
         "content-type:text/plain\n"
         "session:%d\n"
         "server:kisp-stomp\n"
-        "heart-beat:0,0\n"; // heart-beat not supported yet
+        "heart-beat:0,0\n\n"; // heart-beat not supported yet
 
 message * message_connected(int fd, int session_id) {
     int len = (int) (strlen(CONNECTED_TEMPLATE) - 2);

@@ -16,7 +16,6 @@
   "author": "Peter Kiss <ypetya@gmail.com>",
   "license": "ISC",
   "dependencies": {
-    "stompjs": "^2.3.3",
-    "ws": "^6.1.2"
+    "stompjs": "^2.3.3"
   }
 }

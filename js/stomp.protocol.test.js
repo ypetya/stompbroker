@@ -87,20 +87,20 @@ const TEST_DATA = [
   check_connected,
 
   "1> Wildcard subscription",
-  "SUBSCRIBE\ndestination:/queue/*\nid:1\nreceipt:m-queue/a\n",
+  "SUBSCRIBE\ndestination:/queue/*\nid:sub-1\nreceipt:m-queue/a\n",
   "RECEIPT\ncontent-type:text/plain\nreceipt-id:m-queue/a\n",
 
   "1> SEND frame arrives with a specific destination",
   "SEND\ndestination:/queue/a\ncontent-type:text/plain\n\nhello queue a\n",
-  "MESSAGE\ndestination:/queue/a\nmessage-id:0\nsubscription:1\ncontent-type:text/plain\ncontent-length:14\n\nhello queue a\n",
+  "MESSAGE\ndestination:/queue/a\nmessage-id:0\nsubscription:sub-1\ncontent-type:text/plain\ncontent-length:14\n\nhello queue a\n",
 
   "1> SEND frame arrives with a wildcard destination",
   "SEND\ndestination:/queue/\ncontent-type:text/plain\n\nhello queue *\n",
-  "MESSAGE\ndestination:/queue/\nmessage-id:0\nsubscription:1\ncontent-type:text/plain\ncontent-length:14\n\nhello queue *\n",
+  "MESSAGE\ndestination:/queue/\nmessage-id:0\nsubscription:sub-1\ncontent-type:text/plain\ncontent-length:14\n\nhello queue *\n",
 
   "1> Custom header is sent with message",
   "SEND\ndestination:/queue/abc\ncontent-type:text/plain\ncustom-header:test\n\nhello queue *\n",
-  "MESSAGE\ndestination:/queue/abc\nmessage-id:0\nsubscription:1\ncontent-type:text/plain\ncustom-header:test\ncontent-length:14\n\nhello queue *\n",
+  "MESSAGE\ndestination:/queue/abc\nmessage-id:0\nsubscription:sub-1\ncontent-type:text/plain\ncustom-header:test\ncontent-length:14\n\nhello queue *\n",
 
   "1> Disconnect",
   "DISCONNECT\nreceipt:77\n",
