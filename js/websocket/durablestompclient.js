@@ -3,8 +3,8 @@ const Stomp = require('stompjs');
 
 module.exports = class DurableStompClient {
     constructor({ retryCount = 100, debug = console.log, url = '/ws', headers = {},
-        onConnect = data => console.log('StompConnect', data) },
-        onError = error => console.error('StompError', error)) {
+        onConnect = data => console.log('StompConnect', data) ,
+        onError = error => console.error('StompError', error)}) {
         this.retryCount = retryCount;
         this.debug = debug;
         this.url = url;
@@ -20,28 +20,30 @@ module.exports = class DurableStompClient {
         
         this.socket = new WebSocket(this.url);
 
-        this.socket.addEventListener('open', () => {
+        this.socket.on('open', () => {
             this.debug('Websocket onOpen!');
             this.socketState = 'OPEN';
         });
-        this.connectStomp();
-        this.socket.addEventListener('close', () => {
+        this.socket.on('close', () => {
             this.debug('Websocket onClosed!');
             this.socketState = 'CLOSED';
             this.stompState = 'CLOSED';
             this.reconnect();
         });
+
+        this.connectStomp();
     }
 
     connectStomp() {
         this.stompClient = Stomp.over(this.socket);
+	    this.stompClient.debug = this.debug;
+        this.send = this.stompClient.send.bind(this.stompClient);
+        this.subscribe = this.stompClient.subscribe.bind(this.stompClient);
+        
         this.stompClient.connect(this.stompHeaders, this.stompConnectCallback, error => {
             this.reconnect();
             this.stompErrorCallback(error);
         });
-
-        this.send = this.stompClient.send.bind(this.stompClient);
-        this.subscribe = this.stompClient.subscribe.bind(this.stompClient);
     }
 
     reconnect() {

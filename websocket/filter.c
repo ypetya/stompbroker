@@ -81,31 +81,36 @@ uint64_t ntohl64(uint64_t value) {
 }
 
 int encode_websocket_frame(char * buffer, char** out) {
-    int skip, len = strlen(buffer)+1, orig_len = len;
+    int skip, len = strlen(buffer) + 1, orig_len = len;
     char * encoded_message = NULL;
+    char OPCODE = '\x81';
     if (len < 126) {
         len += 2;
         encoded_message = emalloc(sizeof (char)*len);
-        encoded_message[0] = '\x81'; // FIN + CONT
-        encoded_message[1] = len;
+        encoded_message[0] = OPCODE;
+        encoded_message[1] = orig_len;
         memcpy(encoded_message + 2, buffer, orig_len);
     } else if (len < 65536) {
         len += 4;
         encoded_message = emalloc(sizeof (char)*len);
-        encoded_message[0] = '\x81'; // FIN + CONT
+        encoded_message[0] = OPCODE;
         encoded_message[1] = 126;
-        uint16_t sz16 = htons(len);
+        uint16_t sz16 = htons(orig_len);
         memcpy(encoded_message + 2, &sz16, sizeof (uint16_t));
         memcpy(encoded_message + 4, buffer, orig_len);
     } else {
         len += 10;
         encoded_message = emalloc(sizeof (char)*len);
-        encoded_message[0] = '\x81'; // FIN + CONT
+        encoded_message[0] = OPCODE;
         encoded_message[1] = 127;
-        uint64_t sz64 = ntohl64(len);
+        uint64_t sz64 = ntohl64(orig_len);
         memcpy(encoded_message + 2, &sz64, sizeof (uint64_t));
         memcpy(encoded_message + 10, buffer, orig_len);
     }
+    int fin = (encoded_message[0] & 0x80 ? 1 : 0);
+    int op_code = (encoded_message[0] & 0xF);
+
+    debug("<<< Websocket data frame FIN: %d opcode: 0x%x payload_len: %" PRIu64 "\n", fin, op_code, orig_len);
     *out = encoded_message;
     return len;
 }

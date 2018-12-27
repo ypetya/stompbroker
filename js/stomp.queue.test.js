@@ -30,10 +30,10 @@ const request = m => new Promise((resolve, reject) => {
     });
 
 function runTest() {
-    createSubscriptions(1000).then(
+    createSubscriptions(10).then(
             async () => {
         for (var i = 0; i < 1000; i++) {
-            await request("SEND\ndestination:/*\ncontent-type:text/plain\n\n{\"content\":\"Funky!\"}\0");
+            await request(`SEND\ndestination:/queue/${i}\ncontent-type:text/plain\n\n{\"content\":\"Funky ${i}!\"}\0`);
             //setImmediate(sendMessage);
         }
     });
@@ -41,7 +41,7 @@ function runTest() {
 
 async function createSubscriptions(i) {
     for (let ix = 0; ix < i; ix++) {
-        await request(`SUBSCRIBE\ndestination:/queue/${ix}\nid:1\n\0`);
+        await request(`SUBSCRIBE\ndestination:/queue/*\nid:1\n\0`);
     }
 
     return true;
