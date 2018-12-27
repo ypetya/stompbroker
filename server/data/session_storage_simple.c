@@ -84,3 +84,15 @@ int session_storage_connected_size() {
     }
     return num;
 }
+
+int session_storage_encoded_size() {
+    int num = 0;
+    for (int i = 0; i < MAX_NUMBER_OF_CONNECTIONS; i++) {
+        if (clients[i] & FD_IS_ENCODED_MASK) num++;
+    }
+    return num;
+}
+
+int session_storage_size() {
+    return number_of_clients;
+}

@@ -57,6 +57,8 @@ extern "C"
      * @return 
      */
     int session_storage_connected_size();
+    int session_storage_size();
+    int session_storage_encoded_size();
     
     // flags and manipulation
     int session_is_encoded(int external_id);

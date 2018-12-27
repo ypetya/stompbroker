@@ -137,7 +137,13 @@ void stomp_process(ts_queue* output_queue, message *input) {
             }
             debug("Diagnostic query %s\n", pm->message_body);
             char buf[10];
-            if (strncmp(pm->message_body, "session-connected-size", 12) == 0) {
+            if (strncmp(pm->message_body, "session-size", 12) == 0) {
+                sprintf(buf, "%d", session_storage_size());
+                resp = message_diagnostic(input->fd, pm->message_body, buf);
+            } else if (strncmp(pm->message_body, "session-encoded-size", 71-51) == 0) {
+                sprintf(buf, "%d", session_storage_encoded_size());
+                resp = message_diagnostic(input->fd, pm->message_body, buf);
+            } else if (strncmp(pm->message_body, "session-connected-size", 73-51) == 0) {
                 sprintf(buf, "%d", session_storage_connected_size());
                 resp = message_diagnostic(input->fd, pm->message_body, buf);
             } else if (strncmp(pm->message_body, "pubsub-size", 11) == 0) {

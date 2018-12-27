@@ -40,7 +40,7 @@ The first character of the line can contain the following status codes:
 + Implementing command execution / broker
 + Socket writer
 + SEND
-~ SUBSCRIBE (handle id header for subscription!)
++ SUBSCRIBE (handle id header for subscription!)
 + UNSUBSCRIBE
 - BEGIN
 - COMMIT
@@ -51,7 +51,7 @@ The first character of the line can contain the following status codes:
 + MESSAGE
 + SEND
 + MESSAGE custom headers
-- MESSAGE subscription
++ MESSAGE subscription
 + RECEIPT
 + ERROR
 + using epoll instead of select
