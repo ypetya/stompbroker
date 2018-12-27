@@ -65,7 +65,8 @@ The first character of the line can contain the following status codes:
 + publish to github
 ~ create tests and nodejs applications, see `js` directory
 + js/stomp.protocol.test.js
-- Websocket handshake filter
++ Websocket handshake filter
+~ Websocket data frames. (Limited: text-only,no fragments)
 ```
 
 Running
