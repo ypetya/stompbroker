@@ -38,6 +38,23 @@ const TEST_DATA = [
   "CONNECT\r\naccept-version:1.1\nhost:localhost\n\n",
   check_connected,
 
+  "SUBSCRIBE with missing destination",
+  "SUBSCRIBE\nid:1\nreceipt:m-a\n",
+  "ERROR\ncontent-type:text/plain\ncontent-length:23\n\nNo destination defined!\n",
+
+  "SUBSCRIBE with missing id",
+  "SUBSCRIBE\ndestination:/*\nreceipt:m-a\n",
+  "ERROR\ncontent-type:text/plain\ncontent-length:14\n\nNo id defined!\n",
+
+
+  "UNSUBSCRIBE with missing destination",
+  "UNSUBSCRIBE\nid:1\nreceipt:m-a\n",
+  "ERROR\ncontent-type:text/plain\ncontent-length:23\n\nNo destination defined!\n",
+
+  "UNSUBSCRIBE with missing id",
+  "UNSUBSCRIBE\ndestination:/*\nreceipt:m-a\n",
+  "ERROR\ncontent-type:text/plain\ncontent-length:14\n\nNo id defined!\n",
+
   "Disconnect with receipt",
   "DISCONNECT\nreceipt:77\n",
   "RECEIPT\ncontent-type:text/plain\nreceipt-id:77\n",
@@ -90,7 +107,7 @@ const TEST_DATA = [
   "SUBSCRIBE\ndestination:/queue/*\nid:sub-1\nreceipt:m-queue/a\n",
   "RECEIPT\ncontent-type:text/plain\nreceipt-id:m-queue/a\n",
 
-  "1> SEND frame arrives with a specific destination",
+  "1> MESSAGE frame arrives with a specific destination",
   "SEND\ndestination:/queue/a\ncontent-type:text/plain\n\nhello queue a\n",
   "MESSAGE\ndestination:/queue/a\nmessage-id:0\nsubscription:sub-1\ncontent-type:text/plain\ncontent-length:14\n\nhello queue a\n",
 

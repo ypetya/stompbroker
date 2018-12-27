@@ -20,11 +20,6 @@ module.exports = class DurableStompClient {
         this.connectStomp();
     }
 
-    subscribe(topic, cb) {
-        this.stompClient.subscribe(topic,cb);
-        this.stompClient.onreceive = cb;
-    }
-
     connectStomp() {
         this.stompClient = Stomp.overWS(this.url);
         this.stompClient.debug = this.debug;

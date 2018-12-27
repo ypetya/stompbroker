@@ -31,6 +31,7 @@ void free_parsed_message(parsed_message* pm) {
     free(pm->receipt_id);
     free(pm->message_body);
     free(pm->topic);
+    free(pm->id);
     free(pm);
 }
 
@@ -76,7 +77,8 @@ char * parse_headers(parsed_message *pm, associative_array * aa, char* str) {
             pm->receipt_id = clone_str(separator + 1);
             //debug(" * Header receipt: %s\n", pm->receipt_id);
         } else if (strcmp(str, "id") == 0) {
-            pm->id = atoi(separator + 1);
+            if (pm->id != NULL) free(pm->id);
+            pm->id = clone_str(separator + 1);
             //debug(" * Header id: %d\n", pm->id);
         } else if (strcmp(str, "destination") == 0) {
             if (pm->topic != NULL) free(pm->topic);

@@ -19,7 +19,7 @@ extern "C" {
 #define FRM_SEND_ID 5
 #define FRM_DIAGNOSTIC "DIAG"
 #define FRM_DIAGNOSTIC_ID 6
-    
+
 #include "message.h"
 #include "../lib/associative_array.h"
 
@@ -31,12 +31,12 @@ extern "C" {
         // SUBSCRIPTION destination
         char* topic;
         // SUBSCRIPTION id
-        int id;
+        char* id;
     } parsed_message;
 
     parsed_message* parse_message(message* message);
-    
-    void free_parsed_message(parsed_message* pm); 
+
+    void free_parsed_message(parsed_message* pm);
 
 #ifdef __cplusplus
 }

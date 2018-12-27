@@ -20,6 +20,7 @@ void pubsub_dispose() {
 
             subscription * sub = c->data;
             free(sub->topic_pattern);
+            free(sub->id);
             //free(sub);
             //free(c);
             c = n;
@@ -30,18 +31,18 @@ void pubsub_dispose() {
     topics = NULL;
 }
 
-void pubsub_subscribe(char* topic_str, int client_session_id, int connection_id) {
+void pubsub_subscribe(char* topic_str, int client_session_id, char* subscription_id) {
     if (topics == NULL) return;
     subscription * new_sub = emalloc(sizeof (subscription));
     new_sub->session_id = client_session_id;
-    new_sub->client_id = connection_id;
     new_sub->topic_pattern = clone_str(topic_str);
+    new_sub->id = clone_str(subscription_id);
 
     list_add(topics, new_sub);
 }
 
-void pubsub_unsubscribe(char* topic_str, int client_session_id, int external_client_id) {
-   if (topics->size == 0) return;
+void pubsub_unsubscribe(char* topic_str, int client_session_id, char* subscription_id) {
+    if (topics->size == 0) return;
 
     general_list_item * p = NULL;
     general_list_item * c = topics->first;
@@ -50,10 +51,11 @@ void pubsub_unsubscribe(char* topic_str, int client_session_id, int external_cli
         subscription * sub = c->data;
 
         if (sub->session_id == client_session_id &&
-                sub->client_id == external_client_id &&
-                strcmp(sub->topic_pattern,topic_str) == 0
+                strcmp(sub->topic_pattern, topic_str) == 0 &&
+                strcmp(sub->id, subscription_id) == 0
                 ) {
             free(sub->topic_pattern);
+            free(sub->id);
             free(sub); // = c->data
             //unchain
             if (p == NULL) // first item!
@@ -86,9 +88,10 @@ void pubsub_remove_client(int client_session_id) {
 
     while (c != NULL) {
         subscription * sub = c->data;
- 
+
         if (sub->session_id == client_session_id) {
             free(sub->topic_pattern);
+            free(sub->id);
             free(sub); // = c->data
             //unchain
             if (p == NULL) // first item!
@@ -119,7 +122,7 @@ void pubsub_remove_client(int client_session_id) {
  * @return number of matches or -1 on error
  */
 int pubsub_find_matching(char* topic_mask, general_list * matches) {
-    
+
     if (topics->size == 0) return matches->size;
     // NOTE: This function should be harnessed in a higher abstraction level \
 not to use wildcards in the topic_mask
@@ -131,7 +134,7 @@ not to use wildcards in the topic_mask
     int len2;
     char * wild_card;
     subscription * sub;
-    
+
     general_list_item * c = topics->first;
 
     while (c != NULL) {
@@ -141,17 +144,17 @@ not to use wildcards in the topic_mask
         len2 = wild_card == NULL ?
                 strlen(sub->topic_pattern) :
                 wild_card - sub->topic_pattern;
-        
+
         // if no wild-card and length does not match
         // or there is a wildcard but len is shorter
         // => it is a no match!
-        if( wild_card == NULL && len2!=topic_mask_len
-            || wild_card !=NULL && topic_mask_len < len2
+        if (wild_card == NULL && len2 != topic_mask_len
+                || wild_card != NULL && topic_mask_len < len2
                 ) {
             c = c->next;
             continue;
         }
-        
+
         // MIN of topic_mask_len and len2
         int len = topic_mask_len < len2 ? topic_mask_len : len2;
         if (strncmp(topic_mask, sub->topic_pattern, len) == 0) {
@@ -160,7 +163,7 @@ not to use wildcards in the topic_mask
 
         c = c->next;
     }
-    
+
     return matches->size;
 }
 
@@ -168,9 +171,8 @@ int pubsub_size() {
     return topics->size;
 }
 
-
 void pubsub_to_str(char* dst, size_t dst_size) {
-     if (topics->size == 0) return;
+    if (topics->size == 0) return;
 
     general_list_item * c = topics->first;
 
@@ -178,12 +180,12 @@ void pubsub_to_str(char* dst, size_t dst_size) {
         subscription * sub = c->data;
         size_t dst_len = strlen(dst);
 
-        if((strlen(sub->topic_pattern) + dst_len + 2) > dst_size) break;
+        if ((strlen(sub->topic_pattern) + dst_len + 2) > dst_size) break;
 
-        if(dst_len > 0) strcat(dst,",");
-        
-        strcat(dst,sub->topic_pattern);
+        if (dst_len > 0) strcat(dst, ",");
 
-        c=c->next;
-    } 
+        strcat(dst, sub->topic_pattern);
+
+        c = c->next;
+    }
 }

@@ -51,18 +51,22 @@ void stomp_process(ts_queue* output_queue, message *input) {
         }
         case FRM_SUBSCRIBE_ID:
         {
-            if (pm->topic == NULL)
-                resp = message_error(input->fd, "No topic defined!");
-            else if (client_connected > 0)
+            if (pm->id == NULL) {
+                resp = message_error(input->fd, "No id defined!");
+            } else if (pm->topic == NULL)
+                resp = message_error(input->fd, "No destination defined!");
+            else if (client_connected > 0) {
                 pubsub_subscribe(pm->topic, client_id, pm->id);
-            else
+            } else
                 resp = message_error(input->fd, "Not connected!");
             break;
         }
         case FRM_UNSUBSCRIBE_ID:
         {
-            if (pm->topic == NULL)
-                resp = message_error(input->fd, "No topic defined!");
+            if (pm->id == NULL) {
+                resp = message_error(input->fd, "No id defined!");
+            } else if (pm->topic == NULL)
+                resp = message_error(input->fd, "No destination defined!");
             else if (client_connected > 0)
                 pubsub_unsubscribe(pm->topic, client_id, pm->id);
             else
@@ -101,7 +105,7 @@ void stomp_process(ts_queue* output_queue, message *input) {
                     aa_put(aa, "message-id", itoa(message_id++));
 #endif
                     aa_put(aa, "destination", pm->topic);
-                    aa_put(aa, "subscription", itoa(sub->client_id));
+                    aa_put(aa, "subscription", sub->id);
 
                     message * o = message_send_with_headers(fd,
                             aa,
