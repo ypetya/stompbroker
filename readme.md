@@ -1,18 +1,27 @@
 STOMP Broker
 ============
 
-More information : https://stomp.github.io/stomp-specification-1.2.html
+This is not a safe or production ready implementation,
+and still is in "Work in progress" phase.
 
-This folder is in the state of "Work in progress"
+More information about STOMP protocol : https://stomp.github.io/stomp-specification-1.2.html
+Implemented stomp scenarios can be found in functional tests: js/stomp.protocol.test.js
+
+Websocket implementation is intended to follow RFC6455 with limitations:
+It is still under implementation.
+- lacks of security
+- no fragmented messages
+- will follow message size limitations globally configurable
 
 Performance
 -----------
 
 current implementation uses epoll:
 input queue is processed by a single thread
-and as many output thread as free cores
 
-Further measurements needed
+It makes some backpressure with starting as many output thread as free cores left.
+In the future it must be balanced.
+Further measurements needed.
 
 Feature Status
 --------------
@@ -68,7 +77,13 @@ The first character of the line can contain the following status codes:
 ~ create tests and nodejs applications, see `js` directory
 + js/stomp.protocol.test.js
 + Websocket handshake filter
-~ Websocket data frames. (Limited: text-only,no fragments)
+~ Websocket data frames encoding-decoding (Limited: text-only,no fragments)
+- WS: Buffer underrun, Buffer overflow
+- STOMP: Buffer overflow, multiple messages
+- Grouped diagnostic message for session_stats
+? Grouped diagnostic message for network io ( dropped ws data-frames, fixed underruns, cache size )
+- Take maximum STOMP message size mandatory for WS as well
+- WS ping-pong
 ```
 
 Running

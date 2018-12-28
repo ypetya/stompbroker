@@ -14,13 +14,13 @@
 #include "parse_args.c"
 #include "server/listen.c"
 #include "server/process.c"
+#include "websocket/filter.c"
 #include "server/accept_epoll.c"
 #include "server/data/session_storage_simple.c"
 #include "stomp/data_wrappers/pub_sub.c"
 #include "stomp/stomp.c"
 #include "stomp/parser.c"
 #include "stomp/message.c"
-#include "websocket/filter.c"
 #include "server/data/string_message.c"
 /**
  * # Responsibility

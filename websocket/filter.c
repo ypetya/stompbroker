@@ -3,6 +3,7 @@
 #include <string.h>
 #include <inttypes.h>
 #include "../logger.h"
+#include "../lib/emalloc.h"
 #include "../lib/thread_safe_queue.h"
 #include "../server/data/string_message.h"
 #include "../server/data/session_storage.h"
@@ -19,7 +20,6 @@
  * 
  */
 char* is_http_request(char * buffer);
-char* decode_websocket_frame(char * buffer);
 int encode_websocket_frame(char * buffer, char** out);
 char* parse_sec_websocket_key(char * buffer);
 char* create_accept_key(char * client_key);
@@ -36,12 +36,6 @@ int ws_input_filter(ts_queue *out, message * m) {
         }
 
         return WS_NEED_OF_HANDSHAKE;
-    }
-    char* decoded_message = decode_websocket_frame(m->content);
-    if (decoded_message) {
-        free(m->content);
-        m->content = decoded_message;
-        session_set_encoded(m->fd);
     }
 
     return WS_NO_NEED_OF_HANDSHAKE;
@@ -126,8 +120,7 @@ int encode_websocket_frame(char * buffer, char** out) {
  * @param buffer
  * @return 
  */
-char* decode_websocket_frame(char * buffer) {
-    //int rsv123 = buffer[0] & 0xE;
+char* decode_websocket_frame(int fd, char * buffer) {
     int has_mask = has_mask = buffer[1] & 0x80 ? 1 : 0;
     // Websocket client must send a mask! we use it for frame detection
     if (has_mask) {
@@ -158,19 +151,33 @@ char* decode_websocket_frame(char * buffer) {
         }
         debug(">>> Websocket data frame FIN: %d opcode: 0x%x payload_len: %" PRIu64 "\n", fin, op_code, payload_len);
 
-        stomp_app_config * cfg = config_get_config();
-        if (payload_len < cfg->input_buffer_size) {
-            char * decoded_message = emalloc(sizeof (char) * (payload_len + 1));
-
-            memcpy(decoded_message, buffer + skip, payload_len);
-            for (int i = 0; i < payload_len; i++) decoded_message[i] = decoded_message[i] ^ mask[i % 4];
-
-            return decoded_message;
-        } else {
-            char * invalid = "INVALID\n\nMessage too large\n";
+        if (payload_len > 1000000) { // maximum message size 1M
+            char * invalid = "INVALID\n\nMessage size too large\n";
 
             return clone_str(invalid);
         }
+        char * decoded_message = emalloc(sizeof (char) * (payload_len + 1));
+
+        if (strlen(buffer) < payload_len) {
+            // FIXME remaining data from websocket will arrive ...
+            // now we just drop the mic
+            
+            free(decoded_message);
+                        
+            char * invalid = "INVALID\n\nMessage size too small\n";
+
+            return clone_str(invalid);
+            /*
+             * FIXME: buffering:
+             * - underflow: buffer the read data, concatenate if new data arrived for the specific FD, send if ready
+             * - overflow: buffer remaining data
+             * - keep track of buffer sizes, book stats */
+        } else {
+            memcpy(decoded_message, buffer + skip, payload_len);
+        }
+        for (int i = 0; i < payload_len; i++) decoded_message[i] = decoded_message[i] ^ mask[i % 4];
+
+        return decoded_message;
     }
     return NULL;
 }
@@ -203,6 +210,7 @@ char* create_accept_key(char * client_key) {
     }
 
     if (base64_encode_alloc((const char *) sha1Key, 20, &acceptKey) == 0) {
+
         return NULL;
     }
 
@@ -221,6 +229,7 @@ char* parse_sec_websocket_key(char * buffer) {
         }
         char * key = match + WEBSOCKET_KEY_HEADER_LEN;
         debug(">>> Incoming websocket connection, parsed key:(%s)\n", key)
+
         return key;
     }
     return NULL;
@@ -234,6 +243,7 @@ char * is_http_request(char * buffer) {
 
     if (first_ln != NULL) {
         char * match = strstr(buffer, WEB_REQUEST_1);
+
         if (match != NULL && match < first_ln) return first_ln + 1;
     }
 

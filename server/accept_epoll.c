@@ -16,6 +16,7 @@
 #include "../lib/clone_str.h"
 #include "../parse_args.h"
 #include "process.h"
+#include "../websocket/filter.h"
 
 #include <string.h> // memcpy
 
@@ -105,12 +106,15 @@ void do_use_fd(int conn_sock, char* read_buffer, ts_queue * input_queue,
             close(conn_sock);
             return;
         }
-        read_buffer[received_length] = '\0';
-        char * token = strtok(read_buffer, "\0");
-        while (token != NULL) {
+        // Do the websocket receiving part
+        char* decoded_message = decode_websocket_frame(conn_sock, read_buffer);
+        if (decoded_message) {
+            session_set_encoded(conn_sock);
             message * incoming_message = message_create(
                     conn_sock,
-                    token);
+                    decoded_message);
+            
+            free(decoded_message);
 
             if (ts_enqueue_limited(input_queue,
                     incoming_message,
@@ -118,7 +122,23 @@ void do_use_fd(int conn_sock, char* read_buffer, ts_queue * input_queue,
                     ) < 0)
                 warn("server: Dropping message, input_queue limit reached! (%d)\n",
                     config->max_input_queue_size);
-            token = strtok(NULL, "\0");
+        } else {
+
+            read_buffer[received_length] = '\0';
+            char * token = strtok(read_buffer, "\0");
+            while (token != NULL) {
+                message * incoming_message = message_create(
+                        conn_sock,
+                        token);
+
+                if (ts_enqueue_limited(input_queue,
+                        incoming_message,
+                        config->max_input_queue_size
+                        ) < 0)
+                    warn("server: Dropping message, input_queue limit reached! (%d)\n",
+                        config->max_input_queue_size);
+                token = strtok(NULL, "\0");
+            }
         }
     }
 }
