@@ -50,7 +50,12 @@ extern "C"
      */
     int session_storage_fetch_external_id(int client_id);
     void session_storage_remove(int index);
-    void session_storage_remove_external(int external_id);
+    /**
+     * 
+     * @param external_id
+     * @return internal_id 
+     */
+    int session_storage_remove_external(int external_id);
 
     /**
      * Only for diagnostic purposes!

@@ -16,7 +16,9 @@
 #include "../lib/clone_str.h"
 #include "../parse_args.h"
 #include "process.h"
-#include "../websocket/filter.h"
+#include "../websocket/filter/dataframe.h"
+#include "../stomp/data_wrappers/pub_sub.h"
+#include "data/cleanup.h"
 
 #include <string.h> // memcpy
 
@@ -28,7 +30,9 @@ void do_use_fd(int fd, char * readbuffer, ts_queue * input_queue,
         stomp_app_config * config);
 
 void accept_epoll(stomp_app_config * config, int listen_sock) {
-    char read_buffer[config->input_buffer_size];
+    char read_buffer[config->input_buffer_size + 1];
+    read_buffer[config->input_buffer_size] = '\0';
+    ws_init_buffer();
     ts_queue * input_queue = process_start_threads();
 
 #define MAX_EVENTS 10
@@ -87,10 +91,31 @@ void setnonblocking(int conn_sock) {
     fcntl(conn_sock, F_SETFL, O_NONBLOCK | O_NDELAY);
 }
 
+void put_stomp_messages_on_queue(int conn_sock, char* read_buffer, ts_queue * input_queue,
+        stomp_app_config * config, int received_length) {
+    read_buffer[received_length] = '\0';
+    char * token = strtok(read_buffer, "\0");
+    while (token != NULL) {
+        if (token > (read_buffer + received_length)) break;
+        message * incoming_message = message_create(
+                conn_sock,
+                token);
+
+        if (ts_enqueue_limited(input_queue,
+                incoming_message,
+                config->max_input_queue_size
+                ) < 0)
+            warn("server: Dropping message, input_queue limit reached! (%d)\n",
+                config->max_input_queue_size);
+        token = strtok(NULL, "\0");
+    }
+}
+
 void do_use_fd(int conn_sock, char* read_buffer, ts_queue * input_queue,
         stomp_app_config * config) {
+    int client_id;
     int received_length = recv(conn_sock, read_buffer,
-            config->input_buffer_size - 1, 0);
+            config->input_buffer_size, 0);
     if (received_length < 1) {
         if (received_length == 0) {
             info("server: socket closed nicely. fd:%d\n", conn_sock);
@@ -99,47 +124,46 @@ void do_use_fd(int conn_sock, char* read_buffer, ts_queue * input_queue,
         }
         // TODO: epoll_ctl EPOLL_CTL_DEL ????
         close(conn_sock);
-        session_storage_remove_external(conn_sock);
+        clean_by_fd(conn_sock);
     } else {
         if (session_storage_add_new(conn_sock) == MAX_SESSION_NUMBER_EXCEEDED) {
             // Sorry-sorry, no bananas left. :)
             close(conn_sock);
             return;
         }
-        // Do the websocket receiving part
-        char* decoded_message = decode_websocket_frame(conn_sock, read_buffer);
-        if (decoded_message) {
-            session_set_encoded(conn_sock);
-            message * incoming_message = message_create(
-                    conn_sock,
-                    decoded_message);
-            
-            free(decoded_message);
 
-            if (ts_enqueue_limited(input_queue,
-                    incoming_message,
-                    config->max_input_queue_size
-                    ) < 0)
-                warn("server: Dropping message, input_queue limit reached! (%d)\n",
-                    config->max_input_queue_size);
-        } else {
+        size_t decoded_buf_len;
+        char * decoded_messages;
 
-            read_buffer[received_length] = '\0';
-            char * token = strtok(read_buffer, "\0");
-            while (token != NULL) {
-                message * incoming_message = message_create(
-                        conn_sock,
-                        token);
-
-                if (ts_enqueue_limited(input_queue,
-                        incoming_message,
-                        config->max_input_queue_size
-                        ) < 0)
-                    warn("server: Dropping message, input_queue limit reached! (%d)\n",
-                        config->max_input_queue_size);
-                token = strtok(NULL, "\0");
-            }
+        switch (ws_input_filter_dataframe(conn_sock, read_buffer,
+                received_length,
+                &decoded_messages, &decoded_buf_len)) {
+            case WS_COMPLETE_DATAFRAME:
+                put_stomp_messages_on_queue(conn_sock,
+                        decoded_messages,
+                        input_queue,
+                        config,
+                        (int) decoded_buf_len);
+                free(decoded_messages);
+                break;
+            case WS_NOT_A_DATAFRAME:
+                put_stomp_messages_on_queue(conn_sock,
+                        read_buffer,
+                        input_queue,
+                        config,
+                        received_length);
+                break;
+            case WS_BUFFER_EXCEEDED_MAX:
+            case WS_TOO_LARGE_DATAFRAME:
+                clean_by_fd(conn_sock);
+                close(conn_sock);
+                break;
+            case WS_INCOMPLETE_DATAFRAME:
+                // do nothing, buffering is made
+                debug("Incomplete dataframe\n");
+                break;
         }
+
     }
 }
 

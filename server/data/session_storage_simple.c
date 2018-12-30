@@ -71,10 +71,11 @@ void session_storage_remove(int session_id) {
     clients[session_id] = EMPTY_SESSION;
 }
 
-void session_storage_remove_external(int external_id) {
+int session_storage_remove_external(int external_id) {
     int client_id = external_id % MAX_NUMBER_OF_CONNECTIONS;
     number_of_clients--;
     clients[client_id] = EMPTY_SESSION;
+    return client_id;
 }
 
 int session_storage_connected_size() {

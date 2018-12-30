@@ -7,9 +7,9 @@
 #include "../stomp/stomp.h"
 #include "../lib/emalloc.h"
 #include "../parse_args.h"
-#include "../websocket/filter.h"
-#include "./data/string_message.h"
-#include "./data/session_storage.h"
+#include "data/string_message.h"
+#include "data/session_storage.h"
+#include "data/cleanup.h"
 
 typedef struct worker_thread_data_st {
     ts_queue * input_q;
@@ -128,7 +128,7 @@ void *reader_thread(void *vargp) {
                 break;
             }
 
-            if (ws_input_filter(output_queue, msg) == WS_NO_NEED_OF_HANDSHAKE) {
+            if (ws_input_filter_handshake(output_queue, msg, &clean_by_fd) == WS_NO_NEED_OF_HANDSHAKE) {
                 debug("<<<\n%s\n", msg->content);
 
                 stomp_process(output_queue, msg);

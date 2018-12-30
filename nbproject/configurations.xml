@@ -55,13 +55,29 @@
       </df>
       <df name="server">
         <df name="data">
+          <in>cleanup.c</in>
+          <in>cleanup.h</in>
           <in>string_message.c</in>
           <in>string_message.h</in>
         </df>
+        <in>main.h</in>
+      </df>
+      <df name="stomp">
+        <in>main.h</in>
       </df>
       <df name="websocket">
+        <df name="filter">
+          <in>dataframe.c</in>
+          <in>dataframe.h</in>
+          <in>handshake.c</in>
+          <in>handshake.h</in>
+        </df>
+        <in>buffer.c</in>
+        <in>buffer.h</in>
         <in>filter.c</in>
         <in>filter.h</in>
+        <in>main.h</in>
+        <in>ntohl.c</in>
       </df>
       <in>main.c</in>
     </df>
@@ -87,6 +103,61 @@
   <projectmakefile></projectmakefile>
   <confs>
     <conf name="Default" type="0">
+      <toolsSet>
+        <compilerSet>default</compilerSet>
+        <dependencyChecking>false</dependencyChecking>
+        <rebuildPropChanged>false</rebuildPropChanged>
+      </toolsSet>
+      <codeAssistance>
+      </codeAssistance>
+      <makefileType>
+        <makeTool>
+          <buildCommandWorkingDir>.</buildCommandWorkingDir>
+          <buildCommand>./build.sh</buildCommand>
+          <cleanCommand>echo clean</cleanCommand>
+          <executablePath></executablePath>
+        </makeTool>
+        <preBuild>
+          <preBuildCommandWorkingDir>.</preBuildCommandWorkingDir>
+          <preBuildCommand></preBuildCommand>
+        </preBuild>
+      </makefileType>
+      <item path="lib/emalloc.c" ex="true" tool="3" flavor2="2">
+      </item>
+      <item path="lib/general_list.c" ex="true" tool="3" flavor2="2">
+      </item>
+      <item path="lib/string_list.c" ex="true" tool="0" flavor2="2">
+      </item>
+      <item path="lib/string_list_console.c" ex="true" tool="0" flavor2="2">
+      </item>
+      <item path="main.c" ex="false" tool="0" flavor2="3">
+      </item>
+      <item path="server/data/cleanup.c" ex="false" tool="0" flavor2="0">
+      </item>
+      <item path="server/data/cleanup.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="server/main.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="stomp/main.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="websocket/buffer.c" ex="false" tool="0" flavor2="0">
+      </item>
+      <item path="websocket/buffer.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="websocket/filter/dataframe.c" ex="false" tool="0" flavor2="0">
+      </item>
+      <item path="websocket/filter/dataframe.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="websocket/filter/handshake.c" ex="false" tool="0" flavor2="0">
+      </item>
+      <item path="websocket/filter/handshake.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="websocket/main.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="websocket/ntohl.c" ex="false" tool="0" flavor2="0">
+      </item>
+    </conf>
+    <conf name="Copy_of_Default" type="0">
       <toolsSet>
         <compilerSet>default</compilerSet>
         <dependencyChecking>false</dependencyChecking>
@@ -204,9 +275,15 @@
       </item>
       <item path="main.c" ex="false" tool="0" flavor2="2">
       </item>
+      <item path="server/data/cleanup.c" ex="false" tool="0" flavor2="0">
+      </item>
+      <item path="server/data/cleanup.h" ex="false" tool="3" flavor2="0">
+      </item>
       <item path="server/data/string_message.c" ex="false" tool="0" flavor2="0">
       </item>
       <item path="server/data/string_message.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="server/main.h" ex="false" tool="3" flavor2="0">
       </item>
       <item path="stomp/js/chat/readme.md" ex="false" tool="3" flavor2="0">
       </item>
@@ -215,6 +292,8 @@
       <item path="stomp/js/chat/stomp.chat.lib.js" ex="false" tool="3" flavor2="0">
       </item>
       <item path="stomp/js/stomp.connection.test.js" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="stomp/main.h" ex="false" tool="3" flavor2="0">
       </item>
       <item path="stomp/message.c" ex="false" tool="0" flavor2="2">
       </item>
@@ -231,9 +310,25 @@
             tool="3"
             flavor2="0">
       </item>
+      <item path="websocket/buffer.c" ex="false" tool="0" flavor2="0">
+      </item>
+      <item path="websocket/buffer.h" ex="false" tool="3" flavor2="0">
+      </item>
       <item path="websocket/filter.c" ex="false" tool="0" flavor2="0">
       </item>
       <item path="websocket/filter.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="websocket/filter/dataframe.c" ex="false" tool="0" flavor2="0">
+      </item>
+      <item path="websocket/filter/dataframe.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="websocket/filter/handshake.c" ex="false" tool="0" flavor2="0">
+      </item>
+      <item path="websocket/filter/handshake.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="websocket/main.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="websocket/ntohl.c" ex="false" tool="0" flavor2="0">
       </item>
     </conf>
   </confs>

@@ -1,0 +1,22 @@
+
+#ifndef SERVER_MAIN_H
+#define SERVER_MAIN_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include "data/string_message.c"
+#include "data/cleanup.c"
+#include "data/session_storage_simple.c"
+#include "signal_action_handler.c"
+#include "listen.c"
+#include "process.c"
+#include "accept_epoll.c"
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif 
+

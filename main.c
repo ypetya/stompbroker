@@ -10,18 +10,13 @@
 #include "lib/thread_safe_queue.c"
 #include "lib/clone_str.c"
 #include "lib/associative_array.c"
-#include "server/signal_action_handler.c"
+
 #include "parse_args.c"
-#include "server/listen.c"
-#include "server/process.c"
-#include "websocket/filter.c"
-#include "server/accept_epoll.c"
-#include "server/data/session_storage_simple.c"
-#include "stomp/data_wrappers/pub_sub.c"
-#include "stomp/stomp.c"
-#include "stomp/parser.c"
-#include "stomp/message.c"
-#include "server/data/string_message.c"
+
+
+#include "websocket/main.h"
+#include "stomp/main.h"
+#include "server/main.h"
 /**
  * # Responsibility
  * 

@@ -6,6 +6,7 @@
 #include <signal.h>
 #include "signal_action_handler.h"
 #include "process.h"
+#include "../websocket/buffer.h"
 
 void sigchldHandler(int s);
 void exitOnSignal() {
@@ -33,6 +34,7 @@ void sigchldHandler(int s)
     while (waitpid(-1, NULL, WNOHANG) > 0);
 
     process_kill_threads();
+    ws_deinit_buffer();
     
     exit(0);
     errno = saved_errno;
