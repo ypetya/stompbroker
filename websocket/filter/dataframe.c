@@ -162,11 +162,11 @@ char * ws_dataframe_decode(buffer_item* buf) {
     char * decoded_message = emalloc(buf->frame_len + 1);
 
     for (size_t i = 0; i < len; i++) decoded_message[i] = buf->received[i + skip] ^ buf->mask[i % 4];
-    debug("Decoded frame len(%d) : %s\n", len, decoded_message);
+    //debug("Decoded frame len(%d) : %s\n", len, decoded_message);
     // shrink buffer_item and set new headers
     buf->remaining_len = buf->received_len - len - skip;
     if (buf->remaining_len > 0) {
-        debug("Remaining chunk len: %d\n%s\n", buf->remaining_len, &buf->received[skip + buf->frame_len]);
+        debug("Remaining chunk len: %d\n", buf->remaining_len/*, &buf->received[skip + buf->frame_len]*/);
         // shrink payload, and calc new headers
         for (size_t i = 0; i < buf->remaining_len; i++) buf->received[i] = buf->received[i + skip + buf->frame_len];
         buf->received = realloc(buf->received, buf->remaining_len + 1);

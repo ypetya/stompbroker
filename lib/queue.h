@@ -10,11 +10,15 @@ extern "C" {
     typedef struct queue_st {
         general_list_item * first;
         general_list_item * last;
+        general_list_item * next;
         int size;
     } queue;
     
     void enqueue(queue * q, void *new_data);
     void* dequeue(queue * q);
+    
+    void dequeue_item(queue * q, general_list_item * item);
+    void* peek_next(queue * q);
     
     void queue_free(queue *q);
     void queue_init(queue *q);

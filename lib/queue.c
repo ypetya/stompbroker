@@ -21,17 +21,57 @@ void enqueue(queue * q, void *new_data) {
 
 void* dequeue(queue * q) {
     general_list_item * head = q->first;
-    if(head==NULL) return NULL;
+    if (head == NULL) return NULL;
     void * data = head->data;
     q->first = head->next;
+    if (q->next == head) {
+        q->next = q->first;
+    }
     free(head);
     q->size--;
 
     return data;
 }
 
+void* peek_next(queue * q) {
+    general_list_item * current = q->next;
+
+    if (current != NULL) {
+        general_list_item * next = current->next;
+
+        q->next = (next == NULL) ? q->first : next;
+    }
+    return current->data;
+}
+
+void dequeue_item(queue * q, void * item) {
+    general_list_item* current = q->first;
+    general_list_item* last = NULL;
+
+    while (current != NULL && current->data != item) {
+        last = current;
+        current = current->next;
+    }
+    if (current == NULL) return; // No match
+    
+    q->size--;
+
+    if (last == NULL) { //first item
+        q->first = current->next;
+        q->next = q->first;
+    } else {
+
+        if (current->next == NULL) { //last item
+            q->last = last;
+        }
+        last->next = current->next;
+        q->next = last->next;
+    }
+    free(current);
+}
 
 // NOTE: caution! - frees up the data!
+
 void queue_free(queue *q) {
     general_list_item* c = q->first;
     general_list_item* n;
@@ -45,6 +85,6 @@ void queue_free(queue *q) {
 }
 
 void queue_init(queue *q) {
-    q->first = q->last = NULL;
+    q->first = q->last = q->next = NULL;
     q->size = 0;
 }

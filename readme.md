@@ -3,6 +3,7 @@ STOMP Broker
 
 This is not a safe or production ready implementation,
 and still is in "Work in progress" phase.
+TTL = 0
 
 More information about STOMP protocol : https://stomp.github.io/stomp-specification-1.2.html
 Implemented stomp scenarios can be found in functional tests: js/stomp.protocol.test.js
@@ -84,6 +85,7 @@ The first character of the line can contain the following status codes:
 ? Grouped diagnostic message for network io ( dropped ws data-frames, fixed underruns, cache size )
 - Take maximum STOMP message size mandatory for WS as well
 - WS ping-pong
+- Implement TTL>0 message queue behaviour
 ```
 
 Running

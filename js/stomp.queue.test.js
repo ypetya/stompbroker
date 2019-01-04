@@ -30,7 +30,7 @@ const request = m => new Promise((resolve, reject) => {
     });
 
 function runTest() {
-    createSubscriptions(10).then(
+    createSubscriptions(1000).then(
             async () => {
         for (var i = 0; i < 1000; i++) {
             await request(`SEND\ndestination:/queue/${i}\ncontent-type:text/plain\n\n{\"content\":\"Funky ${i}!\"}\0`);

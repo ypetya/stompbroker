@@ -118,7 +118,7 @@ void *reader_thread(void *vargp) {
     ts_queue * output_queue = queues->output_q;
 
     while (YES) {
-
+        // TODO TTL>0 : peek next
         message * msg = ts_dequeue(input_queue);
 
         if (msg != NULL) {
@@ -130,8 +130,10 @@ void *reader_thread(void *vargp) {
 
             if (ws_input_filter_handshake(output_queue, msg, &clean_by_fd) == WS_NO_NEED_OF_HANDSHAKE) {
                 debug("<<<\n%s\n", msg->content);
-
-                stomp_process(output_queue, msg);
+                
+                if(stomp_process(output_queue, msg)) {
+                    // TODO TTL>0 dequeue_item msg
+                }
             }
             message_destroy(msg);
         }

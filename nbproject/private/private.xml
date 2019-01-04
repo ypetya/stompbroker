@@ -10,11 +10,19 @@
     <editor-bookmarks xmlns="http://www.netbeans.org/ns/editor-bookmarks/2" lastBookmarkId="0"/>
     <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
         <group>
-            <file>file:/home/peter/projects/stompbroker/server/process.h</file>
-            <file>file:/home/peter/projects/stompbroker/server/process.c</file>
-            <file>file:/home/peter/projects/stompbroker/websocket/filter.c</file>
-            <file>file:/home/peter/projects/stompbroker/websocket/filter.h</file>
-            <file>file:/home/peter/projects/stompbroker/server/accept_epoll.c</file>
+            <file>file:/home/peter/projects/c_connect/server/process.h</file>
+            <file>file:/home/peter/projects/c_connect/websocket/utils/md5.c</file>
+            <file>file:/home/peter/projects/c_connect/stomp/stomp.c</file>
+            <file>file:/home/peter/projects/c_connect/server/data/string_message.c</file>
+            <file>file:/home/peter/projects/c_connect/server/data/string_message.h</file>
+            <file>file:/home/peter/projects/c_connect/stomp/parser.c</file>
+            <file>file:/home/peter/projects/c_connect/main.c</file>
+            <file>file:/home/peter/projects/c_connect/server/data/session_storage_simple.c</file>
+            <file>file:/home/peter/projects/c_connect/js/stomp.connection.test.js</file>
+            <file>file:/home/peter/projects/c_connect/logger.h</file>
+            <file>file:/home/peter/projects/c_connect/stomp/message.h</file>
+            <file>file:/home/peter/projects/c_connect/server/process.c</file>
+            <file>file:/home/peter/projects/c_connect/stomp/message.c</file>
         </group>
     </open-files>
 </project-private>
