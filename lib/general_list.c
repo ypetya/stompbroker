@@ -6,7 +6,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "logger.h"
 #include "emalloc.h"
 #include "general_list.h"
 

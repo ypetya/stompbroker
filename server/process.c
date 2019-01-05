@@ -9,7 +9,6 @@
 #include "../parse_args.h"
 #include "data/string_message.h"
 #include "data/session_storage.h"
-#include "data/cleanup.h"
 
 typedef struct worker_thread_data_st {
     ts_queue * input_q;
@@ -36,6 +35,7 @@ ts_queue output_queue;
 
 ts_queue * process_start_threads() {
 
+    session_storage_init();
     stomp_start();
 
     ts_queue_init(&input_queue);
@@ -60,12 +60,11 @@ ts_queue * process_start_threads() {
 }
 
 void process_kill_threads() {
-    stomp_stop(&output_queue);
-
     ts_enqueue(&input_queue, message_poison_pill());
     for (int i = 0; i < workers->writers_count; i++)
         ts_enqueue(&output_queue, message_poison_pill());
 
+    // JOIN threads
     pthread_join(workers->reader_thread_id, NULL);
     for (int i = 0; i < workers->writers_count; i++)
         pthread_join(workers->writers[i], NULL);
@@ -97,11 +96,12 @@ void *writer_thread(void *vargp) {
             size_t len = ws_output_filter(msg);
 
             res = write(msg->fd, msg->content, len);
-            
+
             if (res < 0) {
                 perror("Could not send message. Client may disconnected");
                 warn("fd:%d", msg->fd);
             }
+
             message_destroy(msg);
         }
 
@@ -125,10 +125,11 @@ void *reader_thread(void *vargp) {
             if (msg->fd == -1) {
                 debug(" * Reader thread: Poison pill detected.\n");
                 message_destroy(msg);
+                stomp_stop();
                 break;
             }
 
-            if (ws_input_filter_handshake(output_queue, msg, &clean_by_fd) == WS_NO_NEED_OF_HANDSHAKE) {
+            if (ws_input_filter_handshake(output_queue, msg) == WS_NO_NEED_OF_HANDSHAKE) {
                 debug("<<<\n%s\n", msg->content);
 
                 stomp_process(output_queue, msg);

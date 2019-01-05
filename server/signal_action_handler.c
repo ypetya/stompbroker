@@ -34,6 +34,7 @@ void sigchldHandler(int s)
     while (waitpid(-1, NULL, WNOHANG) > 0);
 
     process_kill_threads();
+    session_storage_dispose();
     ws_deinit_buffer();
     
     exit(0);

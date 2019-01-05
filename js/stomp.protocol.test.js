@@ -7,6 +7,14 @@ const TEST_DATA = [
   "DIAG\n\nsession-connected-size",
   "DIAG\ncontent-type:text/plain\nsession-connected-size:0\n",
 
+  "Initial session-size",
+  "DIAG\n\nsession-size",
+  "DIAG\ncontent-type:text/plain\nsession-size:1\n",
+
+  "session-encoded-size",
+  "DIAG\n\nsession-encoded-size",
+  "DIAG\ncontent-type:text/plain\nsession-encoded-size:0\n",
+
   "Stomp ver. 1.2 connect frame",
   "STOMP\naccept-version:1.2\nhost:localhost\n\n",
   check_connected,
@@ -14,6 +22,10 @@ const TEST_DATA = [
   "Session size increment",
   "DIAG\n\nsession-connected-size",
   "DIAG\ncontent-type:text/plain\nsession-connected-size:1\n",
+
+  "1 client connected session-size",
+  "DIAG\n\nsession-size",
+  "DIAG\ncontent-type:text/plain\nsession-size:1\n",
 
   "Disconnect with receipt",
   "DISCONNECT\nreceipt:77\n",

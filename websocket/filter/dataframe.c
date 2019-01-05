@@ -13,10 +13,10 @@
 
 int encode_websocket_frame(char * buffer, char** out);
 
-
 size_t ws_output_filter(message *m) {
-    size_t len = strlen(m->content);
+    size_t len = strlen(m->content) + 1;
     if (session_is_encoded(m->fd)) {
+        m->fd = session_without_flags(m->fd);
         char* encoded_message;
         len = encode_websocket_frame(m->content, &encoded_message);
         free(m->content);
@@ -75,14 +75,16 @@ char* ws_dataframe_decode(buffer_item* buf);
 ws_filter_dataframe_status ws_input_filter_dataframe(int fd, char* buffer, size_t read_len, char** out, size_t *decoded_buf_len) {
 
     int has_mask = has_mask = buffer[1] & 0x80 ? 1 : 0;
-    if (has_mask || session_is_encoded(fd)) {
+    // Be aware: session_storage_is_encoded should be used on the same thread as all the session_storage_functions!
+    if (has_mask || session_storage_is_encoded(fd)) {
         int new_buf = 0;
         buffer_item * ws_buff = ws_buffer_find(fd);
 
-
         ws_buffer_allocated_size += read_len;
         if (ws_buffer_allocated_size > WS_MAX_BUFFER_SIZE) {
-            ws_buffer_free(ws_buff);
+            if (ws_buff) ws_buffer_free(ws_buff);
+            else ws_buffer_allocated_size -= read_len;
+
             return WS_BUFFER_EXCEEDED_MAX;
         }
 
@@ -162,11 +164,11 @@ char * ws_dataframe_decode(buffer_item* buf) {
     char * decoded_message = emalloc(buf->frame_len + 1);
 
     for (size_t i = 0; i < len; i++) decoded_message[i] = buf->received[i + skip] ^ buf->mask[i % 4];
-    debug("Decoded frame len(%d) : %s\n", len, decoded_message);
+    debug("Decoded frame len(%d)\n", len);
     // shrink buffer_item and set new headers
     buf->remaining_len = buf->received_len - len - skip;
     if (buf->remaining_len > 0) {
-        debug("Remaining chunk len: %d\n%s\n", buf->remaining_len, &buf->received[skip + buf->frame_len]);
+        debug("Remaining chunk len: %d\n", buf->remaining_len);
         // shrink payload, and calc new headers
         for (size_t i = 0; i < buf->remaining_len; i++) buf->received[i] = buf->received[i + skip + buf->frame_len];
         buf->received = realloc(buf->received, buf->remaining_len + 1);
@@ -189,12 +191,14 @@ size_t mask_len = sizeof (mask);
 size_t ws_dataframe_read_headers(buffer_item* buf) {
     char * buffer = buf->received;
 
+    // TODO: check fin flag and append continue
     int fin = (buffer[0] & 0x80 ? 1 : 0);
     int op_code = (buffer[0] & 0xF);
 
     if (op_code == 1) {
-        session_set_encoded(buf->fd);
+        session_storage_set_encoded(buf->fd);
     } else {
+        // TODO handle PING-FRAMES
         ws_dropped_frames++;
         return buf->frame_len = 0;
     }

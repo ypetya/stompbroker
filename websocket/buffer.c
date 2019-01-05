@@ -1,11 +1,14 @@
 
 #include "buffer.h"
+#include "../logger.h"
 
 buffer_item ws_buffer[WS_CONTINUATION_BUFFER];
 
 size_t ws_buffer_allocated_size = 0;
 
 void ws_init_buffer() {
+    debug("server: Websocket buffer size: %d connections with %d bytes data in total.\n",
+            WS_CONTINUATION_BUFFER, WS_MAX_BUFFER_SIZE);
     memset(ws_buffer, 0, sizeof (ws_buffer));
 }
 

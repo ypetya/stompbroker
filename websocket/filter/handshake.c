@@ -17,7 +17,7 @@ char* parse_sec_websocket_key(char * buffer);
 char* create_accept_key(char * client_key);
 void send_accept_response(char* acceptKey, int fd, ts_queue *out);
 
-ws_filter_auth_status ws_input_filter_handshake(ts_queue *out, message * m, void (*clean_by_fd)(int)) {
+ws_filter_auth_status ws_input_filter_handshake(ts_queue *out, message * m) {
     if (is_http_request(m->content)) {
         char * client_key = parse_sec_websocket_key(m->content);
 
@@ -25,8 +25,6 @@ ws_filter_auth_status ws_input_filter_handshake(ts_queue *out, message * m, void
             char * acceptKey = create_accept_key(client_key);
             send_accept_response(acceptKey, m->fd, out);
             free(acceptKey);
-
-            clean_by_fd(m->fd);
         }
 
         return WS_NEED_OF_HANDSHAKE;

@@ -16,6 +16,10 @@
       <in>stomp.c</in>
       <in>stomp.h</in>
     </df>
+    <df root="stomp" name="3">
+      <df name="data_wrappers">
+      </df>
+    </df>
     <df root="." name="1">
       <df name="docker">
       </df>
@@ -45,6 +49,8 @@
         <in>thread_return_value.c</in>
       </df>
       <df name="js">
+        <df name="react">
+        </df>
         <df name="websocket">
           <df name="node_modules">
             <df name="debug">
@@ -201,6 +207,8 @@
       </df>
       <df name="stomp">
         <df name="data_wrappers">
+          <in>session.c</in>
+          <in>session.h</in>
         </df>
         <in>main.h</in>
       </df>
@@ -235,7 +243,131 @@
       <in>parse_args.c</in>
       <in>parse_args.h</in>
     </df>
+    <df root="." name="4">
+      <df name="docker">
+      </df>
+      <df name="examples">
+        <df name="Websocket">
+        </df>
+      </df>
+      <df name="js">
+        <df name="react">
+        </df>
+        <df name="websocket">
+          <df name="node_modules">
+            <df name="debug">
+              <df name="src">
+              </df>
+            </df>
+            <df name="is-typedarray">
+            </df>
+            <df name="ms">
+            </df>
+            <df name="nan">
+              <df name="doc">
+              </df>
+              <df name="tools">
+              </df>
+            </df>
+            <df name="stompjs">
+              <df name="browsertests">
+                <df name="integration">
+                </df>
+                <df name="unit">
+                </df>
+              </df>
+              <df name="doc">
+                <df name="i">
+                  <df name="johnny_automatic">
+                  </df>
+                </df>
+                <df name="j">
+                </df>
+              </df>
+              <df name="example">
+                <df name="chat">
+                </df>
+                <df name="css">
+                </df>
+                <df name="webworker">
+                </df>
+              </df>
+              <df name="lib">
+              </df>
+              <df name="src">
+              </df>
+              <df name="test">
+              </df>
+            </df>
+            <df name="typedarray-to-buffer">
+              <df name="test">
+              </df>
+            </df>
+            <df name="websocket">
+              <df name="build">
+                <df name="Release">
+                  <df name=".deps">
+                    <df name="Release">
+                      <df name="obj.target">
+                        <df name="bufferutil">
+                          <df name="src">
+                          </df>
+                        </df>
+                        <df name="validation">
+                          <df name="src">
+                          </df>
+                        </df>
+                      </df>
+                    </df>
+                  </df>
+                  <df name="obj.target">
+                    <df name="bufferutil">
+                      <df name="src">
+                      </df>
+                    </df>
+                    <df name="validation">
+                      <df name="src">
+                      </df>
+                    </df>
+                  </df>
+                </df>
+              </df>
+              <df name="lib">
+              </df>
+              <df name="src">
+              </df>
+              <df name="vendor">
+              </df>
+            </df>
+            <df name="yaeti">
+              <df name="lib">
+              </df>
+            </df>
+          </df>
+        </df>
+      </df>
+      <df name="lib">
+      </df>
+      <df name="server">
+        <df name="data">
+        </df>
+      </df>
+      <df name="stomp">
+        <df name="data_wrappers">
+        </df>
+      </df>
+      <df name="tetrace_hook">
+      </df>
+      <df name="websocket">
+        <df name="filter">
+        </df>
+        <df name="utils">
+        </df>
+      </df>
+    </df>
     <df root="examples/Websocket" name="2">
+    </df>
+    <df root="examples/Websocket" name="5">
     </df>
     <itemPath>stomp/stomp/datastructures/readme.md</itemPath>
     <itemPath>stomp/js/chat/readme.md</itemPath>

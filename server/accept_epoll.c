@@ -118,15 +118,26 @@ void do_use_fd(int conn_sock, char* read_buffer, ts_queue * input_queue,
             config->input_buffer_size, 0);
     if (received_length < 1) {
         if (received_length == 0) {
-            info("server: socket closed nicely. fd:%d\n", conn_sock);
+            info("server: socket closed nicely. fd:%llu\n", conn_sock);
         } else {
             info("server: socked closed with error: %s\n", strerror(errno))
         }
         // TODO: epoll_ctl EPOLL_CTL_DEL ????
         close(conn_sock);
         clean_by_fd(conn_sock);
+
+        int fd_with_flag = session_set_cmd_purge(conn_sock);
+        char * CMD = clone_str("CMD");
+
+        put_stomp_messages_on_queue(fd_with_flag,
+                CMD,
+                input_queue,
+                config,
+                strlen(CMD));
+        free(CMD);
     } else {
         if (session_storage_add_new(conn_sock) == MAX_SESSION_NUMBER_EXCEEDED) {
+            warn("server: max session size exceeded, dropping connection on fd:%llu\n", conn_sock);
             // Sorry-sorry, no bananas left. :)
             close(conn_sock);
             return;
@@ -134,12 +145,14 @@ void do_use_fd(int conn_sock, char* read_buffer, ts_queue * input_queue,
 
         size_t decoded_buf_len;
         char * decoded_messages;
+        int fd_with_flag;
 
         switch (ws_input_filter_dataframe(conn_sock, read_buffer,
                 received_length,
                 &decoded_messages, &decoded_buf_len)) {
             case WS_COMPLETE_DATAFRAME:
-                put_stomp_messages_on_queue(conn_sock,
+                fd_with_flag = session_set_encoded(conn_sock);
+                put_stomp_messages_on_queue(fd_with_flag,
                         decoded_messages,
                         input_queue,
                         config,
@@ -155,12 +168,24 @@ void do_use_fd(int conn_sock, char* read_buffer, ts_queue * input_queue,
                 break;
             case WS_BUFFER_EXCEEDED_MAX:
             case WS_TOO_LARGE_DATAFRAME:
+                warn("server: dropping websocket data-frame, closing conn on fd:%llu\n", conn_sock);
                 clean_by_fd(conn_sock);
                 close(conn_sock);
+                fd_with_flag = session_set_cmd_purge(conn_sock);
+            {
+                char * CMD = clone_str("CMD");
+                put_stomp_messages_on_queue(fd_with_flag,
+                        CMD,
+                        input_queue,
+                        config,
+                        strlen(CMD));
+                free(CMD);
+            }
+                free(decoded_messages);
                 break;
             case WS_INCOMPLETE_DATAFRAME:
                 // do nothing, buffering is made
-                debug("Incomplete dataframe\n");
+                info("server: Incomplete dataframe, waiting to continue... on fd:%llu\n", conn_sock);
                 break;
         }
 

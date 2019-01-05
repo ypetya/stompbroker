@@ -34,10 +34,9 @@ extern "C" {
      * 
      * @param out output message queue for sending response
      * @param m incoming message buffer from file descriptor
-     * @param clean_by_fd is a cleanup callback function, which is called on new connection with FD
      * @return ws_filter_auth_status
      */
-    ws_filter_auth_status ws_input_filter_handshake(ts_queue *out, message * m, void (*clean_by_fd)(int));
+    ws_filter_auth_status ws_input_filter_handshake(ts_queue *out, message * m);
 
 
 

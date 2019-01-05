@@ -6,29 +6,33 @@
  * 
  * Session storage goals
  * 
- * - to be fast enough, client_id <-> external_id in constant time
- * - to store some extra flags about encoding / decoding - websocket
- * - Support create, read, reset and diagnostics
+ * - to be fast enough: we store file-descriptors directly
+ * - add some extra bit flags to the upper bits, out of range
+ * - some special flags (isEncoded) can travel to the stomp layer and to the write
+ *  layer. This makes checking of the flag to threadsafe.
+ * - cmd_purge flag is processed in the stomp layer and use for session disposal
+ * - Support diagnostics
  */
 
 #ifndef SESSION_H
 #define SESSION_H
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
     // FD space should be 17bits, max-connections: 131072
-    #define MAX_NUMBER_OF_CONNECTIONS 0x20000
-    // the lower 18 bit must contain the valid FD. This is smaller than MAX_NUMBER_OF_CONNECTIONS + some
-    #define FD_MASK 0x700F
+#define MAX_NUMBER_OF_CONNECTIONS 0x20000
+    // the lower 18 bit must contain the valid FD. This covers MAX_NUMBER_OF_CONNECTIONS + 1 bit
+#define FD_MASK 0x3FFF
     // the 19th bit describes the encoded status flag
     // this means the session needs to be care as encoded communication channel
-    #define FD_IS_ENCODED_MASK 0x80000
-    // the 20th bit describes the connected status flag
-    // this means the session needs to be care as connected
-    #define FD_IS_CONNECTED_MASK 0x100000
+#define FD_IS_ENCODED_MASK 0x80000
+
+    // the 20th bit describes the pruge session command flag
+    // this will cause STOMP logic to remove subscriptions of the FD and
+    // this info can travel with the message
+#define FD_CMD_PURGE_SESSION 0x100000
 
     enum session_status {
         EMPTY_SESSION = 0,
@@ -43,33 +47,50 @@ extern "C"
     /** 
      * @return return index if inserted, -1 if already exists, -2 if no more conn limit reached
      */
-    int session_storage_add_new(int external_id);
-    int session_storage_fetch_client_id(int external_id);
+    int session_storage_add_new(int fd);
+    void session_storage_remove(int fd);
+
+
+    // flags and manipulation
     /** 
-     * @return external_id if exist, -1 otherwise
+     * Checks the session_storage array 
+     * @return >0 if encoded
      */
-    int session_storage_fetch_external_id(int client_id);
-    void session_storage_remove(int index);
-    /**
-     * 
-     * @param external_id
-     * @return internal_id 
-     */
-    int session_storage_remove_external(int external_id);
+    int session_storage_is_encoded(int fd);
 
     /**
-     * Only for diagnostic purposes!
+     * Does not modify session_storage
+     * @param fd
+     * @return fd with encoded flag
+     */
+    int session_set_encoded(int fd);
+    int session_without_flags(int fd);
+    /** sets the session_storage array as well
+     * @return fd, containing the encoded flag
+     */
+    void session_storage_set_encoded(int fd);
+
+    /**
+     * This flag can travel with the message fd
+     * @param fd
      * @return 
      */
-    int session_storage_connected_size();
-    int session_storage_size();
+    int session_set_cmd_purge(int fd);
+    int session_is_cmd_purge(int fd);
+    int session_wo_cmd_purge(int fd);
+
+    /** checks the fd only 
+     * @return >0 if encoded
+     */
+    int session_is_encoded(int fd);
+
+    /*
+     * Only for diagnostic purposes!
+     */
     int session_storage_encoded_size();
-    
-    // flags and manipulation
-    int session_is_encoded(int external_id);
-    void session_set_encoded(int external_id);
-    int session_is_connected(int client_id);
-    void session_set_connected(int client_id);
+    int session_storage_size();
+
+
 
 #ifdef __cplusplus
 }

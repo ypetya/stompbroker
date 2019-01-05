@@ -7,6 +7,7 @@
 extern "C" {
 #endif
 
+#include "data_wrappers/session.c"
 #include "data_wrappers/pub_sub.c"
 #include "message.c"
 #include "parser.c"

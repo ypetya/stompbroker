@@ -10,11 +10,21 @@
     <editor-bookmarks xmlns="http://www.netbeans.org/ns/editor-bookmarks/2" lastBookmarkId="0"/>
     <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
         <group>
-            <file>file:/home/peter/projects/stompbroker/server/process.h</file>
-            <file>file:/home/peter/projects/stompbroker/server/process.c</file>
-            <file>file:/home/peter/projects/stompbroker/websocket/filter.c</file>
-            <file>file:/home/peter/projects/stompbroker/websocket/filter.h</file>
+            <file>file:/home/peter/projects/stompbroker/main.c</file>
+            <file>file:/home/peter/projects/stompbroker/stomp/main.h</file>
+            <file>file:/home/peter/projects/stompbroker/server/data/cleanup.c</file>
+            <file>file:/home/peter/projects/stompbroker/server/signal_action_handler.c</file>
+            <file>file:/home/peter/projects/stompbroker/stomp/stomp.h</file>
+            <file>file:/home/peter/projects/stompbroker/stomp/stomp.c</file>
             <file>file:/home/peter/projects/stompbroker/server/accept_epoll.c</file>
+            <file>file:/home/peter/projects/stompbroker/websocket/filter/dataframe.c</file>
+            <file>file:/home/peter/projects/stompbroker/logger.h</file>
+            <file>file:/home/peter/projects/stompbroker/server/main.h</file>
+            <file>file:/home/peter/projects/stompbroker/websocket/buffer.h</file>
+            <file>file:/home/peter/projects/stompbroker/server/process.c</file>
+            <file>file:/home/peter/projects/stompbroker/js/stomp.protocol.test.js</file>
+            <file>file:/home/peter/projects/stompbroker/websocket/buffer.c</file>
+            <file>file:/home/peter/projects/stompbroker/server/data/session_storage.h</file>
         </group>
     </open-files>
 </project-private>

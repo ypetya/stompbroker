@@ -6,7 +6,7 @@
  * 
  * - process stomp messages
  * 
-*/
+ */
 
 #include "message.h"
 #include "../lib/thread_safe_queue.h"

@@ -6,6 +6,7 @@
 #include "../lib/thread_safe_queue.h"
 #include "parser.h"
 #include "../server/data/session_storage.h"
+#include "data_wrappers/session.h"
 #include "./data_wrappers/pub_sub.h"
 #include "../lib/associative_array.h"
 
@@ -21,8 +22,18 @@ char * itoa(int num) {
 
 void stomp_process(ts_queue* output_queue, message *input) {
 
-    int client_id = session_storage_fetch_client_id(input->fd);
-    int client_connected = session_is_connected(client_id);
+    int client_id = input->fd;
+    int client_id_wo_flags = session_without_flags(input->fd);
+    if (client_id != client_id_wo_flags) {
+        // checking cmd flags
+        if (session_is_cmd_purge(client_id) > 0) {
+            int session_with_other_flags = session_wo_cmd_purge(client_id);
+            pubsub_remove_client(session_with_other_flags);
+            stomp_session_set_connected(client_id_wo_flags, 0);
+            return;
+        }
+    }
+    int client_connected = stomp_session_is_connected(client_id_wo_flags);
     parsed_message * pm = parse_message(input);
     message * resp = NULL;
 
@@ -33,7 +44,7 @@ void stomp_process(ts_queue* output_queue, message *input) {
                 resp = message_error(input->fd, "Can not connect,"
                     " client is already connected!");
             else {
-                session_set_connected(client_id);
+                stomp_session_set_connected(client_id_wo_flags, 1);
                 resp = message_connected(input->fd, client_id);
             }
             break;
@@ -42,7 +53,7 @@ void stomp_process(ts_queue* output_queue, message *input) {
         {
             if (client_connected > 0) {
                 pubsub_remove_client(client_id);
-                session_storage_remove(client_id);
+                stomp_session_set_connected(client_id_wo_flags, 0);
             } else
                 resp = message_error(input->fd, "Can not disconnect,"
                     " client is not connected yet!");
@@ -97,8 +108,6 @@ void stomp_process(ts_queue* output_queue, message *input) {
 
                 while (first != NULL) {
                     subscription * sub = first->data;
-                    int fd = session_storage_fetch_external_id(sub->session_id);
-
 #ifdef DEBUG
                     aa_put(aa, "message-id", itoa(message_id));
 #else
@@ -107,7 +116,7 @@ void stomp_process(ts_queue* output_queue, message *input) {
                     aa_put(aa, "destination", pm->topic);
                     aa_put(aa, "subscription", sub->id);
 
-                    message * o = message_send_with_headers(fd,
+                    message * o = message_send_with_headers(sub->session_id,
                             aa,
                             pm->message_body);
 
@@ -140,11 +149,12 @@ void stomp_process(ts_queue* output_queue, message *input) {
             if (strncmp(pm->message_body, "session-size", 12) == 0) {
                 sprintf(buf, "%d", session_storage_size());
                 resp = message_diagnostic(input->fd, pm->message_body, buf);
-            } else if (strncmp(pm->message_body, "session-encoded-size", 71-51) == 0) {
+            } else if (strncmp(pm->message_body, "session-encoded-size", 71 - 51) == 0) {
                 sprintf(buf, "%d", session_storage_encoded_size());
                 resp = message_diagnostic(input->fd, pm->message_body, buf);
-            } else if (strncmp(pm->message_body, "session-connected-size", 73-51) == 0) {
-                sprintf(buf, "%d", session_storage_connected_size());
+            } else if (strncmp(pm->message_body, "session-connected-size", 73 - 51) == 0) {
+                sprintf(buf, "%llu", stomp_session_connected_size());
+                debug("connected %llu\n", stomp_session_connected_size());
                 resp = message_diagnostic(input->fd, pm->message_body, buf);
             } else if (strncmp(pm->message_body, "pubsub-size", 11) == 0) {
                 sprintf(buf, "%d", pubsub_size());
@@ -173,11 +183,11 @@ void stomp_process(ts_queue* output_queue, message *input) {
 }
 
 void stomp_start() {
-    session_storage_init();
+    stomp_session_init();
     pubsub_init();
 }
 
-void stomp_stop(ts_queue* output_queue) {
+void stomp_stop() {
     pubsub_dispose();
-    session_storage_dispose(output_queue);
+    //stomp_session_dispose(); - not needed, no such method exists
 }

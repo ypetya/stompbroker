@@ -78,11 +78,13 @@ The first character of the line can contain the following status codes:
 + js/stomp.protocol.test.js
 + Websocket handshake filter
 ~ Websocket data frames encoding-decoding (Limited: text-only,no fragments)
-- WS: Buffer underrun, Buffer overflow
++ WS: Buffer underrun, Buffer overflow
+- Make session threadsafe : use it only upfront! or with mutex at rare cases! (cleanup)
 - STOMP: Buffer overflow, multiple messages
 - Grouped diagnostic message for session_stats
 ? Grouped diagnostic message for network io ( dropped ws data-frames, fixed underruns, cache size )
 - Take maximum STOMP message size mandatory for WS as well
+- WS buffering stats DIAG messages
 - WS ping-pong
 ```
 
