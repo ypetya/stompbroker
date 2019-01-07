@@ -66,7 +66,7 @@ The first character of the line can contain the following status codes:
 + using epoll instead of select
 + wildcard : only subscriptions allowed
 ~ subscription limit
-+ connection limit (32000) by default
++ connection limit
 + input queue limit
 + maximum message size
 + multithreaded output processing
@@ -79,13 +79,14 @@ The first character of the line can contain the following status codes:
 + Websocket handshake filter
 ~ Websocket data frames encoding-decoding (Limited: text-only,no fragments)
 + WS: Buffer underrun, Buffer overflow
-- Make session threadsafe : use it only upfront! or with mutex at rare cases! (cleanup)
++ Make session threadsafe : use it only upfront!
 - STOMP: Buffer overflow, multiple messages
 - Grouped diagnostic message for session_stats
 ? Grouped diagnostic message for network io ( dropped ws data-frames, fixed underruns, cache size )
 - Take maximum STOMP message size mandatory for WS as well
 - WS buffering stats DIAG messages
 - WS ping-pong
+- js/stomp.queue.test.js - misses messages (gots broken fragments back <- multithread write to same fd problem)
 ```
 
 Running
