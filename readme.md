@@ -13,6 +13,15 @@ It is still under implementation.
 - no fragmented messages
 - will follow message size limitations globally configurable
 
+Command line args
+-----------------
+
+optional
+
+processors=<num>            : writers count is processors-2 or at least 1
+port=<num>                  : port to listen to
+max_input_queue_size=<num>  : input queue limit
+
 Performance
 -----------
 
