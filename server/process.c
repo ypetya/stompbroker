@@ -95,11 +95,11 @@ void *writer_thread(void *vargp) {
             debug(">>>\n%s\n", msg->content);
             size_t len = ws_output_filter(msg);
 
-            res = write(msg->fd, msg->content, len);
+            res = send(msg->fd, msg->content, len, MSG_DONTWAIT);
 
             if (res < 0) {
                 perror("Could not send message. Client may disconnected");
-                warn("fd:%d", msg->fd);
+                warn("fd:%d\n", msg->fd);
             }
 
             message_destroy(msg);

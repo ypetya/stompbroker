@@ -28,6 +28,6 @@ struct CONFIG_STRUCTURE {
 typedef struct CONFIG_STRUCTURE stomp_app_config;
 
 stomp_app_config* config_get_config();
-stomp_app_config config_parse_args();
+stomp_app_config config_parse_args(int argc, char* argv[]);
 
 #endif

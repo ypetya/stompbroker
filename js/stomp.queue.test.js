@@ -32,7 +32,8 @@ conn.on('data', (d) => {
             console.log(`Arrived #${arrived}, remaining: ${TOTAL - arrived}, err: ${err}, other:${others.length}\n`);
         } else if (x.indexOf('ERROR') == 0) {
             err++;
-        } else {
+        } else if(x.length>3 && x.length < 80) {
+            console.log(x);
             others.push(x);
         }
 
