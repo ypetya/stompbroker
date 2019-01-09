@@ -71,7 +71,7 @@ void accept_epoll(stomp_app_config * config, int listen_sock) {
                     exit(EXIT_FAILURE);
                 }
                 clientAddressStr = inet_ntoa(addr.sin_addr);
-                info("server: got connection from %s\n", clientAddressStr);
+                info("server: got connection from %s, fd %d\n", clientAddressStr, conn_sock);
                 setnonblocking(conn_sock);
                 ev.events = EPOLLIN | EPOLLET;
                 ev.data.fd = conn_sock;
@@ -113,12 +113,11 @@ void put_stomp_messages_on_queue(int conn_sock, char* read_buffer, ts_queue * in
 
 void do_use_fd(int conn_sock, char* read_buffer, ts_queue * input_queue,
         stomp_app_config * config) {
-    int client_id;
     int received_length = recv(conn_sock, read_buffer,
             config->input_buffer_size, 0);
     if (received_length < 1) {
         if (received_length == 0) {
-            info("server: socket closed nicely. fd:%llu\n", conn_sock);
+            info("server: socket closed nicely. fd:%d\n", conn_sock);
         } else {
             info("server: socked closed with error: %s\n", strerror(errno))
         }
@@ -166,6 +165,7 @@ void do_use_fd(int conn_sock, char* read_buffer, ts_queue * input_queue,
                         config,
                         received_length);
                 break;
+            //case WS_CLIENTS_WANT_TO_CLOSE:
             case WS_BUFFER_EXCEEDED_MAX:
             case WS_TOO_LARGE_DATAFRAME:
                 warn("server: dropping websocket data-frame, closing conn on fd:%llu\n", conn_sock);

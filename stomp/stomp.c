@@ -45,7 +45,7 @@ void stomp_process(ts_queue* output_queue, message *input) {
                     " client is already connected!");
             else {
                 stomp_session_set_connected(client_id_wo_flags, 1);
-                resp = message_connected(input->fd, client_id);
+                resp = message_connected(input->fd, client_id_wo_flags);
             }
             break;
         }

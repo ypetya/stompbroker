@@ -16,11 +16,13 @@
       <in>stomp.c</in>
       <in>stomp.h</in>
     </df>
-    <df root="stomp" name="3">
+    <df root="stomp" name="1">
       <df name="data_wrappers">
       </df>
     </df>
-    <df root="." name="1">
+    <df root="." name="2">
+      <df name=".vscode">
+      </df>
       <df name="docker">
       </df>
       <df name="examples">
@@ -49,8 +51,6 @@
         <in>thread_return_value.c</in>
       </df>
       <df name="js">
-        <df name="react">
-        </df>
         <df name="websocket">
           <df name="node_modules">
             <df name="debug">
@@ -243,7 +243,9 @@
       <in>parse_args.c</in>
       <in>parse_args.h</in>
     </df>
-    <df root="." name="4">
+    <df root="." name="3">
+      <df name=".vscode">
+      </df>
       <df name="docker">
       </df>
       <df name="examples">
@@ -251,8 +253,6 @@
         </df>
       </df>
       <df name="js">
-        <df name="react">
-        </df>
         <df name="websocket">
           <df name="node_modules">
             <df name="debug">
@@ -365,7 +365,7 @@
         </df>
       </df>
     </df>
-    <df root="examples/Websocket" name="2">
+    <df root="examples/Websocket" name="4">
     </df>
     <df root="examples/Websocket" name="5">
     </df>
@@ -374,7 +374,9 @@
     <itemPath>stomp/js/chat/stomp.chat.js</itemPath>
     <itemPath>stomp/js/chat/stomp.chat.lib.js</itemPath>
     <itemPath>stomp/js/stomp.connection.test.js</itemPath>
+    <itemPath>js/websocket/stomp.queue-test2.js</itemPath>
     <itemPath>stomp/stomp.queue.test.js</itemPath>
+    <itemPath>stompbroker.out</itemPath>
   </logicalFolder>
   <projectmakefile></projectmakefile>
   <confs>

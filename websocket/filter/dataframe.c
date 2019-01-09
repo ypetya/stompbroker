@@ -14,28 +14,34 @@
 int encode_websocket_frame(char * buffer, char** out);
 
 size_t ws_output_filter(message *m) {
-    size_t len = strlen(m->content) + 1;
+    size_t len = strlen(m->content);
     if (session_is_encoded(m->fd)) {
         m->fd = session_without_flags(m->fd);
         char* encoded_message;
         len = encode_websocket_frame(m->content, &encoded_message);
         free(m->content);
         m->content = encoded_message;
-    }
+        #ifdef DEBUG
+            printf("fd: %d, data:",m->fd);
+            for(int i=0;i<len;i++) printf("%02x",m->content[i] & 0xff);
+            printf("\n");
+        #endif
+    } else if(strncasecmp(m->content,"HTTP",4)!=0) len++; // STOMP needs a closing '\0' HTTP handshake must not!
     return len;
 }
 
 int encode_websocket_frame(char * buffer, char** out) {
-    int skip, len = strlen(buffer) + 1, orig_len = len;
+    size_t len = strlen(buffer)+1;
+    size_t orig_len = len;
     char * encoded_message = NULL;
     char OPCODE = '\x81';
-    if (len < 126) {
+    if (orig_len < 126) {
         len += 2;
         encoded_message = emalloc(sizeof (char)*len);
         encoded_message[0] = OPCODE;
-        encoded_message[1] = orig_len;
+        encoded_message[1] = (orig_len) & 0x7f;
         memcpy(encoded_message + 2, buffer, orig_len);
-    } else if (len < 65536) {
+    } else if (orig_len < 65536) {
         len += 4;
         encoded_message = emalloc(sizeof (char)*len);
         encoded_message[0] = OPCODE;
@@ -55,7 +61,7 @@ int encode_websocket_frame(char * buffer, char** out) {
     int fin = (encoded_message[0] & 0x80 ? 1 : 0);
     int op_code = (encoded_message[0] & 0xF);
 
-    debug(">>> Websocket data frame FIN: %d opcode: 0x%x payload_len: %" PRIu64 "\n", fin, op_code, orig_len);
+    debug(">>> Websocket data frame FIN: %d opcode: 0x%x payload_len: %llu\n", fin, op_code, orig_len);
     *out = encoded_message;
     return len;
 }
@@ -73,7 +79,7 @@ char* ws_dataframe_decode(buffer_item* buf);
  * @return status
  */
 ws_filter_dataframe_status ws_input_filter_dataframe(int fd, char* buffer, size_t read_len, char** out, size_t *decoded_buf_len) {
-
+    *out = NULL;
     int has_mask = has_mask = buffer[1] & 0x80 ? 1 : 0;
     // Be aware: session_storage_is_encoded should be used on the same thread as all the session_storage_functions!
     if (has_mask || session_storage_is_encoded(fd)) {
@@ -198,6 +204,7 @@ size_t ws_dataframe_read_headers(buffer_item* buf) {
     if (op_code == 1) {
         session_storage_set_encoded(buf->fd);
     } else {
+        debug("Unhandled opcode: %d\n", op_code);
         // TODO handle PING-FRAMES
         ws_dropped_frames++;
         return buf->frame_len = 0;

@@ -24,9 +24,9 @@
       <in>parser.c</in>
       <in>stomp.c</in>
     </df>
-    <df root="stomp" name="3">
+    <df root="stomp" name="1">
     </df>
-    <df root="." name="1">
+    <df root="." name="2">
       <df name="examples">
         <df name="Websocket">
           <in>Communicate.c</in>
@@ -87,9 +87,9 @@
       </df>
       <in>main.c</in>
     </df>
-    <df root="." name="4">
+    <df root="." name="3">
     </df>
-    <df root="examples/Websocket" name="2">
+    <df root="examples/Websocket" name="4">
     </df>
     <df root="examples/Websocket" name="5">
     </df>
@@ -110,7 +110,9 @@
     <itemPath>stomp/js/chat/stomp.chat.js</itemPath>
     <itemPath>stomp/js/chat/stomp.chat.lib.js</itemPath>
     <itemPath>stomp/js/stomp.connection.test.js</itemPath>
+    <itemPath>js/websocket/stomp.queue-test2.js</itemPath>
     <itemPath>stomp/stomp.queue.test.js</itemPath>
+    <itemPath>stompbroker.out</itemPath>
   </logicalFolder>
   <sourceFolderFilter>^(nbproject)$</sourceFolderFilter>
   <sourceRootList>
@@ -125,6 +127,9 @@
         <dependencyChecking>false</dependencyChecking>
         <rebuildPropChanged>false</rebuildPropChanged>
       </toolsSet>
+      <flagsDictionary>
+        <element flagsID="0" commonFlags="-mtune=generic -march=x86-64 -g"/>
+      </flagsDictionary>
       <codeAssistance>
       </codeAssistance>
       <makefileType>
@@ -133,6 +138,19 @@
           <buildCommand>./build.sh</buildCommand>
           <cleanCommand>echo clean</cleanCommand>
           <executablePath></executablePath>
+          <cTool>
+            <incDir>
+              <pElem>lib</pElem>
+              <pElem>websocket</pElem>
+              <pElem>websocket/utils</pElem>
+              <pElem>websocket/filter</pElem>
+              <pElem>stomp/data_wrappers</pElem>
+              <pElem>stomp</pElem>
+              <pElem>server/data</pElem>
+              <pElem>server</pElem>
+              <pElem>.</pElem>
+            </incDir>
+          </cTool>
         </makeTool>
         <preBuild>
           <preBuildCommandWorkingDir>.</preBuildCommandWorkingDir>
@@ -148,34 +166,8 @@
       <item path="lib/string_list_console.c" ex="true" tool="0" flavor2="2">
       </item>
       <item path="main.c" ex="false" tool="0" flavor2="3">
-      </item>
-      <item path="server/data/cleanup.c" ex="false" tool="0" flavor2="0">
-      </item>
-      <item path="server/data/cleanup.h" ex="false" tool="3" flavor2="0">
-      </item>
-      <item path="server/main.h" ex="false" tool="3" flavor2="0">
-      </item>
-      <item path="stomp/data_wrappers/session.c" ex="false" tool="0" flavor2="0">
-      </item>
-      <item path="stomp/data_wrappers/session.h" ex="false" tool="3" flavor2="0">
-      </item>
-      <item path="stomp/main.h" ex="false" tool="3" flavor2="0">
-      </item>
-      <item path="websocket/buffer.c" ex="false" tool="0" flavor2="0">
-      </item>
-      <item path="websocket/buffer.h" ex="false" tool="3" flavor2="0">
-      </item>
-      <item path="websocket/filter/dataframe.c" ex="false" tool="0" flavor2="0">
-      </item>
-      <item path="websocket/filter/dataframe.h" ex="false" tool="3" flavor2="0">
-      </item>
-      <item path="websocket/filter/handshake.c" ex="false" tool="0" flavor2="0">
-      </item>
-      <item path="websocket/filter/handshake.h" ex="false" tool="3" flavor2="0">
-      </item>
-      <item path="websocket/main.h" ex="false" tool="3" flavor2="0">
-      </item>
-      <item path="websocket/ntohl.c" ex="false" tool="0" flavor2="0">
+        <cTool flags="0">
+        </cTool>
       </item>
     </conf>
     <conf name="Copy_of_Default" type="0">
@@ -266,6 +258,8 @@
       </item>
       <item path="examples/thread_return_value.c" ex="false" tool="0" flavor2="2">
       </item>
+      <item path="js/websocket/stomp.queue-test2.js" ex="false" tool="3" flavor2="0">
+      </item>
       <item path="lib/associative_array.c" ex="false" tool="0" flavor2="2">
       </item>
       <item path="lib/avl_tree.c" ex="false" tool="0" flavor2="2">
@@ -334,6 +328,8 @@
             ex="false"
             tool="3"
             flavor2="0">
+      </item>
+      <item path="stompbroker.out" ex="false" tool="3" flavor2="0">
       </item>
       <item path="websocket/buffer.c" ex="false" tool="0" flavor2="0">
       </item>
