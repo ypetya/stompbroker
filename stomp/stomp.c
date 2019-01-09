@@ -28,6 +28,7 @@ void stomp_process(ts_queue* output_queue, message *input) {
         // checking cmd flags
         if (session_is_cmd_purge(client_id) > 0) {
             int session_with_other_flags = session_wo_cmd_purge(client_id);
+            debug("Purge STOMP session fd: %d %s\n",client_id_wo_flags,session_is_encoded(client_id) ? "Websocket": "");
             pubsub_remove_client(session_with_other_flags);
             stomp_session_set_connected(client_id_wo_flags, 0);
             return;

@@ -26,14 +26,18 @@
 void *get_inbound_address(struct sockaddr *sa);
 
 void setnonblocking(int conn_sock);
-void do_use_fd(int fd, char * readbuffer, ts_queue * input_queue,
-        stomp_app_config * config);
+void do_use_fd(int fd, char * readbuffer, ts_queue * input_queue);
 
-void accept_epoll(stomp_app_config * config, int listen_sock) {
+stomp_app_config * config;
+
+void accept_epoll(stomp_app_config * app_config, int listen_sock) {
+    config = app_config;
+
     char read_buffer[config->input_buffer_size + 1];
     read_buffer[config->input_buffer_size] = '\0';
     ws_init_buffer();
     ts_queue * input_queue = process_start_threads();
+
 
 #define MAX_EVENTS 10
     struct epoll_event ev, events[MAX_EVENTS];
@@ -81,7 +85,7 @@ void accept_epoll(stomp_app_config * config, int listen_sock) {
                     exit(EXIT_FAILURE);
                 }
             } else {
-                do_use_fd(events[n].data.fd, read_buffer, input_queue, config);
+                do_use_fd(events[n].data.fd, read_buffer, input_queue);
             }
         }
     }
@@ -91,8 +95,7 @@ void setnonblocking(int conn_sock) {
     fcntl(conn_sock, F_SETFL, O_NONBLOCK | O_NDELAY);
 }
 
-void put_stomp_messages_on_queue(int conn_sock, char* read_buffer, ts_queue * input_queue,
-        stomp_app_config * config, int received_length) {
+void put_stomp_messages_on_queue(int conn_sock, char* read_buffer, ts_queue * input_queue, int received_length) {
     read_buffer[received_length] = '\0';
     char * token = strtok(read_buffer, "\0");
     while (token != NULL) {
@@ -111,8 +114,26 @@ void put_stomp_messages_on_queue(int conn_sock, char* read_buffer, ts_queue * in
     }
 }
 
-void do_use_fd(int conn_sock, char* read_buffer, ts_queue * input_queue,
-        stomp_app_config * config) {
+void close_connection(int conn_sock, ts_queue * input_queue) {
+
+    close(conn_sock);
+
+    int fd_with_flags = session_storage_get(conn_sock);
+    if (fd_with_flags != 0) {
+        fd_with_flags = session_set_cmd_purge(fd_with_flags);
+        char * CMD = clone_str("CMD");
+
+        put_stomp_messages_on_queue(fd_with_flags,
+                CMD,
+                input_queue,
+                strlen(CMD));
+        free(CMD);
+    }
+
+    clean_by_fd(conn_sock);
+}
+
+void do_use_fd(int conn_sock, char* read_buffer, ts_queue * input_queue) {
     int received_length = recv(conn_sock, read_buffer,
             config->input_buffer_size, 0);
     if (received_length < 1) {
@@ -122,18 +143,7 @@ void do_use_fd(int conn_sock, char* read_buffer, ts_queue * input_queue,
             info("server: socked closed with error: %s\n", strerror(errno))
         }
         // TODO: epoll_ctl EPOLL_CTL_DEL ????
-        close(conn_sock);
-        clean_by_fd(conn_sock);
-
-        int fd_with_flag = session_set_cmd_purge(conn_sock);
-        char * CMD = clone_str("CMD");
-
-        put_stomp_messages_on_queue(fd_with_flag,
-                CMD,
-                input_queue,
-                config,
-                strlen(CMD));
-        free(CMD);
+        close_connection(conn_sock, input_queue);
     } else {
         if (session_storage_add_new(conn_sock) == MAX_SESSION_NUMBER_EXCEEDED) {
             warn("server: max session size exceeded, dropping connection on fd:%llu\n", conn_sock);
@@ -154,7 +164,6 @@ void do_use_fd(int conn_sock, char* read_buffer, ts_queue * input_queue,
                 put_stomp_messages_on_queue(fd_with_flag,
                         decoded_messages,
                         input_queue,
-                        config,
                         (int) decoded_buf_len);
                 free(decoded_messages);
                 break;
@@ -162,25 +171,13 @@ void do_use_fd(int conn_sock, char* read_buffer, ts_queue * input_queue,
                 put_stomp_messages_on_queue(conn_sock,
                         read_buffer,
                         input_queue,
-                        config,
                         received_length);
                 break;
-            //case WS_CLIENTS_WANT_TO_CLOSE:
+                //case WS_CLIENTS_WANT_TO_CLOSE:
             case WS_BUFFER_EXCEEDED_MAX:
             case WS_TOO_LARGE_DATAFRAME:
                 warn("server: dropping websocket data-frame, closing conn on fd:%llu\n", conn_sock);
-                clean_by_fd(conn_sock);
-                close(conn_sock);
-                fd_with_flag = session_set_cmd_purge(conn_sock);
-            {
-                char * CMD = clone_str("CMD");
-                put_stomp_messages_on_queue(fd_with_flag,
-                        CMD,
-                        input_queue,
-                        config,
-                        strlen(CMD));
-                free(CMD);
-            }
+                close_connection(conn_sock, input_queue);
                 free(decoded_messages);
                 break;
             case WS_INCOMPLETE_DATAFRAME:

@@ -43,6 +43,9 @@ int session_without_flags(int fd) {
     return fd & FD_MASK;
 }
 
+int session_storage_get(int client_id) {
+    return clients[client_id];
+}
 
 int session_storage_is_encoded(int client_id) {
     return clients[client_id] & FD_IS_ENCODED_MASK;

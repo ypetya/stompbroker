@@ -95,7 +95,7 @@ The first character of the line can contain the following status codes:
 - Take maximum STOMP message size mandatory for WS as well
 - WS buffering stats DIAG messages
 - WS ping-pong
-- js/stomp.queue.test.js - misses messages (gots broken fragments back <- multithread write to same fd problem)
+- js/stomp.queue.test.js - missed messages
 ```
 
 Running

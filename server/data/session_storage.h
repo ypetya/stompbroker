@@ -57,6 +57,8 @@ extern "C" {
      * @return >0 if encoded
      */
     int session_storage_is_encoded(int fd);
+    
+    int session_storage_get(int client_id);
 
     /**
      * Does not modify session_storage
