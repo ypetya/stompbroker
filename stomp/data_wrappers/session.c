@@ -12,30 +12,23 @@ void stomp_session_init() {
 }
 
 int stomp_session_is_connected(int fd) {
-    int i, c;
-    // find the block
-    for (i = 0, c = fd / 64; c > 0; i++, c = c / 64);
-    // creating mask
-    int n, r;
-    for (n = 0, r = c / 2; r > 0; n++, r = r / 2);
+    int i, c, n;
+    // find the bit
+    for (i = 0, c = fd; c > 0; i++, n = c % 64, c = c / 64);
 
-    uint64_t mask;
-    mask = 1 << n;
+    uint64_t mask = 1U << n;
 
     return session_connected[i] & mask;
 }
 
 void stomp_session_set_connected(int fd, int connected) {
-    int i, c;
-    // find the block
-    for (i = 0, c = fd / 64; c > 0; i++, c = c / 64);
-    // creating mask
-    int n, r;
-    for (n = 0, r = c / 2; r > 0; n++, r = r / 2);
+    int i, c, n;
+    // find the bit
+    for (i = 0, c = fd; c > 0; i++, n = c % 64, c = c / 64);
 
     uint64_t mask = 1U << n;
     if (connected == 0) mask ^= UINT64_MAX;
-    
+
     // erase or set the bit
     session_connected[i] = connected == 0 ? session_connected[i] & mask : session_connected[i] | mask;
 }
@@ -48,7 +41,7 @@ int stomp_session_connected_size() {
         uint64_t b = session_connected[i];
         if (one & b) n++;
         for (int j = 1; j < 63; j++) {
-            if ((one << j) & b){
+            if ((one << j) & b) {
                 n++;
             }
         }
