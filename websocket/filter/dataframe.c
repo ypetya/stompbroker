@@ -136,6 +136,7 @@ ws_filter_dataframe_status ws_input_filter_dataframe(int fd, char* buffer, size_
         while(ws_buff->received_len>0 &&( ws_buff->frame_len==0 || ws_buff->remaining_len==0)) {
             
             size_t full_frame_len = ws_dataframe_read_headers(ws_buff);
+            // FIXME incomplete header received_len must be > ws_dataframe_read
             if (full_frame_len <= 0)
                 return WS_TOO_LARGE_DATAFRAME;
 
