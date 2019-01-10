@@ -24,7 +24,7 @@ size_t ws_output_filter(message *m) {
         #ifdef DEBUG
             printf("fd: %d, data:",m->fd);
             for(int i=0;i<len;i++) printf("%02x",m->content[i] & 0xff);
-            printf("\n");
+            printf("\n\n");
         #endif
     } else if(strncasecmp(m->content,"HTTP",4)!=0) len++; // STOMP needs a closing '\0' HTTP handshake must not!
     return len;
@@ -71,6 +71,24 @@ size_t ws_dataframe_read_headers(buffer_item* buf);
 char* ws_dataframe_decode(buffer_item* buf);
 
 /**
+ * Either buffer contains a mask flag or the session is set to encoded.
+ * This method also sets the session to encoded
+ * Be aware session_storage should ne set and read from the same thread
+*/
+int ws_channel_is_encoded(int fd, char* buffer) {
+    int is_data_frame = 0;
+    int has_mask = has_mask = buffer[1] & 0x80 ? 1 : 0;
+    if(!has_mask) {
+        is_data_frame = session_storage_is_encoded(fd);
+    } 
+    if(has_mask) {
+        if(!is_data_frame) session_storage_set_encoded(fd);
+        is_data_frame = 1;
+    }
+    return is_data_frame;
+}
+
+/**
  * This method concatenates buffer, when needed for specific fd
  * 
  * @param fd
@@ -80,30 +98,22 @@ char* ws_dataframe_decode(buffer_item* buf);
  */
 ws_filter_dataframe_status ws_input_filter_dataframe(int fd, char* buffer, size_t read_len, char** out, size_t *decoded_buf_len) {
     *out = NULL;
-    int has_mask = has_mask = buffer[1] & 0x80 ? 1 : 0;
-    // Be aware: session_storage_is_encoded should be used on the same thread as all the session_storage_functions!
-    if (has_mask || session_storage_is_encoded(fd)) {
-        int new_buf = 0;
+    if (ws_channel_is_encoded(fd, buffer)) {
         buffer_item * ws_buff = ws_buffer_find(fd);
 
-        ws_buffer_allocated_size += read_len;
-        if (ws_buffer_allocated_size > WS_MAX_BUFFER_SIZE) {
+        if ( (ws_buffer_allocated_size + read_len) > WS_MAX_BUFFER_SIZE) {
             if (ws_buff) ws_buffer_free(ws_buff);
-            else ws_buffer_allocated_size -= read_len;
-
             return WS_BUFFER_EXCEEDED_MAX;
         }
 
         // merge
         if (ws_buff != NULL) {
             // FIXME guard reallocs
-            ws_buff->received = realloc(ws_buff->received, ws_buff->received_len + read_len + 1);
-            memcpy(&ws_buff->received[ws_buff->received_len], buffer, read_len);
-            ws_buff->received_len += read_len;
-            buffer = ws_buff->received;
-            ws_buff->remaining_len = ws_buff->received_len - ws_buff->frame_len;
-
-            debug("Merged dataframes. Total: %d Buffer size: %d fd: %d\n",
+            int old_len = ws_buff->received_len;
+            ws_buffer_shrink(ws_buff,old_len, ws_buff->received_len + read_len );
+            memcpy(&ws_buff->received[old_len], buffer, read_len);
+            ws_buff->remaining_len=0;
+            debug("Merged dataframes. Total allocation: %d Buffer size: %d fd: %d\n",
                     ws_buffer_allocated_size, ws_buff->received_len, ws_buff->fd);
             //was continued
         } else {
@@ -111,42 +121,48 @@ ws_filter_dataframe_status ws_input_filter_dataframe(int fd, char* buffer, size_
             ws_buff->fd = fd;
             ws_buff->received_len = read_len;
             ws_buff->received = emalloc(read_len);
+            ws_buffer_allocated_size += read_len;
             memcpy(ws_buff->received, buffer, read_len);
 
-            // parse headers & fill buffer_item
-            if (ws_dataframe_read_headers(ws_buff) <= 0)
+            debug("New dataframe. Total allocation: %d Buffer size: %d fd: %d\n",
+                    ws_buffer_allocated_size, 
+                    ws_buff->received_len, 
+                    ws_buff->fd);
+        }
+
+        size_t ag_decoded_data_len = 0;
+        char * ag_decoded_data = NULL;
+
+        while(ws_buff->received_len>0 &&( ws_buff->frame_len==0 || ws_buff->remaining_len==0)) {
+            
+            size_t full_frame_len = ws_dataframe_read_headers(ws_buff);
+            if (full_frame_len <= 0)
                 return WS_TOO_LARGE_DATAFRAME;
 
+            if(ws_buff->received_len < full_frame_len) {
+                ws_buff->remaining_len = full_frame_len - ws_buff->received_len; // frame_len should contain headers len!
+            } else {
+                // we can decode one
+                size_t decoded_data_len = ws_buff->frame_len;
+                char * decoded_data = ws_dataframe_decode(ws_buff);
 
-            debug("New dataframe. FrameSize: %d Total: %d Buffer size: %d fd: %d\n",
-                    ws_buff->frame_len,
-                    ws_buffer_allocated_size, ws_buff->received_len, ws_buff->fd);
-        }
-        // do pop decoded msg & update buffer_item while can
-        size_t decoded_data_len = ws_buff->frame_len;
-        char * decoded_data = ws_dataframe_decode(ws_buff);
+                ag_decoded_data = realloc(ag_decoded_data, ag_decoded_data_len + decoded_data_len);
+                memcpy(&ag_decoded_data[ag_decoded_data_len], decoded_data, decoded_data_len);
+                ag_decoded_data_len += decoded_data_len;
 
-        if (decoded_data != NULL) {
-            char * out = ws_dataframe_decode(ws_buff);
-
-            while (out != NULL) {
-                size_t new_len = decoded_data_len + ws_buff->frame_len;
-                decoded_data = realloc(decoded_data, new_len + 1);
-                memcpy(&decoded_data[decoded_data_len], out, ws_buff->frame_len);
-                decoded_data_len += ws_buff->frame_len;
-                free(out);
-                out = ws_dataframe_decode(ws_buff);
+                free(decoded_data);
             }
         }
+
         // if no left, free space
         if (ws_buff->remaining_len == 0) {
             ws_buffer_free(ws_buff);
         }
 
         // data out, return that
-        if (decoded_data != NULL) {
-            *out = decoded_data;
-            *decoded_buf_len = decoded_data_len;
+        if (ag_decoded_data != NULL) {
+            *out = ag_decoded_data;
+            *decoded_buf_len = ag_decoded_data_len-1;
             return WS_COMPLETE_DATAFRAME;
         }
 
@@ -167,24 +183,23 @@ char * ws_dataframe_decode(buffer_item* buf) {
     else skip = 14;
     // decode first frame
 
-    char * decoded_message = emalloc(buf->frame_len + 1);
+    char * decoded_message = emalloc(buf->frame_len);
 
     for (size_t i = 0; i < len; i++) decoded_message[i] = buf->received[i + skip] ^ buf->mask[i % 4];
     debug("Decoded frame len(%d)\n", len);
     // shrink buffer_item and set new headers
-    buf->remaining_len = buf->received_len - len - skip;
-    if (buf->remaining_len > 0) {
-        debug("Remaining chunk len: %d\n", buf->remaining_len);
+    int new_len = buf->received_len - len - skip;
+    if (new_len > 0) {
+        debug("Remaining buffer len: %d\n", new_len);
         // shrink payload, and calc new headers
-        for (size_t i = 0; i < buf->remaining_len; i++) buf->received[i] = buf->received[i + skip + buf->frame_len];
-        buf->received = realloc(buf->received, buf->remaining_len + 1);
-        buf->received_len = buf->remaining_len;
-        // calc next_frame len
-        ws_dataframe_read_headers(buf);
+        for (size_t i = 0; i < new_len; i++) buf->received[i] = buf->received[i + skip + buf->frame_len];
+        ws_buffer_shrink(buf, buf->received_len, new_len);
     } else {
-        buf->frame_len = 0;
+        ws_buffer_shrink(buf,buf->received_len,0);
     }
-
+    
+    buf->frame_len = 0;
+    
     return decoded_message;
 }
 
@@ -194,6 +209,10 @@ unsigned int ws_dropped_frames = 0;
 char mask[4];
 size_t mask_len = sizeof (mask);
 
+/**
+ * sets buf's mask and frame_len attribute, which willcontain the payload_length
+ * @returns full frame length = (header+payload)
+*/
 size_t ws_dataframe_read_headers(buffer_item* buf) {
     char * buffer = buf->received;
 
@@ -202,7 +221,7 @@ size_t ws_dataframe_read_headers(buffer_item* buf) {
     int op_code = (buffer[0] & 0xF);
 
     if (op_code == 1) {
-        session_storage_set_encoded(buf->fd);
+        debug("Opcode: 1\n");
     } else {
         debug("Unhandled opcode: %d\n", op_code);
         // TODO handle PING-FRAMES
@@ -213,17 +232,20 @@ size_t ws_dataframe_read_headers(buffer_item* buf) {
     uint64_t payload_len = 0;
 
     int len = buffer[1] & 0x7f;
-
+    int header_len =0;
     if (len < 126) {
         payload_len += len;
+        header_len=6;
         memcpy(&buf->mask, buffer + 2, mask_len);
     } else if (len == 126) {
         uint16_t sz16;
+        header_len=8;
         memcpy(&sz16, buffer + 2, sizeof (uint16_t));
         payload_len += ntohs(sz16);
         memcpy(&buf->mask, buffer + 4, mask_len);
     } else if (len == 127) {
         uint64_t sz64;
+        header_len=14;
         memcpy(&sz64, buffer + 2, sizeof (uint64_t));
         payload_len = ntohl64(sz64);
         memcpy(&buf->mask, buffer + 10, mask_len);
@@ -234,5 +256,7 @@ size_t ws_dataframe_read_headers(buffer_item* buf) {
         return buf->frame_len = 0;
     }
 
-    return buf->frame_len = payload_len;
+    buf->frame_len = payload_len;
+
+    return payload_len + header_len;
 }

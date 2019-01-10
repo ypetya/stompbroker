@@ -97,12 +97,11 @@ void setnonblocking(int conn_sock) {
 
 void put_stomp_messages_on_queue(int conn_sock, char* read_buffer, ts_queue * input_queue, int received_length) {
     read_buffer[received_length] = '\0';
-    char * token = strtok(read_buffer, "\0");
-    while (token != NULL) {
-        if (token > (read_buffer + received_length)) break;
+    char * token = read_buffer;
+    for(int i=0;i<received_length;i++){
         message * incoming_message = message_create(
                 conn_sock,
-                token);
+                &token[i]);
 
         if (ts_enqueue_limited(input_queue,
                 incoming_message,
@@ -110,7 +109,8 @@ void put_stomp_messages_on_queue(int conn_sock, char* read_buffer, ts_queue * in
                 ) < 0)
             warn("server: Dropping message, input_queue limit reached! (%d)\n",
                 config->max_input_queue_size);
-        token = strtok(NULL, "\0");
+       
+       while(token[i]!='\0') i++;
     }
 }
 
@@ -153,7 +153,7 @@ void do_use_fd(int conn_sock, char* read_buffer, ts_queue * input_queue) {
         }
 
         size_t decoded_buf_len;
-        char * decoded_messages;
+        char * decoded_messages=NULL;
         int fd_with_flag;
 
         switch (ws_input_filter_dataframe(conn_sock, read_buffer,

@@ -27,6 +27,26 @@ void ws_buffer_free(buffer_item * buffer) {
     }
 }
 
+// TODO: performance improvement: use buffers, not real allocations 
+void ws_buffer_shrink(buffer_item * buffer,size_t old_len,size_t new_len) {
+    if(buffer!=NULL) {
+        
+        if(new_len>0) {
+            buffer->received = realloc(buffer->received,new_len);
+        } else {
+            free(buffer->received);
+            buffer->received = NULL;
+        }
+         
+         buffer->received_len = new_len;
+
+        if(new_len<old_len)
+            ws_buffer_allocated_size-=old_len-new_len; // ensure -- ==> +
+        else
+            ws_buffer_allocated_size+=new_len-old_len;
+    }
+}
+
 void ws_deinit_buffer() {
     for (int i = 0; i < WS_CONTINUATION_BUFFER; i++) {
         if (ws_buffer[i].fd != 0) ws_buffer_free(&ws_buffer[i]);

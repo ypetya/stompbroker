@@ -367,8 +367,6 @@
     </df>
     <df root="examples/Websocket" name="4">
     </df>
-    <df root="examples/Websocket" name="5">
-    </df>
     <itemPath>stomp/stomp/datastructures/readme.md</itemPath>
     <itemPath>stomp/js/chat/readme.md</itemPath>
     <itemPath>stomp/js/chat/stomp.chat.js</itemPath>
