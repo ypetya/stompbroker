@@ -10,10 +10,14 @@
 
 #include "../buffer.h"
 
+uint64_t ws_dropped_frames = 0;
+uint64_t ws_processed_incoming_frames = 0;
+char mask[4];
+size_t mask_len = sizeof (mask);
 
 int encode_websocket_frame(char * buffer, char** out);
 
-size_t ws_output_filter(message *m) {
+size_t ws_output_filter(message_with_frame_len *m) {
     size_t len = strlen(m->content);
     if (session_is_encoded(m->fd)) {
         m->fd = session_without_flags(m->fd);
@@ -152,6 +156,7 @@ ws_filter_dataframe_status ws_input_filter_dataframe(int fd, char* buffer, size_
                 ag_decoded_data_len += decoded_data_len;
 
                 free(decoded_data);
+                ws_processed_incoming_frames++;
             }
         }
 
@@ -206,9 +211,6 @@ char * ws_dataframe_decode(buffer_item* buf) {
 
 #define WS_DATA_FRAME_MAX_LENGTH 1000000
 
-unsigned int ws_dropped_frames = 0;
-char mask[4];
-size_t mask_len = sizeof (mask);
 
 /**
  * sets buf's mask and frame_len attribute, which willcontain the payload_length

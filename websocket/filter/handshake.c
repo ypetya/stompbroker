@@ -114,7 +114,7 @@ void send_accept_response(char* acceptKey, int fd, ts_queue *out) {
     char * frame = emalloc(len);
     sprintf(frame, ACCEPT_TEMPLATE, acceptKey);
 
-    message * msg = message_create(fd, frame);
+    message_with_frame_len * msg = message_create_with_frame_len(fd, frame);
     free(frame);
 
     ts_enqueue(out, msg);

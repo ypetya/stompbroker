@@ -62,7 +62,7 @@ ts_queue * process_start_threads() {
 void process_kill_threads() {
     ts_enqueue(&input_queue, message_poison_pill());
     for (int i = 0; i < workers->writers_count; i++)
-        ts_enqueue(&output_queue, message_poison_pill());
+        ts_enqueue(&output_queue, message_wl_poison_pill());
 
     // JOIN threads
     pthread_join(workers->reader_thread_id, NULL);
@@ -86,12 +86,12 @@ void *writer_thread(void *vargp) {
     while (YES) {
 
         res = -1;
-        message * msg = (message*) ts_dequeue(output_queue);
+        message_with_frame_len * msg = (message_with_frame_len*) ts_dequeue(output_queue);
 
         if (msg != NULL) {
             if (msg->fd == -1) {
                 debug(" * Writer thread: Poison pill detected.\n");
-                message_destroy(msg);
+                message_wl_destroy(msg);
                 break;
             }
             debug(">>>\n%s\n", msg->content);
@@ -109,7 +109,7 @@ void *writer_thread(void *vargp) {
             printf("\n\n");
             #endif
             
-            message_destroy(msg);
+            message_wl_destroy(msg);
         }
 
         usleep(10);

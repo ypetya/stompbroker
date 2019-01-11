@@ -14,13 +14,19 @@
 extern "C" {
 #endif
 
- typedef struct msg_st {
+    typedef struct msg_st {
         int fd;
         char * content;
     } message;
-
+    
+    typedef struct msg_wl_st {
+        int fd;
+        char * content;
+        size_t frame_len;
+    } message_with_frame_len;
 
     message * message_create(int fd, char * str);
+    message_with_frame_len * message_create_with_frame_len(int fd, char * str);
     
     void message_destroy(message * m);
 #ifdef __cplusplus

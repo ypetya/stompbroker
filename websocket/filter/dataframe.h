@@ -37,7 +37,7 @@ extern "C" {
      * @param m
      * @return message->content size
      */
-    size_t ws_output_filter(message *m);
+    size_t ws_output_filter(message_with_frame_len *m);
 
 
 

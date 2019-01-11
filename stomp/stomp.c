@@ -36,7 +36,7 @@ void stomp_process(ts_queue* output_queue, message *input) {
     }
     int client_connected = stomp_session_is_connected(client_id_wo_flags);
     parsed_message * pm = parse_message(input);
-    message * resp = NULL;
+    message_with_frame_len * resp = NULL;
 
     switch (pm->command) {
         case FRM_CONNECT_ID:
@@ -117,7 +117,7 @@ void stomp_process(ts_queue* output_queue, message *input) {
                     aa_put(aa, "destination", pm->topic);
                     aa_put(aa, "subscription", sub->id);
 
-                    message * o = message_send_with_headers(sub->session_id,
+                    message_with_frame_len * o = message_send_with_headers(sub->session_id,
                             aa,
                             pm->message_body);
 

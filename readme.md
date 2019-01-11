@@ -48,7 +48,7 @@ The first character of the line can contain the following status codes:
 
 
 ```
-~ Parse arguments (using pre-defined values, not accepting command line arguments)
+~ Parse arguments (Accepting: processors,port,max_input_queue_size)
 + Logger: Log output if necessary
 + Segregate main modules
 + TCP connection parent listener
@@ -86,16 +86,17 @@ The first character of the line can contain the following status codes:
 ~ create tests and nodejs applications, see `js` directory
 + js/stomp.protocol.test.js
 + Websocket handshake filter
-~ Websocket data frames encoding-decoding (Limited: text-only,no fragments)
+~ Websocket data frames encoding-decoding (Limited: opcode=1 text-content,fin=1 no fragments)
 + WS: Buffer underrun, Buffer overflow
 + Make session threadsafe : use it only upfront!
 - STOMP: Buffer overflow, multiple messages
 - Grouped diagnostic message for session_stats
 ? Grouped diagnostic message for network io ( dropped ws data-frames, fixed underruns, cache size )
-- Take maximum STOMP message size mandatory for WS as well
++ WS frame maximum: WS_DATA_FRAME_MAX_LENGTH
 - WS buffering stats DIAG messages
 - WS ping-pong
-- js/stomp.queue.test.js - missed messages
+- peek messages: pick multiple messages for same FD
+- output buffering: every writer thread could have an own buffer for sending out multiple messages in a batch
 ```
 
 Running
