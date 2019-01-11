@@ -11,6 +11,8 @@ extern "C" {
 #include "data/session_storage_simple.c"
 #include "signal_action_handler.c"
 #include "listen.c"
+#include "writer_thread.c"
+#include "reader_thread.c"
 #include "process.c"
 #include "accept_epoll.c"
 
