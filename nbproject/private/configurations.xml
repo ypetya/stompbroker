@@ -202,8 +202,12 @@
         <in>main.h</in>
         <in>process.c</in>
         <in>process.h</in>
+        <in>reader_thread.c</in>
+        <in>reader_thread.h</in>
         <in>signal_action_handler.c</in>
         <in>signal_action_handler.h</in>
+        <in>writer_thread.c</in>
+        <in>writer_thread.h</in>
       </df>
       <df name="stomp">
         <df name="data_wrappers">

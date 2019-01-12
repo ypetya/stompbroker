@@ -28,11 +28,11 @@ void ws_buffer_free(buffer_item * buffer) {
 }
 
 // TODO: performance improvement: use buffers, not real allocations 
-void ws_buffer_shrink(buffer_item * buffer,size_t old_len,size_t new_len) {
-    if(buffer!=NULL) {
-        
-        if(new_len>0) {
-            char* p = realloc(buffer->received,new_len);
+void ws_buffer_shrink(buffer_item * buffer, size_t old_len, size_t new_len) {
+    if (buffer != NULL) {
+
+        if (new_len > 0) {
+            char* p = realloc(buffer->received, new_len);
             if (p == NULL) {
                 fprintf(stderr, "Out of memory!\n");
                 exit(1);
@@ -42,13 +42,13 @@ void ws_buffer_shrink(buffer_item * buffer,size_t old_len,size_t new_len) {
             free(buffer->received);
             buffer->received = NULL;
         }
-         
-         buffer->received_len = new_len;
 
-        if(new_len<old_len)
-            ws_buffer_allocated_size-=old_len-new_len; // ensure -- ==> +
+        buffer->received_len = new_len;
+
+        if (new_len < old_len)
+            ws_buffer_allocated_size -= old_len - new_len; // ensure -- ==> +
         else
-            ws_buffer_allocated_size+=new_len-old_len;
+            ws_buffer_allocated_size += new_len - old_len;
     }
 }
 

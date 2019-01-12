@@ -40,13 +40,13 @@ void accept_epoll(stomp_app_config * app_config, int listen_sock) {
 
 
 #define MAX_EVENTS 10
-    struct epoll_event ev=(struct epoll_event){}, events[MAX_EVENTS];
+    struct epoll_event ev = (struct epoll_event){}, events[MAX_EVENTS];
     int conn_sock, nfds, epollfd;
     struct sockaddr_in addr; // connector's address information
     socklen_t addrlen = sizeof addr;
     char * clientAddressStr; //[INET6_ADDRSTRLEN];
 
-    for(int i=0;i<MAX_EVENTS;i++) events[i]= (struct epoll_event){};
+    for (int i = 0; i < MAX_EVENTS; i++) events[i] = (struct epoll_event){};
     epollfd = epoll_create1(0);
     if (epollfd == -1) {
         perror("epoll_create1");
@@ -99,7 +99,7 @@ void setnonblocking(int conn_sock) {
 void put_stomp_messages_on_queue(int conn_sock, char* read_buffer, ts_queue * input_queue, int received_length) {
     read_buffer[received_length] = '\0';
     char * token = read_buffer;
-    for(int i=0;i<received_length;i++){
+    for (int i = 0; i < received_length; i++) {
         message * incoming_message = message_create(
                 conn_sock,
                 &token[i]);
@@ -110,8 +110,8 @@ void put_stomp_messages_on_queue(int conn_sock, char* read_buffer, ts_queue * in
                 ) < 0)
             warn("server: Dropping message, input_queue limit reached! (%d)\n",
                 config->max_input_queue_size);
-       
-       while(token[i]!='\0') i++;
+
+        while (token[i] != '\0') i++;
     }
 }
 
@@ -154,7 +154,7 @@ void do_use_fd(int conn_sock, char* read_buffer, ts_queue * input_queue) {
         }
 
         size_t decoded_buf_len;
-        char * decoded_messages=NULL;
+        char * decoded_messages = NULL;
         int fd_with_flag;
 
         switch (ws_input_filter_dataframe(conn_sock, read_buffer,

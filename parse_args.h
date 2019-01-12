@@ -15,7 +15,7 @@
 // maximum input queue size
 #define DEFAULT_INPUT_QUEUE_LIMIT 1000000
 // maximum size of a single message
-#define DEFAULT_INPUT_BUFFER_SIZE 4000
+#define DEFAULT_INPUT_BUFFER_SIZE 16000
 
 #define DEFAULT_OUTPUT_BUFFER_SIZE 10000
 

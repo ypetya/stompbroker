@@ -34,7 +34,7 @@ extern "C" {
 
     void ws_deinit_buffer();
 
-    void ws_buffer_shrink(buffer_item * buffer,size_t old_len,size_t new_len);
+    void ws_buffer_shrink(buffer_item * buffer, size_t old_len, size_t new_len);
 
 #ifdef __cplusplus
 }

@@ -12,7 +12,7 @@
 const net = require('net');
 const connArr = [];
 
-for (let i = 0; i < 1024; i++) {
+for (let i = 0; i < 1023; i++) {
 
     const conn = net.connect(3490, 'localhost');
     conn.setNoDelay(true);
