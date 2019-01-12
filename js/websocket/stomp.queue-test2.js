@@ -5,7 +5,7 @@ const Stomp = require('stompjs');
 const sock = Stomp.overWS('ws://localhost:3490');
 //sock.debug = console.log;
 
-const subs_count=75, display_interval=1000, send_interval=1000, send_amount=2000;
+const subs_count=30, display_interval=1000, send_interval=1000, send_amount=2000;
 // -> Total messages sent: 600000, received 1188229 on 2 subscriptions. (#60)
 let total_received = 0, total_sent=0;
 let display_intervals_count=0;

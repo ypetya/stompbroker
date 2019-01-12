@@ -18,11 +18,9 @@ void exitOnSignal() {
         perror("sigaction");
         exit(1);
     }
-    // if we try to write to a closed socket -> do nothing
-    if(sigaction(SIGPIPE,NULL,NULL)){
-        perror("sigaction");
-        exit(1);
-    }
+   
+   // if we try to write to a closed socket -> do nothing
+   signal(SIGPIPE, SIG_IGN);
 }
 
 void sigchldHandler(int s)
