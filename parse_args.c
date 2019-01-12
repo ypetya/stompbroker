@@ -27,6 +27,7 @@ stomp_app_config config_parse_args(int argc, char* argv[]) {
         config_main.max_input_queue_size = DEFAULT_INPUT_QUEUE_LIMIT;
     }
     config_main.input_buffer_size = DEFAULT_INPUT_BUFFER_SIZE;
+    config_main.output_buffer_size = DEFAULT_OUTPUT_BUFFER_SIZE;
     if (config_main.processors == 0) config_main.processors = get_nprocs();
 
     info("server: This system has %d processors configured and "

@@ -22,8 +22,7 @@ extern "C" {
         int fd;
         char mask[4];
         size_t received_len;
-        size_t remaining_len;
-        size_t frame_len; // total len by first header
+        size_t frame_len; // total len (calculated on for the first header in the buffer)
         char* received;
     } buffer_item;
 

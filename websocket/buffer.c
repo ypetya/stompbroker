@@ -32,7 +32,12 @@ void ws_buffer_shrink(buffer_item * buffer,size_t old_len,size_t new_len) {
     if(buffer!=NULL) {
         
         if(new_len>0) {
-            buffer->received = realloc(buffer->received,new_len);
+            char* p = realloc(buffer->received,new_len);
+            if (p == NULL) {
+                fprintf(stderr, "Out of memory!\n");
+                exit(1);
+            }
+            buffer->received = p;
         } else {
             free(buffer->received);
             buffer->received = NULL;

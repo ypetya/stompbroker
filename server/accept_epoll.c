@@ -40,12 +40,13 @@ void accept_epoll(stomp_app_config * app_config, int listen_sock) {
 
 
 #define MAX_EVENTS 10
-    struct epoll_event ev, events[MAX_EVENTS];
+    struct epoll_event ev=(struct epoll_event){}, events[MAX_EVENTS];
     int conn_sock, nfds, epollfd;
     struct sockaddr_in addr; // connector's address information
     socklen_t addrlen = sizeof addr;
     char * clientAddressStr; //[INET6_ADDRSTRLEN];
 
+    for(int i=0;i<MAX_EVENTS;i++) events[i]= (struct epoll_event){};
     epollfd = epoll_create1(0);
     if (epollfd == -1) {
         perror("epoll_create1");
@@ -175,6 +176,8 @@ void do_use_fd(int conn_sock, char* read_buffer, ts_queue * input_queue) {
                 break;
                 //case WS_CLIENTS_WANT_TO_CLOSE:
             case WS_BUFFER_EXCEEDED_MAX:
+                warn("server: ws buffer exceeded \n");
+            case WS_INVALID_HEADER:
             case WS_TOO_LARGE_DATAFRAME:
                 warn("server: dropping websocket data-frame, closing conn on fd:%llu\n", conn_sock);
                 close_connection(conn_sock, input_queue);

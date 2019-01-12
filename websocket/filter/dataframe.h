@@ -23,7 +23,8 @@ extern "C" {
         WS_COMPLETE_DATAFRAME = 1, // out parameter contains at least one full decoded frame
         WS_INCOMPLETE_DATAFRAME = 2, // out parameter does not contain decoded data
         WS_TOO_LARGE_DATAFRAME = -1,
-        WS_BUFFER_EXCEEDED_MAX = -2
+        WS_BUFFER_EXCEEDED_MAX = -2,
+        WS_INVALID_HEADER = -3
     } ws_filter_dataframe_status;
 
 

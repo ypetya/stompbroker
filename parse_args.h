@@ -17,11 +17,14 @@
 // maximum size of a single message
 #define DEFAULT_INPUT_BUFFER_SIZE 4000
 
+#define DEFAULT_OUTPUT_BUFFER_SIZE 10000
+
 struct CONFIG_STRUCTURE {
     char * port;
     int backlog;
     unsigned int max_input_queue_size;
     int input_buffer_size;
+    int output_buffer_size; // per thread
     int processors;
 };
 

@@ -1,5 +1,4 @@
 #include <pthread.h>
-#include <unistd.h>
 
 #include "process.h"
 #include "../logger.h"

@@ -95,8 +95,9 @@ The first character of the line can contain the following status codes:
 + WS frame maximum: WS_DATA_FRAME_MAX_LENGTH
 - WS buffering stats DIAG messages
 - WS ping-pong
-- peek messages: pick multiple messages for same FD
-- output buffering: every writer thread could have an own buffer for sending out multiple messages in a batch
+~ peek messages: pick multiple messages for same FD (output queue only)
++ output buffering: every writer thread has an own 10k buffer for sending out multiple messages in a batch
+- hanlde WS client disconnect (opcode: 8)
 ```
 
 Running

@@ -15,6 +15,9 @@ extern "C" {
     
     void enqueue(queue * q, void *new_data);
     void* dequeue(queue * q);
+
+    // TODO: should be a list action instead
+    void unchain_child(queue * q, general_list_item * parent, general_list_item * child);
     
     void queue_free(queue *q);
     void queue_init(queue *q);

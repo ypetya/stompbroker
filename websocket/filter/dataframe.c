@@ -112,11 +112,11 @@ ws_filter_dataframe_status ws_input_filter_dataframe(int fd, char* buffer, size_
 
         // merge
         if (ws_buff != NULL) {
-            // FIXME guard reallocs
             int old_len = ws_buff->received_len;
             ws_buffer_shrink(ws_buff,old_len, ws_buff->received_len + read_len );
             memcpy(&ws_buff->received[old_len], buffer, read_len);
-            ws_buff->remaining_len=0;
+            ws_buff->frame_len=0;
+            //ws_buff->remaining_len=0;
             debug("Merged dataframes. Total allocation: %d Buffer size: %d fd: %d\n",
                     ws_buffer_allocated_size, ws_buff->received_len, ws_buff->fd);
             //was continued
@@ -137,15 +137,17 @@ ws_filter_dataframe_status ws_input_filter_dataframe(int fd, char* buffer, size_
         size_t ag_decoded_data_len = 0;
         char * ag_decoded_data = NULL;
 
-        while(ws_buff->received_len>0 &&( ws_buff->frame_len==0 || ws_buff->remaining_len==0)) {
+        // 7-> minimum frame size
+        while(ws_buff->received_len>16 &&( ws_buff->frame_len==0)) {
             
             size_t full_frame_len = ws_dataframe_read_headers(ws_buff);
-            // FIXME incomplete header received_len must be > ws_dataframe_read
-            if (full_frame_len <= 0)
+            if (full_frame_len < 0)
                 return WS_TOO_LARGE_DATAFRAME;
-
+            if (full_frame_len == 0)
+                return WS_INVALID_HEADER;
+            
             if(ws_buff->received_len < full_frame_len) {
-                ws_buff->remaining_len = full_frame_len - ws_buff->received_len; // frame_len should contain headers len!
+                break;
             } else {
                 // we can decode one
                 size_t decoded_data_len = ws_buff->frame_len;
@@ -161,7 +163,7 @@ ws_filter_dataframe_status ws_input_filter_dataframe(int fd, char* buffer, size_
         }
 
         // if no left, free space
-        if (ws_buff->remaining_len == 0) {
+        if (ws_buff->received == NULL) {
             ws_buffer_free(ws_buff);
         }
 
@@ -198,7 +200,8 @@ char * ws_dataframe_decode(buffer_item* buf) {
     if (new_len > 0) {
         debug("Remaining buffer len: %d\n", new_len);
         // shrink payload, and calc new headers
-        for (size_t i = 0; i < new_len; i++) buf->received[i] = buf->received[i + skip + buf->frame_len];
+        for (size_t i = 0; i < new_len; i++) 
+            buf->received[i] = buf->received[skip + len + i];
         ws_buffer_shrink(buf, buf->received_len, new_len);
     } else {
         ws_buffer_shrink(buf,buf->received_len,0);
@@ -226,7 +229,8 @@ size_t ws_dataframe_read_headers(buffer_item* buf) {
     if (op_code == 1) {
         debug("Opcode: 1\n");
     } else {
-        debug("Unhandled opcode: %d\n", op_code);
+        //debug("Unhandled opcode: %d\n", op_code);
+        warn("Invalid ws fin: %d opcode: %d\n", fin, op_code);
         // TODO handle PING-FRAMES
         ws_dropped_frames++;
         return buf->frame_len = 0;
@@ -256,7 +260,8 @@ size_t ws_dataframe_read_headers(buffer_item* buf) {
     debug("Parsed Websocket data-frame header FIN: %d opcode: 0x%x payload_len: %" PRIu64 "\n", fin, op_code, payload_len);
     if (payload_len > WS_DATA_FRAME_MAX_LENGTH) { // maximum message size 1M
         ws_dropped_frames++;
-        return buf->frame_len = 0;
+        buf->frame_len = 0;
+        return WS_TOO_LARGE_DATAFRAME;
     }
 
     buf->frame_len = payload_len;

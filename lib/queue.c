@@ -24,13 +24,26 @@ void* dequeue(queue * q) {
     if(head==NULL) return NULL;
     void * data = head->data;
     q->first = head->next;
+    if(q->last==head) q->last=NULL;
     free(head);
     q->size--;
 
     return data;
 }
 
+/**
+ * @return next list item
+*/
+void unchain_child(queue * q, general_list_item * parent, general_list_item * child) {
+    q->size--;
 
+    // was first item
+    if(parent==NULL) q->first=child->next;
+    else parent->next = child->next;
+    // was last item
+    if(q->last==child) q->last=parent;
+}
+  
 // NOTE: caution! - frees up the data!
 void queue_free(queue *q) {
     general_list_item* c = q->first;

@@ -18,7 +18,9 @@
 			"in.h": "c",
 			"functional": "cpp",
 			"mutex": "c",
-			"shared_mutex": "c"
+			"shared_mutex": "c",
+			"string_message.h": "c",
+			"epoll.h": "c"
 		}
 	}
 }
