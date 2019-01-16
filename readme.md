@@ -98,6 +98,12 @@ The first character of the line can contain the following status codes:
 ~ peek messages: pick multiple messages for same FD (output queue only)
 + output buffering: every writer thread has an own 10k buffer for sending out multiple messages in a batch
 - hanlde WS client disconnect (opcode: 8)
+- more statistics, internal benchmark DIAGnostic messages
+- TTL: minimal impl: config, put message back if < TTL in reader thread
+- persistance: save messages to file if defined (high io need, needs benchmark stats )
+- replayability: start picking up and replay messages after a defined delay from file
+- change processors params name: 1) to reflect writer threads count 2) be more intuitive
+- add basic help and upload binary 
 ```
 
 Running
