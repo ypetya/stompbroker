@@ -31,10 +31,21 @@ extern "C" {
 
 
     void ws_init_buffer();
-
     void ws_deinit_buffer();
 
-    void ws_buffer_shrink(buffer_item * buffer, size_t old_len, size_t new_len);
+    int ws_buffer_size_left(size_t size_left);
+
+    buffer_item* ws_buffer_find(int fd);
+    void ws_buffer_resize(buffer_item * buffer, size_t old_len, size_t new_len);
+    buffer_item* ws_buffer_add(int fd, char*buffer, size_t len);
+
+    struct ws_buffer_stat_t {
+        size_t allocated_size;
+        size_t hit;
+        size_t miss;
+    };
+
+    struct ws_buffer_stat_t * ws_buffer_get_stats();
 
 #ifdef __cplusplus
 }

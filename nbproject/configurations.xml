@@ -1,31 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configurationDescriptor version="100">
   <logicalFolder name="root" displayName="root" projectFiles="true" kind="ROOT">
-    <logicalFolder name="lib" displayName="lib" projectFiles="true" root="lib">
-      <itemPath>lib/README.md</itemPath>
-      <itemPath>lib/build.sh</itemPath>
-      <itemPath>lib/emalloc.c</itemPath>
-      <itemPath>lib/emalloc.h</itemPath>
-      <itemPath>lib/general_list.c</itemPath>
-      <itemPath>lib/general_list.h</itemPath>
-      <itemPath>lib/logger.h</itemPath>
-      <itemPath>lib/queue_console.out</itemPath>
-      <itemPath>lib/random_string_console.out</itemPath>
-      <itemPath>lib/string_list.c</itemPath>
-      <itemPath>lib/string_list.h</itemPath>
-      <itemPath>lib/string_list_console.c</itemPath>
-      <itemPath>lib/string_list_console.out</itemPath>
-    </logicalFolder>
-    <df root="stomp" name="0">
-      <df name="server">
-        <in>accept_select.c</in>
-      </df>
-      <in>message.c</in>
-      <in>parser.c</in>
-      <in>stomp.c</in>
-    </df>
-    <df root="stomp" name="1">
-    </df>
     <df root="." name="2">
       <df name="examples">
         <df name="Websocket">
@@ -88,6 +63,31 @@
       <in>main.c</in>
     </df>
     <df root="." name="3">
+    </df>
+    <logicalFolder name="lib" displayName="lib" projectFiles="true" root="lib">
+      <itemPath>lib/README.md</itemPath>
+      <itemPath>lib/build.sh</itemPath>
+      <itemPath>lib/emalloc.c</itemPath>
+      <itemPath>lib/emalloc.h</itemPath>
+      <itemPath>lib/general_list.c</itemPath>
+      <itemPath>lib/general_list.h</itemPath>
+      <itemPath>lib/logger.h</itemPath>
+      <itemPath>lib/queue_console.out</itemPath>
+      <itemPath>lib/random_string_console.out</itemPath>
+      <itemPath>lib/string_list.c</itemPath>
+      <itemPath>lib/string_list.h</itemPath>
+      <itemPath>lib/string_list_console.c</itemPath>
+      <itemPath>lib/string_list_console.out</itemPath>
+    </logicalFolder>
+    <df root="stomp" name="0">
+      <df name="server">
+        <in>accept_select.c</in>
+      </df>
+      <in>message.c</in>
+      <in>parser.c</in>
+      <in>stomp.c</in>
+    </df>
+    <df root="stomp" name="1">
     </df>
     <df root="examples/Websocket" name="4">
     </df>

@@ -10,20 +10,17 @@
     <editor-bookmarks xmlns="http://www.netbeans.org/ns/editor-bookmarks/2" lastBookmarkId="0"/>
     <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
         <group>
-            <file>file:/home/peter/projects/stompbroker/server/writer_thread.c</file>
-            <file>file:/home/peter/projects/stompbroker/main.c</file>
-            <file>file:/home/peter/projects/stompbroker/parse_args.h</file>
-            <file>file:/home/peter/projects/stompbroker/server/signal_action_handler.c</file>
-            <file>file:/home/peter/projects/stompbroker/parse_args.c</file>
-            <file>file:/home/peter/projects/stompbroker/websocket/main.h</file>
-            <file>file:/home/peter/projects/stompbroker/server/accept_epoll.c</file>
-            <file>file:/home/peter/projects/stompbroker/websocket/filter/dataframe.c</file>
-            <file>file:/home/peter/projects/stompbroker/websocket/buffer.h</file>
-            <file>file:/home/peter/projects/stompbroker/server/process.c</file>
-            <file>file:/home/peter/projects/stompbroker/websocket/filter/dataframe.h</file>
-            <file>file:/home/peter/projects/stompbroker/websocket/filter/handshake.c</file>
-            <file>file:/home/peter/projects/stompbroker/stomp/message.c</file>
-            <file>file:/home/peter/projects/stompbroker/websocket/buffer.c</file>
+            <file>file:/home/peter/projects/c_connect/js/websocket/stomp.latency.js</file>
+            <file>file:/home/peter/projects/c_connect/websocket/buffer.h</file>
+            <file>file:/home/peter/projects/c_connect/server/data/string_message.h</file>
+            <file>file:/home/peter/projects/c_connect/websocket/buffer.c</file>
+            <file>file:/home/peter/projects/c_connect/server/accept_epoll.c</file>
+            <file>file:/home/peter/projects/c_connect/server/data/session_storage_simple.c</file>
+            <file>file:/home/peter/projects/c_connect/websocket/filter/dataframe.c</file>
+            <file>file:/home/peter/projects/c_connect/stomp/stomp.c</file>
+            <file>file:/home/peter/projects/c_connect/stomp/data_wrappers/session.c</file>
+            <file>file:/home/peter/projects/c_connect/server/data/string_message.c</file>
+            <file>file:/home/peter/projects/c_connect/js/websocket/stomp.queue-test2.js</file>
         </group>
     </open-files>
 </project-private>

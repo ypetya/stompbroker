@@ -23,7 +23,8 @@ extern "C" {
         WS_COMPLETE_DATAFRAME = 1, // out parameter contains at least one full decoded frame
         WS_INCOMPLETE_DATAFRAME = 2, // out parameter does not contain decoded data
         WS_TOO_LARGE_DATAFRAME = -1,
-        WS_BUFFER_EXCEEDED_MAX = -2,
+        WS_BUFFER_EXCEEDED_MAX = -2, // when no more allocation is enabled in buffer
+        WS_BUFFER_OUT_OF_SLOTS = -6, // when no more continuation slots available in buffer
         WS_INVALID_HEADER = -3,
         WS_OPCODE_CLIENT_DISCONNECT = -4,
         WS_OPCODE_UNHANDLED = -5

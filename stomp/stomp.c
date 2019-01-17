@@ -165,7 +165,16 @@ void stomp_process(ts_queue* output_queue, message *input) {
                 pubsub_to_str(large_buffer, 3500);
                 resp = message_diagnostic(input->fd, pm->message_body, large_buffer);
                 free(large_buffer);
-            } else {
+            } else if (strncmp(pm->message_body, "ws_buffer", 9)==0) {
+                char * medium_buffer = emalloc(1000);
+                struct ws_buffer_stat_t * stats = ws_buffer_get_stats();
+                sprintf(medium_buffer, "Allocated %llu\nHits %llu\nMiss %llu\n",
+                    &stats->allocated_size, &stats->hit, &stats->miss);
+                resp = message_diagnostic(input->fd, pm->message_body, medium_buffer);
+                free(medium_buffer);
+            } 
+            
+            else {
                 resp = message_error(input->fd, "Invalid message!");
             }
             break;

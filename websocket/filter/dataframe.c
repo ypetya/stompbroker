@@ -7,7 +7,6 @@
 #include "../../server/data/session_storage.h"
 #include "../../parse_args.h"
 
-
 #include "../buffer.h"
 
 uint64_t ws_dropped_frames = 0;
@@ -92,6 +91,9 @@ int ws_channel_is_encoded(int fd, char* buffer) {
     return is_data_frame;
 }
 
+// the minimum frame size is 7 bytes
+#define MIN_DATA_FRAME_SIZE 16
+
 /**
  * This method concatenates buffer, when needed for specific fd
  * 
@@ -104,42 +106,36 @@ ws_filter_dataframe_status ws_input_filter_dataframe(int fd, char* buffer, size_
     *out = NULL;
     if (ws_channel_is_encoded(fd, buffer)) {
         buffer_item * ws_buff = ws_buffer_find(fd);
-        // FIXME: this move down.
-        if ((ws_buffer_allocated_size + read_len) > WS_MAX_BUFFER_SIZE) {
+        
+        if (ws_buffer_size_left(read_len)<0) {
             if (ws_buff) ws_buffer_free(ws_buff);
             return WS_BUFFER_EXCEEDED_MAX;
         }
 
-        // merge
         if (ws_buff != NULL) {
+            //was continued
             int old_len = ws_buff->received_len;
-            ws_buffer_shrink(ws_buff, old_len, ws_buff->received_len + read_len);
+            ws_buffer_resize(ws_buff, old_len, ws_buff->received_len + read_len);
             memcpy(&ws_buff->received[old_len], buffer, read_len);
             ws_buff->frame_len = 0;
-            //ws_buff->remaining_len=0;
+            
             debug("Merged dataframes. Total allocation: %d Buffer size: %d fd: %d\n",
                     ws_buffer_allocated_size, ws_buff->received_len, ws_buff->fd);
-            //was continued
         } else {
-            ws_buff = ws_buffer_add();
-            ws_buff->fd = fd;
-            ws_buff->received_len = read_len;
-            // FIXME: here ... use the ws_buffer methods instead, handle errors
-            ws_buff->received = emalloc(read_len);
-            ws_buffer_allocated_size += read_len;
-            memcpy(ws_buff->received, buffer, read_len);
-
             debug("New dataframe. Total allocation: %d Buffer size: %d fd: %d\n",
                     ws_buffer_allocated_size,
                     ws_buff->received_len,
                     ws_buff->fd);
+
+            ws_buff = ws_buffer_add(fd, buffer, read_len);
+
+            if(!ws_buff) return WS_BUFFER_OUT_OF_SLOTS;
         }
 
         size_t ag_decoded_data_len = 0;
         char * ag_decoded_data = NULL;
 
-        // 7-> minimum frame size
-        while (ws_buff->received_len > 16 && (ws_buff->frame_len == 0)) {
+        while (ws_buff->received_len > MIN_DATA_FRAME_SIZE && (ws_buff->frame_len == 0)) {
 
             size_t full_frame_len = ws_dataframe_read_headers(ws_buff);
             if (full_frame_len == WS_TOO_LARGE_DATAFRAME ||
@@ -151,7 +147,7 @@ ws_filter_dataframe_status ws_input_filter_dataframe(int fd, char* buffer, size_
             if (ws_buff->received_len < full_frame_len) {
                 break;
             } else {
-                // we can decode one
+                // We can decode one frame from the front of the buffer
                 size_t decoded_data_len = ws_buff->frame_len;
                 char * decoded_data = ws_dataframe_decode(ws_buff);
 
@@ -164,12 +160,12 @@ ws_filter_dataframe_status ws_input_filter_dataframe(int fd, char* buffer, size_
             }
         }
 
-        // if no left, free space
+        // if no data left in buffer, free up the slot
         if (ws_buff->received == NULL) {
             ws_buffer_free(ws_buff);
         }
 
-        // data out, return that
+        // if there is decoded data for output, return that
         if (ag_decoded_data != NULL) {
             *out = ag_decoded_data;
             *decoded_buf_len = ag_decoded_data_len - 1;
@@ -204,9 +200,9 @@ char * ws_dataframe_decode(buffer_item* buf) {
         // shrink payload, and calc new headers
         for (size_t i = 0; i < new_len; i++)
             buf->received[i] = buf->received[skip + len + i];
-        ws_buffer_shrink(buf, buf->received_len, new_len);
+        ws_buffer_resize(buf, buf->received_len, new_len); //shrink
     } else {
-        ws_buffer_shrink(buf, buf->received_len, 0);
+        ws_buffer_resize(buf, buf->received_len, 0); //shrink
     }
 
     buf->frame_len = 0;
