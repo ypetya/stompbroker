@@ -14,7 +14,7 @@ void stomp_session_init() {
 int stomp_session_is_connected(int fd) {
     int i, c, n;
     // find the bit
-    for (i = 0, c = fd; c > 0; i++, n = c % 64, c = c / 64);
+    for (i = 0, c = fd; c > 0; i++, c = c / 64, n = c % 64);
 
     uint64_t mask = 1U << n;
 
@@ -24,7 +24,7 @@ int stomp_session_is_connected(int fd) {
 void stomp_session_set_connected(int fd, int connected) {
     int i, c, n;
     // find the bit
-    for (i = 0, c = fd; c > 0; i++, n = c % 64, c = c / 64);
+    for (i = 0, c = fd; c > 0; i++, c = c / 64, n = c % 64);
 
     uint64_t mask = 1U << n;
     if (connected == 0) mask ^= UINT64_MAX;

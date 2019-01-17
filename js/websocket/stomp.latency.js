@@ -2,7 +2,7 @@
 
 const Stomp = require('stompjs');
 
-const sock = Stomp.overWS('ws://tetrace.online:3000');
+const sock = Stomp.overWS('wss://localhost:3002');
 
 //sock.debug = console.log;
 const topic = `/latency/${Math.random()}`;
