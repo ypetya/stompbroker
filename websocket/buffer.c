@@ -4,7 +4,11 @@
 
 buffer_item ws_buffer[WS_CONTINUATION_BUFFER];
 
-size_t ws_buffer_allocated_size = 0;
+struct ws_buffer_stat_t {
+    size_t allocated_size = 0;
+    size_t ws_buffer_hit = 0;
+    size_t ws_buffer_miss = 0;
+} ws_buffer_stat;
 
 void ws_init_buffer() {
     debug("server: Websocket buffer size: %d connections with %d bytes data in total.\n",
@@ -14,8 +18,12 @@ void ws_init_buffer() {
 
 buffer_item* ws_buffer_find(int fd) {
     for (int i = 0; i < WS_CONTINUATION_BUFFER; i++) {
-        if (ws_buffer[i].fd == fd) return &ws_buffer[i];
+        if (ws_buffer[i].fd == fd){
+            ws_buffer_hit++;
+            return &ws_buffer[i];
+        }
     }
+    ws_buffer_miss++;
     return NULL;
 }
 

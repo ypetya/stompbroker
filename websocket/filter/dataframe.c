@@ -104,7 +104,7 @@ ws_filter_dataframe_status ws_input_filter_dataframe(int fd, char* buffer, size_
     *out = NULL;
     if (ws_channel_is_encoded(fd, buffer)) {
         buffer_item * ws_buff = ws_buffer_find(fd);
-
+        // FIXME: this move down.
         if ((ws_buffer_allocated_size + read_len) > WS_MAX_BUFFER_SIZE) {
             if (ws_buff) ws_buffer_free(ws_buff);
             return WS_BUFFER_EXCEEDED_MAX;
@@ -124,6 +124,7 @@ ws_filter_dataframe_status ws_input_filter_dataframe(int fd, char* buffer, size_
             ws_buff = ws_buffer_add();
             ws_buff->fd = fd;
             ws_buff->received_len = read_len;
+            // FIXME: here ... use the ws_buffer methods instead, handle errors
             ws_buff->received = emalloc(read_len);
             ws_buffer_allocated_size += read_len;
             memcpy(ws_buff->received, buffer, read_len);
@@ -141,9 +142,10 @@ ws_filter_dataframe_status ws_input_filter_dataframe(int fd, char* buffer, size_
         while (ws_buff->received_len > 16 && (ws_buff->frame_len == 0)) {
 
             size_t full_frame_len = ws_dataframe_read_headers(ws_buff);
-            if (full_frame_len < 0)
-                return WS_TOO_LARGE_DATAFRAME;
-            if (full_frame_len == 0)
+            if (full_frame_len == WS_TOO_LARGE_DATAFRAME ||
+                    full_frame_len == WS_OPCODE_CLIENT_DISCONNECT)
+                return full_frame_len;
+            if (full_frame_len <= 0)
                 return WS_INVALID_HEADER;
 
             if (ws_buff->received_len < full_frame_len) {
@@ -227,12 +229,16 @@ size_t ws_dataframe_read_headers(buffer_item* buf) {
 
     if (op_code == 1) {
         debug("Opcode: 1\n");
+    } else if (op_code == 8) {
+        debug("WS client disconnect!\n");
+        return WS_OPCODE_CLIENT_DISCONNECT;
     } else {
         //debug("Unhandled opcode: %d\n", op_code);
         warn("Invalid ws fin: %d opcode: %d\n", fin, op_code);
         // TODO handle PING-FRAMES
         ws_dropped_frames++;
-        return buf->frame_len = 0;
+        buf->frame_len = 0;
+        return WS_OPCODE_UNHANDLED;
     }
 
     uint64_t payload_len = 0;

@@ -174,12 +174,15 @@ void do_use_fd(int conn_sock, char* read_buffer, ts_queue * input_queue) {
                         input_queue,
                         received_length);
                 break;
-                //case WS_CLIENTS_WANT_TO_CLOSE:
+            case WS_OPCODE_CLIENT_DISCONNECT:
+                close_connection(conn_sock, input_queue);
+                free(decoded_messages);
+                break;
             case WS_BUFFER_EXCEEDED_MAX:
                 warn("server: ws buffer exceeded \n");
             case WS_INVALID_HEADER:
             case WS_TOO_LARGE_DATAFRAME:
-                warn("server: dropping websocket data-frame, closing conn on fd:%llu\n", conn_sock);
+                warn("server: may drop websocket data-frame, closing conn on fd:%llu\n", conn_sock);
                 close_connection(conn_sock, input_queue);
                 free(decoded_messages);
                 break;

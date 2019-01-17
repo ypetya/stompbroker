@@ -97,7 +97,7 @@ The first character of the line can contain the following status codes:
 - WS ping-pong
 ~ peek messages: pick multiple messages for same FD (output queue only)
 + output buffering: every writer thread has an own 10k buffer for sending out multiple messages in a batch
-- hanlde WS client disconnect (opcode: 8)
+- handle WS client disconnect (opcode: 8)
 - more statistics, internal benchmark DIAGnostic messages
 - TTL: minimal impl: config, put message back if < TTL in reader thread
 - persistance: save messages to file if defined (high io need, needs benchmark stats )
