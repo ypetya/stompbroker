@@ -1,16 +1,3 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
-
-/* 
- * File:   message.h
- * Author: peter
- *
- * Created on July 13, 2018, 3:45 PM
- */
-
 #ifndef MESSAGE_H
 #define MESSAGE_H
 
@@ -18,9 +5,9 @@
 extern "C" {
 #endif
 
-#include "../lib/associative_array.h"
-#include "../server/data/message/with_payload_length.h"
-#include "../server/data/message/with_timestamp.h"
+#include "../../lib/associative_array.h"
+#include "../../server/data/message/with_payload_length.h"
+#include "../../server/data/message/with_timestamp.h"
 
     message_with_frame_len * message_error(int fd, char *reason);
     message_with_frame_len * message_connected(int fd, int session_id);

@@ -119,13 +119,11 @@ ws_filter_dataframe_status ws_input_filter_dataframe(int fd, char* buffer, size_
             memcpy(&ws_buff->received[old_len], buffer, read_len);
             ws_buff->frame_len = 0;
             
-            debug("Merged dataframes. Total allocation: %d Buffer size: %d fd: %d\n",
-                    ws_buffer_allocated_size, ws_buff->received_len, ws_buff->fd);
+            debug("Merged dataframes. Buffer size: %d fd: %d\n",
+                    ws_buff->received_len, ws_buff->fd);
         } else {
-            debug("New dataframe. Total allocation: %d Buffer size: %d fd: %d\n",
-                    ws_buffer_allocated_size,
-                    ws_buff->received_len,
-                    ws_buff->fd);
+            debug("New dataframe. Buffer size: %d fd: %d\n",
+                    ws_buff->received_len, ws_buff->fd);
 
             ws_buff = ws_buffer_add(fd, buffer, read_len);
 

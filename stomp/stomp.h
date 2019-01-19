@@ -8,9 +8,9 @@
  * 
  */
 
-#include "message.h"
+#include "../server/data/message/with_timestamp.h"
 #include "../lib/thread_safe_queue.h"
 void stomp_start();
-void stomp_process(ts_queue* output_queue, message_with_timestamp *input);
+void stomp_process(ts_queue* input_queue, ts_queue* output_queue, message_with_timestamp *input);
 void stomp_stop();
 #endif

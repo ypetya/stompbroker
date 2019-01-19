@@ -1,27 +1,26 @@
 #include "stomp.h"
 #include "../logger.h"
-#include <sys/socket.h>
-#include <stdint.h>
+
+#include "../parse_args.h"
 
 #include "../lib/thread_safe_queue.h"
-#include "parser.h"
 #include "../server/data/session_storage.h"
 #include "data_wrappers/session.h"
-#include "./data_wrappers/pub_sub.h"
-#include "../lib/associative_array.h"
+#include "parser.h"
 
-int message_id = 0;
+#include "messages/message.h"
+#include "messages/create_diagnostic_message.h"
+#include "messages/distribute_messages.h"
 
+/**
+ * Time to live, from config at startup
+ * */
+unsigned int ttl;
 
-char str_buf[20];
-
-char * itoa(int num) {
-    snprintf(str_buf, 20, "%d", num);
-    return str_buf;
-}
-
-void stomp_process(ts_queue* output_queue, message_with_timestamp *input) {
-
+/**
+ * Processing incoming STOMP message
+*/
+void stomp_process(ts_queue* input_queue, ts_queue* output_queue, message_with_timestamp *input) {
     int client_id = input->fd;
     int client_id_wo_flags = session_without_flags(input->fd);
     if (client_id != client_id_wo_flags) {
@@ -90,51 +89,15 @@ void stomp_process(ts_queue* output_queue, message_with_timestamp *input) {
             if (pm->topic == NULL)
                 resp = message_error(input->fd, "No topic defined!");
             else if (client_connected > 0) {
+                // Do not allow wildcard topic
                 if (strchr(pm->topic, '*') != NULL) {
                     resp = message_error(input->fd,
                             "Can not have wildcard in message destination!\n");
                     break;
                 };
-                general_list * matching_clients = list_new();
-                general_list * messages_out = list_new();
-                pubsub_find_matching(pm->topic, matching_clients);
+                
+                distribute_messages(input_queue, output_queue, input, pm, ttl);
 
-                general_list_item * first = matching_clients->first;
-
-                associative_array * aa = emalloc(sizeof (associative_array));
-
-                aa_merge(aa, pm->headers->root);
-                aa_put(aa, "content-type", "text/plain");
-                aa_put(aa, "content-length", itoa(strlen(pm->message_body)));
-
-                while (first != NULL) {
-                    subscription * sub = first->data;
-#ifdef DEBUG
-                    aa_put(aa, "message-id", itoa(message_id));
-#else
-                    aa_put(aa, "message-id", itoa(message_id++));
-#endif
-                    aa_put(aa, "destination", pm->topic);
-                    aa_put(aa, "subscription", sub->id);
-
-                    message_with_frame_len * o = message_send_with_headers(sub->session_id,
-                            aa,
-                            pm->message_body);
-
-                    list_add(messages_out, o);
-
-                    first = first->next;
-                }
-
-                ts_enqueue_multiple(output_queue, messages_out);
-
-                aa_free(aa);
-
-                list_clear(messages_out);
-                free(messages_out);
-
-                list_clear(matching_clients);
-                free(matching_clients);
             } else resp = message_error(input->fd, "Not connected!");
 
             break;
@@ -145,38 +108,7 @@ void stomp_process(ts_queue* output_queue, message_with_timestamp *input) {
                 resp = message_error(input->fd, "Empty message_body!");
                 break;
             }
-            debug("Diagnostic query %s\n", pm->message_body);
-            char buf[10];
-            if (strncmp(pm->message_body, "session-size", 12) == 0) {
-                sprintf(buf, "%d", session_storage_size());
-                resp = message_diagnostic(input->fd, pm->message_body, buf);
-            } else if (strncmp(pm->message_body, "session-encoded-size", 71 - 51) == 0) {
-                sprintf(buf, "%d", session_storage_encoded_size());
-                resp = message_diagnostic(input->fd, pm->message_body, buf);
-            } else if (strncmp(pm->message_body, "session-connected-size", 73 - 51) == 0) {
-                sprintf(buf, "%llu", stomp_session_connected_size());
-                debug("connected %llu\n", stomp_session_connected_size());
-                resp = message_diagnostic(input->fd, pm->message_body, buf);
-            } else if (strncmp(pm->message_body, "pubsub-size", 11) == 0) {
-                sprintf(buf, "%d", pubsub_size());
-                resp = message_diagnostic(input->fd, pm->message_body, buf);
-            } else if (strncmp(pm->message_body, "subs", 4) == 0) {
-                char * large_buffer = emalloc(3500);
-                pubsub_to_str(large_buffer, 3500);
-                resp = message_diagnostic(input->fd, pm->message_body, large_buffer);
-                free(large_buffer);
-            } else if (strncmp(pm->message_body, "ws_buffer", 9)==0) {
-                char * medium_buffer = emalloc(1000);
-                struct ws_buffer_stat_t * stats = ws_buffer_get_stats();
-                sprintf(medium_buffer, "Allocated %llu\nHits %llu\nMiss %llu\n",
-                    &stats->allocated_size, &stats->hit, &stats->miss);
-                resp = message_diagnostic(input->fd, pm->message_body, medium_buffer);
-                free(medium_buffer);
-            } 
-            
-            else {
-                resp = message_error(input->fd, "Invalid message!");
-            }
+            resp = create_diagnostic_message(input,pm);
             break;
         }
         default:
@@ -193,6 +125,9 @@ void stomp_process(ts_queue* output_queue, message_with_timestamp *input) {
 }
 
 void stomp_start() {
+    stomp_app_config* config = config_get_config();
+    ttl = config->ttl;
+
     stomp_session_init();
     pubsub_init();
 }

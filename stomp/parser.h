@@ -20,7 +20,7 @@ extern "C" {
 #define FRM_DIAGNOSTIC "DIAG"
 #define FRM_DIAGNOSTIC_ID 6
 
-#include "message.h"
+#include "../server/data/message/with_timestamp.h"
 #include "../lib/associative_array.h"
 
     typedef struct parsed_message_st {

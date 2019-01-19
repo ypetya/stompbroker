@@ -25,8 +25,7 @@
  * 1. Read config
  * 2. Start listening
 */
-int main(int argc, char* argv[])
-{
+int main(int argc, char* argv[]){
     stomp_app_config config = config_parse_args(argc,argv);
     
     return do_listen(config.port, config.backlog);

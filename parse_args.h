@@ -22,10 +22,13 @@
 struct CONFIG_STRUCTURE {
     char * port;
     int backlog;
+
     unsigned int max_input_queue_size;
+    unsigned int ttl;
+    
     int input_buffer_size;
     int output_buffer_size; // per thread
-    int processors;
+    int processors; // (writers_count := max(processors-2,1)
 };
 
 typedef struct CONFIG_STRUCTURE stomp_app_config;

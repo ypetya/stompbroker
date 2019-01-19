@@ -2,8 +2,8 @@
 #include <string.h>
 
 #include "message.h"
-#include "../lib/emalloc.h"
-#include "../lib/clone_str.h"
+#include "../../lib/emalloc.h"
+#include "../../lib/clone_str.h"
 
 message_with_timestamp * message_poison_pill() {
     return message_create_with_timestamp(-1, "KILL", 0);

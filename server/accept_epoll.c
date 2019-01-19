@@ -23,6 +23,8 @@
 
 #include <string.h> // memcpy
 
+#include <time.h>
+
 
 void *get_inbound_address(struct sockaddr *sa);
 
@@ -30,6 +32,8 @@ void setnonblocking(int conn_sock);
 void do_use_fd(int fd, char * readbuffer, ts_queue * input_queue);
 
 stomp_app_config * config;
+
+clock_t now;
 
 void accept_epoll(stomp_app_config * app_config, int listen_sock) {
     config = app_config;
@@ -68,6 +72,8 @@ void accept_epoll(stomp_app_config * app_config, int listen_sock) {
             exit(EXIT_FAILURE);
         }
 
+        now=clock();
+
         for (int n = 0; n < nfds; ++n) {
             if (events[n].data.fd == listen_sock) {
                 conn_sock = accept(listen_sock,
@@ -104,7 +110,7 @@ void put_stomp_messages_on_queue(int conn_sock, char* read_buffer, ts_queue * in
         message_with_timestamp * incoming_message = message_create_with_timestamp(
                 conn_sock,
                 &token[i],
-                0);
+                now);
 
         if (ts_enqueue_limited(input_queue,
                 incoming_message,

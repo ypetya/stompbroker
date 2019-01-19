@@ -14,6 +14,7 @@ stomp_app_config config_parse_args(int argc, char* argv[]) {
     config_main.port = NULL;
     config_main.processors = 0;
     config_main.max_input_queue_size = 0;
+    config_main.ttl=0;
 
     config_parse_parse(argc, argv);
 
@@ -37,6 +38,7 @@ stomp_app_config config_parse_args(int argc, char* argv[]) {
     info("server: port:%s \n", config_main.port);
     info("server: Maximum message size: %d\n", config_main.input_buffer_size);
     info("server: max_input_queue_size: %d\n", config_main.max_input_queue_size);
+    info("server: TTL: %d\n", config_main.ttl);
 
     return config_main;
 }
@@ -50,9 +52,7 @@ void config_parse_parse(int argc, char* argv[]) {
         char * token = strtok(argv[i], "=");
         if (strncmp("processors", token, 10) == 0) {
             token = strtok(NULL, "=");
-            int p;
-            sscanf(token, "%d", &p);
-            config_main.processors = p;
+            sscanf(token, "%d", &config_main.processors);
         } else if (strncmp("port", token, 4) == 0) {
             token = strtok(NULL, "=");
             strcpy(buffer, token);
@@ -60,6 +60,9 @@ void config_parse_parse(int argc, char* argv[]) {
         } else if (strncmp("max_input_queue_size", token, 20) == 0) {
             token = strtok(NULL, "=");
             sscanf(token, "%d", &config_main.max_input_queue_size);
+        } else if (strncmp("TTL", token, 3)==0) {
+            token = strtok(NULL, "=");
+            sscanf(token, "%d", &config_main.ttl);
         }
     }
 }
