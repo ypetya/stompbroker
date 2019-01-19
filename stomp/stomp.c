@@ -103,7 +103,7 @@ void stomp_process(ts_queue* input_queue, ts_queue* output_queue, message_with_t
             break;
         }
         case FRM_DIAGNOSTIC_ID:
-        { /** This DIAGNOSTIC frame returns internal info*/
+        { /** This DIAGNOSTIC frame returns internal info */
             if (pm->message_body == NULL) {
                 resp = message_error(input->fd, "Empty message_body!");
                 break;

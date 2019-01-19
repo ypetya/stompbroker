@@ -1,0 +1,21 @@
+{
+  "name": "websocket-stompjs-example",
+  "version": "1.0.0",
+  "description": "simple example to connect websocket to the broker",
+  "main": "run_sockjs_connect.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "websocket",
+    "sockjs",
+    "stomp",
+    "stompbroker",
+    "durable"
+  ],
+  "author": "Peter Kiss <ypetya@gmail.com>",
+  "license": "ISC",
+  "dependencies": {
+    "stompjs": "^2.3.3"
+  }
+}

@@ -20,7 +20,7 @@ extern "C" {
     general_list * list_new();
     void list_free(general_list* list);
     void list_clear(general_list* list);
-    //void list_free_items(general_list* list);
+
     void list_print(general_list* list);
     void list_add(general_list* str_list, void* new_data);
 
