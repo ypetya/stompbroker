@@ -16,11 +16,16 @@ It is still under implementation.
 Command line args
 -----------------
 
-optional
+argument are optional
+```
+Usage example
+./stompbroker.out
 
 processors=<num>            : writers count is processors-2 or at least 1
 port=<num>                  : port to listen to
 max_input_queue_size=<num>  : input queue limit
+TTL=<num>                   : Time to live limit in <mikro seconds>
+```
 
 Performance
 -----------
@@ -48,7 +53,7 @@ The first character of the line can contain the following status codes:
 
 
 ```
-~ Parse arguments (Accepting: processors,port,max_input_queue_size)
+~ Parse arguments (Accepting: processors,port,max_input_queue_size,TTL)
 + Logger: Log output if necessary
 + Segregate main modules
 + TCP connection parent listener
@@ -74,32 +79,32 @@ The first character of the line can contain the following status codes:
 + ERROR
 + using epoll instead of select
 + wildcard : only subscriptions allowed
-~ subscription limit
+- subscription limit
 + connection limit
 + input queue limit
 + maximum message size
 + multithreaded output processing
-- performace testing
+~ performace testing
 + LICENSE
 + move code one level up
 + publish to github
 ~ create tests and nodejs applications, see `js` directory
 + js/stomp.protocol.test.js
 + Websocket handshake filter
-~ Websocket data frames encoding-decoding (Limited: opcode=1 text-content,fin=1 no fragments)
+~ Websocket data frames encoding-decoding (Limited: opcode=1,8 text-content,fin=1 no fragments)
 + WS: Buffer underrun, Buffer overflow
 + Make session threadsafe : use it only upfront!
 - STOMP: Buffer overflow, multiple messages
 - Grouped diagnostic message for session_stats
 ? Grouped diagnostic message for network io ( dropped ws data-frames, fixed underruns, cache size )
 + WS frame maximum: WS_DATA_FRAME_MAX_LENGTH
-- WS buffering stats DIAG messages
++ WS buffering stats DIAG messages
 - WS ping-pong
-~ peek messages: pick multiple messages for same FD (output queue only)
++ peek messages: pick multiple messages for same FD (output queue only)
 + output buffering: every writer thread has an own 10k buffer for sending out multiple messages in a batch
-- handle WS client disconnect (opcode: 8)
-- more statistics, internal benchmark DIAGnostic messages
-- TTL: minimal impl: config, put message back if < TTL in reader thread
++ handle WS client disconnect (opcode: 8)
++ more statistics, internal benchmark DIAGnostic messages
++ TTL: minimal impl: config, put message back if < TTL in reader thread
 - persistance: save messages to file if defined (high io need, needs benchmark stats )
 - replayability: start picking up and replay messages after a defined delay from file
 - change processors params name: 1) to reflect writer threads count 2) be more intuitive

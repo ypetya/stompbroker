@@ -108,7 +108,7 @@ void stomp_process(ts_queue* input_queue, ts_queue* output_queue, message_with_t
                 resp = message_error(input->fd, "Empty message_body!");
                 break;
             }
-            resp = create_diagnostic_message(input,pm);
+            resp = create_diagnostic_message(input,pm, input_queue, output_queue);
             break;
         }
         default:
