@@ -34,7 +34,7 @@ extern "C" {
         char* id;
     } parsed_message;
 
-    parsed_message* parse_message(message* message);
+    parsed_message* parse_message(message_with_timestamp* message);
 
     void free_parsed_message(parsed_message* pm);
 

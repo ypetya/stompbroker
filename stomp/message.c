@@ -4,10 +4,9 @@
 #include "message.h"
 #include "../lib/emalloc.h"
 #include "../lib/clone_str.h"
-#include "../server/data/string_message.h"
 
-message * message_poison_pill() {
-    return message_create(-1, "KILL");
+message_with_timestamp * message_poison_pill() {
+    return message_create_with_timestamp(-1, "KILL", 0);
 }
 
 message_with_frame_len * message_wl_poison_pill() {

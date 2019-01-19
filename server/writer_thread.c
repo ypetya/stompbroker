@@ -1,7 +1,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include "writer_thread.h"
-#include "data/string_message.h"
+#include "data/message/with_payload_length.h"
 #include "../logger.h"
 #include "../lib/emalloc.h"
 #include "../parse_args.h"
@@ -28,7 +28,7 @@ void *writer_thread(void *vargp) {
             if (msg == NULL) break; //Last item reached, end of messages
             if (msg->fd == -1) {
                 debug(" * Writer thread: Poison pill detected.\n");
-                message_wl_destroy(msg);
+                message_destroy_with_frame_len(msg);
                 return NULL; // exit thread
             }
             debug(">>>\n%s\n", msg->content);
@@ -44,7 +44,7 @@ void *writer_thread(void *vargp) {
 #endif
             memcpy(&write_buffer[buffer_ptr], msg->content, len);
             buffer_ptr += len;
-            message_wl_destroy(msg);
+            message_destroy_with_frame_len(msg);
         }
         if (buffer_ptr > 0) {
             res = write(fd, write_buffer, buffer_ptr);

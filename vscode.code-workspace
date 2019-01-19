@@ -20,7 +20,9 @@
 			"mutex": "c",
 			"shared_mutex": "c",
 			"string_message.h": "c",
-			"epoll.h": "c"
+			"epoll.h": "c",
+			"logger.h": "c",
+			"dataframe.h": "c"
 		}
 	}
 }

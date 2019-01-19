@@ -2,11 +2,11 @@
 #include <stdio.h>
 #include "../lib/clone_str.h"
 
-int parse_command(message* message);
+int parse_command(message_with_timestamp* message);
 char * parse_headers(parsed_message* pm, associative_array * aa, char* str);
 char * next_row(char * text);
 
-parsed_message* parse_message(message* message) {
+parsed_message* parse_message(message_with_timestamp* message) {
     size_t pm_size = sizeof (parsed_message);
     parsed_message* pm = emalloc(pm_size);
 
@@ -98,7 +98,7 @@ char * parse_headers(parsed_message *pm, associative_array * aa, char* str) {
 #define FRM_IS(type) (memcmp(message->content, type, strlen(type))==0)
 #endif
 
-int parse_command(message* message) {
+int parse_command(message_with_timestamp* message) {
     if (FRM_IS(FRM_CONNECT) || FRM_IS(FRM_STOMP)) return FRM_CONNECT_ID;
     if (FRM_IS(FRM_DISCONNECT)) return FRM_DISCONNECT_ID;
     if (FRM_IS(FRM_SUBSCRIBE)) return FRM_SUBSCRIBE_ID;

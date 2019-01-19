@@ -18,6 +18,7 @@
 #include "process.h"
 #include "../websocket/filter/dataframe.h"
 #include "../stomp/data_wrappers/pub_sub.h"
+#include "data/message/with_timestamp.h"
 #include "data/cleanup.h"
 
 #include <string.h> // memcpy
@@ -100,9 +101,10 @@ void put_stomp_messages_on_queue(int conn_sock, char* read_buffer, ts_queue * in
     read_buffer[received_length] = '\0';
     char * token = read_buffer;
     for (int i = 0; i < received_length; i++) {
-        message * incoming_message = message_create(
+        message_with_timestamp * incoming_message = message_create_with_timestamp(
                 conn_sock,
-                &token[i]);
+                &token[i],
+                0);
 
         if (ts_enqueue_limited(input_queue,
                 incoming_message,

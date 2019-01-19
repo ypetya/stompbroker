@@ -6,7 +6,6 @@
 #include "../stomp/stomp.h"
 #include "../lib/emalloc.h"
 #include "../parse_args.h"
-#include "data/string_message.h"
 #include "data/session_storage.h"
 #include "reader_thread.h"
 #include "writer_thread.h"

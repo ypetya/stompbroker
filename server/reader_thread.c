@@ -9,12 +9,12 @@ void *reader_thread(void *vargp) {
 
     while (YES) {
 
-        message * msg = ts_dequeue(input_queue);
+        message_with_timestamp * msg = ts_dequeue(input_queue);
 
         if (msg != NULL) {
             if (msg->fd == -1) {
                 debug(" * Reader thread: Poison pill detected.\n");
-                message_destroy(msg);
+                message_destroy_with_timestamp(msg);
                 stomp_stop();
                 break;
             }
@@ -24,7 +24,7 @@ void *reader_thread(void *vargp) {
 
                 stomp_process(output_queue, msg);
             }
-            message_destroy(msg);
+            message_destroy_with_timestamp(msg);
         }
 
         usleep(10);

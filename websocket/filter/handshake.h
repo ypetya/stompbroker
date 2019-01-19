@@ -19,7 +19,7 @@ extern "C" {
 #endif
 
 
-#include "../../server/data/string_message.h"
+#include "../../server/data/message/with_timestamp.h"
 #include "../../lib/thread_safe_queue.h"
 
     typedef enum ws_filter_auth_status_t {
@@ -36,7 +36,7 @@ extern "C" {
      * @param m incoming message buffer from file descriptor
      * @return ws_filter_auth_status
      */
-    ws_filter_auth_status ws_input_filter_handshake(ts_queue *out, message * m);
+    ws_filter_auth_status ws_input_filter_handshake(ts_queue *out, message_with_timestamp * m);
 
 
 

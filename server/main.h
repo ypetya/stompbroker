@@ -6,7 +6,8 @@
 extern "C" {
 #endif
 
-#include "data/string_message.c"
+#include "data/message/with_timestamp.c"
+#include "data/message/with_payload_length.c"
 #include "data/cleanup.c"
 #include "data/session_storage_simple.c"
 #include "signal_action_handler.c"

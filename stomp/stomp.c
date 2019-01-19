@@ -20,7 +20,7 @@ char * itoa(int num) {
     return str_buf;
 }
 
-void stomp_process(ts_queue* output_queue, message *input) {
+void stomp_process(ts_queue* output_queue, message_with_timestamp *input) {
 
     int client_id = input->fd;
     int client_id_wo_flags = session_without_flags(input->fd);

@@ -5,6 +5,8 @@
 #include "../utils/sha1.c"
 #include "../utils/base64.c"
 
+// for the handshake output:
+#include "../../server/data/message/with_payload_length.h"
 
 /**
  * We are supporting websocket RFC6455 only!
@@ -17,7 +19,7 @@ char* parse_sec_websocket_key(char * buffer);
 char* create_accept_key(char * client_key);
 void send_accept_response(char* acceptKey, int fd, ts_queue *out);
 
-ws_filter_auth_status ws_input_filter_handshake(ts_queue *out, message * m) {
+ws_filter_auth_status ws_input_filter_handshake(ts_queue *out, message_with_timestamp * m) {
     if (is_http_request(m->content)) {
         char * client_key = parse_sec_websocket_key(m->content);
 

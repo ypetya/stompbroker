@@ -34,7 +34,7 @@ extern "C" {
     ws_filter_dataframe_status ws_input_filter_dataframe(int fd, char* buffer, size_t read_len, char** out, size_t *decoded_buf_len);
 
 
-#include "../../server/data/string_message.h"
+#include "../../server/data/message/with_payload_length.h"
     /**
      * In case of an encoded session is present, encodes data into ws frames data
      * 
