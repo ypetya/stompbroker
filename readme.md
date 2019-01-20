@@ -10,16 +10,27 @@ Implemented stomp scenarios can be found in functional tests: js/stomp.protocol.
 Websocket implementation is intended to follow RFC6455 with limitations:
 It is still under implementation.
 - lacks of security
-- no fragmented messages
-- will follow message size limitations globally configurable
+- no fragmented messages yet
+- taking only limited size messages: (see config on startup)
 
-Command line args
------------------
+Configuration
+-------------
 
-argument are optional
+### Common mistakes
+
+Too many open file errors: Increase the file limits for process with 
+
 ```
-Usage example
-./stompbroker.out
+ulimit -n 50000
+```
+
+### via command line args
+
+Every argument are optional
+```
+Usage example:
+
+./stompbroker.out processors=10 port=3000 TTL=5000 
 
 processors=<num>            : writers count is processors-2 or at least 1
 port=<num>                  : port to listen to
@@ -33,7 +44,7 @@ Performance
 current implementation uses epoll:
 input queue is processed by a single thread
 
-It makes some backpressure with starting as many output thread as free cores left.
+It makes backpressure with starting as many output thread as free cores left.
 In the future it must be balanced.
 Further measurements needed.
 
@@ -108,7 +119,9 @@ The first character of the line can contain the following status codes:
 - persistance: save messages to file if defined (high io need, needs benchmark stats )
 - replayability: start picking up and replay messages after a defined delay from file
 - change processors params name: 1) to reflect writer threads count 2) be more intuitive
-- add basic help and upload binary 
+- add basic help and upload binary
+- Create one functional test in javascript that tests all the test-cases. STOMP protocol, connection, load scenarios.
+- Investigate POSIX message queues: man mq_overview
 ```
 
 Running

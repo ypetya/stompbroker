@@ -2,7 +2,7 @@
 
 const Stomp = require('stompjs');
 
-const sock = Stomp.overWS('wss://localhost:3002');
+const sock = Stomp.overWS('ws://localhost:3490');
 
 //sock.debug = console.log;
 const topic = `/latency/${Math.random()}`;

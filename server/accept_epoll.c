@@ -29,7 +29,7 @@
 void *get_inbound_address(struct sockaddr *sa);
 
 void setnonblocking(int conn_sock);
-void do_use_fd(int fd, char * readbuffer, ts_queue * input_queue);
+void do_use_fd(int epollfd, int fd, char * readbuffer, ts_queue * input_queue);
 
 stomp_app_config * config;
 
@@ -66,11 +66,10 @@ void accept_epoll(stomp_app_config * app_config, int listen_sock) {
     }
 
     for (;;) {
-        nfds = epoll_wait(epollfd, events, MAX_EVENTS, -1);
-        if (nfds == -1) {
-            perror("epoll_wait");
-            exit(EXIT_FAILURE);
-        }
+        int nfds;
+        do {
+            nfds = epoll_wait(epollfd, events, MAX_EVENTS, -1);
+        } while (nfds < -1 && errno == EINTR);
 
         now=clock();
 
@@ -93,7 +92,7 @@ void accept_epoll(stomp_app_config * app_config, int listen_sock) {
                     exit(EXIT_FAILURE);
                 }
             } else {
-                do_use_fd(events[n].data.fd, read_buffer, input_queue);
+                do_use_fd(epollfd, events[n].data.fd, read_buffer, input_queue);
             }
         }
     }
@@ -142,7 +141,7 @@ void close_connection(int conn_sock, ts_queue * input_queue) {
     clean_by_fd(conn_sock);
 }
 
-void do_use_fd(int conn_sock, char* read_buffer, ts_queue * input_queue) {
+void do_use_fd(int epollfd, int conn_sock, char* read_buffer, ts_queue * input_queue) {
     int received_length = recv(conn_sock, read_buffer,
             config->input_buffer_size, 0);
     if (received_length < 1) {
@@ -151,8 +150,10 @@ void do_use_fd(int conn_sock, char* read_buffer, ts_queue * input_queue) {
         } else {
             info("server: socked closed with error: %s\n", strerror(errno))
         }
-        // TODO: epoll_ctl EPOLL_CTL_DEL ????
+
         close_connection(conn_sock, input_queue);
+
+        epoll_ctl(epollfd, EPOLL_CTL_DEL, conn_sock, NULL);
     } else {
         if (session_storage_add_new(conn_sock) == MAX_SESSION_NUMBER_EXCEEDED) {
             warn("server: max session size exceeded, dropping connection on fd:%llu\n", conn_sock);

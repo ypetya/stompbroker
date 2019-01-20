@@ -12,6 +12,7 @@
 #include "lib/clone_str.c"
 #include "lib/associative_array.c"
 
+#include "print_system_info.c"
 #include "parse_args.c"
 
 
@@ -26,6 +27,7 @@
  * 2. Start listening
 */
 int main(int argc, char* argv[]){
+    print_system_info();
     stomp_app_config config = config_parse_args(argc,argv);
     
     return do_listen(config.port, config.backlog);

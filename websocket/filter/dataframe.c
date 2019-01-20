@@ -119,15 +119,12 @@ ws_filter_dataframe_status ws_input_filter_dataframe(int fd, char* buffer, size_
             memcpy(&ws_buff->received[old_len], buffer, read_len);
             ws_buff->frame_len = 0;
             
-            debug("Merged dataframes. Buffer size: %d fd: %d\n",
-                    ws_buff->received_len, ws_buff->fd);
+            debug("Merged dataframes. Buffer size: %llu fd: %d\n", ws_buff->received_len, ws_buff->fd);
         } else {
-            debug("New dataframe. Buffer size: %d fd: %d\n",
-                    ws_buff->received_len, ws_buff->fd);
-
             ws_buff = ws_buffer_add(fd, buffer, read_len);
-
             if(!ws_buff) return WS_BUFFER_OUT_OF_SLOTS;
+
+            debug("New dataframe. Buffer size: %llu fd: %d\n", ws_buff->received_len, ws_buff->fd);
         }
 
         size_t ag_decoded_data_len = 0;
@@ -256,7 +253,7 @@ size_t ws_dataframe_read_headers(buffer_item* buf) {
         payload_len = ntohl64(sz64);
         memcpy(&buf->mask, buffer + 10, mask_len);
     }
-    debug("Parsed Websocket data-frame header FIN: %d opcode: 0x%x payload_len: %" PRIu64 "\n", fin, op_code, payload_len);
+    debug("Parsed Websocket data-frame header FIN: %d opcode: 0x%x payload_len: %llu\n", fin, op_code, payload_len);
     if (payload_len > WS_DATA_FRAME_MAX_LENGTH) { // maximum message size 1M
         ws_dropped_frames++;
         buf->frame_len = 0;

@@ -20,9 +20,7 @@ extern "C" {
 
     // the size in bits
 #define STOMP_SESSION_SIZE (MAX_NUMBER_OF_CONNECTIONS/64)
-    /** 
-     * must work on bit flags to spare a huge amount of space
-     */
+   
     int stomp_session_is_connected(int fd);
     void stomp_session_set_connected(int fd, int is_connected);
     int stomp_session_connected_size();

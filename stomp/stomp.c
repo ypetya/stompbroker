@@ -40,9 +40,10 @@ void stomp_process(ts_queue* input_queue, ts_queue* output_queue, message_with_t
     switch (pm->command) {
         case FRM_CONNECT_ID:
         {
-            if (client_connected != 0)
+            if (client_connected > 0){
                 resp = message_error(input->fd, "Can not connect,"
                     " client is already connected!");
+            }
             else {
                 stomp_session_set_connected(client_id_wo_flags, 1);
                 resp = message_connected(input->fd, client_id_wo_flags);

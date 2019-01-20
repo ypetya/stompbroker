@@ -12,4 +12,8 @@ else
     echo 'Build failed! :('
 fi
 
+if ! ulimit -n 5000 
+then 
+    echo 'ulimit: open file descriptors count too large!'
+fi
 ./stompbroker.out

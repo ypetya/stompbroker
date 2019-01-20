@@ -12,25 +12,34 @@ void stomp_session_init() {
 }
 
 int stomp_session_is_connected(int fd) {
-    int i, c, n;
+    
     // find the bit
-    for (i = 0, c = fd; c > 0; i++, c = c / 64, n = c % 64);
+    int n = fd % 64;
+    int i = fd /64;
 
-    uint64_t mask = 1U << n;
+    uint64_t mask = 1U << (n%32);
+    if(n>=32) mask*= ((uint64_t)UINT32_MAX+1);
 
-    return session_connected[i] & mask;
+    if( (session_connected[i] & mask) != 0U) return 1;
+    return 0;
 }
 
 void stomp_session_set_connected(int fd, int connected) {
-    int i, c, n;
+    
     // find the bit
-    for (i = 0, c = fd; c > 0; i++, c = c / 64, n = c % 64);
-
-    uint64_t mask = 1U << n;
-    if (connected == 0) mask ^= UINT64_MAX;
+    int n = fd % 64;
+    int i = fd /64;
+    
+    uint64_t mask = 1U << (n%32);
+    if(n>=32) mask*= ((uint64_t)UINT32_MAX+1);
 
     // erase or set the bit
-    session_connected[i] = connected == 0 ? session_connected[i] & mask : session_connected[i] | mask;
+    if (connected == 0){
+        mask ^= UINT64_MAX;
+        session_connected[i] = session_connected[i] & mask;
+    } else {
+        session_connected[i] = session_connected[i] | mask;
+    }
 }
 
 int stomp_session_connected_size() {
@@ -39,11 +48,12 @@ int stomp_session_connected_size() {
     uint64_t one = 1;
     for (int i = 0; i < STOMP_SESSION_SIZE; i++) {
         uint64_t b = session_connected[i];
-        if (one & b) n++;
-        for (int j = 1; j < 63; j++) {
-            if ((one << j) & b) {
-                n++;
-            }
+        uint64_t bu = session_connected[i]/((uint64_t)UINT32_MAX+1);
+        uint64_t mask;
+        for (int j = 0; j < 32; j++) {
+            mask = (one << j);
+            if (mask & b) n++;
+            if (mask & bu) n++;
         }
     }
     return n;

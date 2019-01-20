@@ -2,7 +2,7 @@
 
 const Stomp = require('stompjs');
 
-const sock = Stomp.overWS('ws://localhost:3490');
+const sock = Stomp.overWS('ws://localhost:3000');
 //sock.debug = console.log;
 
 
