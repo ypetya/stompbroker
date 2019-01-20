@@ -1,13 +1,13 @@
 {
 	"folders": [
 		{
-			"path": "js"
-		},
-		{
 			"path": "/home/peter/projects/stomp"
 		},
 		{
 			"path": "/home/peter/projects/minimalistic-location-display.react"
+		},
+		{
+			"path": "examples/js"
 		}
 	],
 	"settings": {}

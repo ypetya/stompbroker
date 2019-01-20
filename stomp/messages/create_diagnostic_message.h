@@ -6,8 +6,10 @@ extern "C" {
 #endif
 
 #include "../../server/data/message/with_timestamp.h"
+#include "../../server/data/message/with_payload_length.h"
 #include "../parser.h"
 #include "../../lib/thread_safe_queue.h"
+#include "../../lib/associative_array.h"
 
 message_with_frame_len * create_diagnostic_message(
     message_with_timestamp *input,
@@ -15,6 +17,10 @@ message_with_frame_len * create_diagnostic_message(
     ts_queue * q_in,
     ts_queue * q_out
     );
+
+void create_diagnostic_headers(associative_array * headers, char* message_body,
+    ts_queue * q_in,
+    ts_queue * q_out);
 
 #ifdef __cplusplus
 }
