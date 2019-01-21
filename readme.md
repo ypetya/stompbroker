@@ -35,7 +35,7 @@ Usage example:
 processors=<num>            : writers count is processors-2 or at least 1
 port=<num>                  : port to listen to
 max_input_queue_size=<num>  : input queue limit
-TTL=<num>                   : Time to live limit in <mikro seconds>
+TTL=<num>                   : Time to live limit in <milli seconds>
 ```
 
 Performance

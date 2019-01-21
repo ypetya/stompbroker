@@ -19,8 +19,11 @@ unsigned int ttl;
 
 /**
  * Processing incoming STOMP message
+ * 
+ * @return 1: message consumed. 0: message not consumed
 */
-void stomp_process(ts_queue* input_queue, ts_queue* output_queue, message_with_timestamp *input) {
+int stomp_process(ts_queue* input_queue, ts_queue* output_queue, message_with_timestamp *input) {
+    int ret = STOMP_MESSAGE_CONSUMED;
     int client_id = input->fd;
     int client_id_wo_flags = session_without_flags(input->fd);
     if (client_id != client_id_wo_flags) {
@@ -30,7 +33,7 @@ void stomp_process(ts_queue* input_queue, ts_queue* output_queue, message_with_t
             debug("Purge STOMP session fd: %d %s\n",client_id_wo_flags,session_is_encoded(client_id) ? "Websocket": "");
             pubsub_remove_client(session_with_other_flags);
             stomp_session_set_connected(client_id_wo_flags, 0);
-            return;
+            return ret;
         }
     }
     int client_connected = stomp_session_is_connected(client_id_wo_flags);
@@ -97,7 +100,7 @@ void stomp_process(ts_queue* input_queue, ts_queue* output_queue, message_with_t
                     break;
                 };
                 
-                distribute_messages(input_queue, output_queue, input, pm, ttl);
+                ret = distribute_messages(input_queue, output_queue, input, pm, ttl);
 
             } else resp = message_error(input->fd, "Not connected!");
 
@@ -123,6 +126,8 @@ void stomp_process(ts_queue* input_queue, ts_queue* output_queue, message_with_t
     }
 
     free_parsed_message(pm);
+
+    return ret;
 }
 
 void stomp_start() {

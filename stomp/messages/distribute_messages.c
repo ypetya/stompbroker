@@ -11,13 +11,18 @@ char * itoa(int num);
 */
 unsigned int message_id = 0;
 
-void distribute_messages(ts_queue* input_queue, ts_queue* output_queue, 
+/**
+ * @return 1 if message consumed, 0 if not consumed
+*/
+int distribute_messages(ts_queue* input_queue, ts_queue* output_queue, 
     message_with_timestamp *input, parsed_message * pm,
     unsigned int ttl) {
+    int ret = STOMP_MESSAGE_CONSUMED;
+
     clock_t now = clock();
     clock_t ellapsed = now- input->ts;
     // Drop TTL expired message
-    if(input->ts != 0 && ttl !=0 && ellapsed > ttl) return;
+    if(input->ts != 0 && ttl !=0 && ellapsed > ttl) return ret;
 
     // Find matching subscribers
     general_list * matching_clients = list_new();
@@ -58,9 +63,11 @@ void distribute_messages(ts_queue* input_queue, ts_queue* output_queue,
     if(messages_out->size>0) {
         // message consumed
         ts_enqueue_multiple(output_queue, messages_out);
+        // ret = STOMP_MESSAGE_CONSUMED (default)
     } else if(ttl>0) {
         // not consumed, and there is a ttl. enqueue it back
         ts_enqueue(input_queue,input);
+        ret = STOMP_MESSAGE_NOT_CONSUMED;
     }
     aa_free(message_headers);
 
@@ -69,6 +76,8 @@ void distribute_messages(ts_queue* input_queue, ts_queue* output_queue,
 
     list_clear(matching_clients);
     free(matching_clients);
+
+    return ret;
 }
 
 char str_buf[20];

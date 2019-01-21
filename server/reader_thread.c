@@ -14,6 +14,7 @@ void *reader_thread(void *vargp) {
         message_with_timestamp * msg = ts_dequeue(input_queue);
 
         if (msg != NULL) {
+            int message_consumed = 1;
             do {
                 if (msg->fd == -1) {
                     debug(" * Reader thread: Poison pill detected.\n");
@@ -21,14 +22,15 @@ void *reader_thread(void *vargp) {
                     stomp_stop();
                     return NULL; // exit thread
                 }
-
+                
                 if (ws_input_filter_handshake(output_queue, msg) == WS_NO_NEED_OF_HANDSHAKE) {
                     debug("<<<\n%s\n", msg->content);
 
-                    stomp_process(input_queue, output_queue, msg);
+                    message_consumed = stomp_process(input_queue, output_queue, msg);
                 }
-                message_destroy_with_timestamp(msg);
-            } while(msg = ts_dequeue(input_queue));
+
+                if(message_consumed) message_destroy_with_timestamp(msg);
+            } while( message_consumed && (msg = ts_dequeue(input_queue)));
         }
 
         usleep(10);

@@ -17,7 +17,7 @@ parsed_message* parse_message(message_with_timestamp* message) {
 
         char * next_line = next_row(message->content);
         next_line = parse_headers(pm, pm->headers, next_line);
-        //next_line = next_row(next_line);
+
         if (next_line != NULL) {
             pm->message_body = clone_str(next_line);
         }
@@ -64,7 +64,7 @@ char * parse_headers(parsed_message *pm, associative_array * aa, char* str) {
 
     char * le = line_end(str);
     char * nr_ptr = next_row(str);
-    // TODO : use strtok
+
     char * separator = strchr(str, ':');
     if (separator == NULL && nr_ptr != NULL) return nr_ptr;
 

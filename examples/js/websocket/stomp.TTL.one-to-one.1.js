@@ -2,7 +2,7 @@
 
 const Stomp = require('stompjs');
 
-const N = 1000;
+const N = 3000;
 const socks = [];
 for (let j = 0; j < N; j++) {
   // create N websocket connections
@@ -13,14 +13,16 @@ for (let j = 0; j < N; j++) {
 Promise.all(socks.map( (sock,index) => 
     new Promise(resolve => 
         sock.connect([], fr => {
-            
-            sock.send(`/topic/${index}`, 
-            {}, `hello${index}`)
+            //console.log(`+${index}`);
+            sock.send(`/topic/${index}`, {}, `hello${index}`);
 
-            sock.subscribe(`/topic/${index}`, msg => {
+            setTimeout( ()=>
+                sock.subscribe(`/topic/${index}`, msg => {
+              //                      console.log(`-${index}.`);
                                     sock.disconnect();
                                     resolve();
-                                }, {id: index});
+                                }, {id: index}), 500); // => ensure running with TTL >
+       
         }, e=>console.error(index,e) ))
     ))
     .then(() => console.log('OK'));
