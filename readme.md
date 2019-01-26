@@ -18,13 +18,14 @@ Configuration
 
 ### Common mistakes
 
-Too many open file errors: Increase the file limits for process with 
+Number of connections are limited:
+Too many open file error can occure, oncrease the file limits for chlid-processes with 
 
 ```
-ulimit -n 50000
+ulimit -n 5000
 ```
 
-### via command line args
+### Config parameters via command line args
 
 Every argument are optional
 ```
@@ -35,6 +36,7 @@ Usage example:
 processors=<num>            : writers count is processors-2 or at least 1
 port=<num>                  : port to listen to
 max_input_queue_size=<num>  : input queue limit
+max_stale_queue_size=<num>  : stale queue limit
 TTL=<num>                   : Time to live limit in <milli seconds>
 ```
 
@@ -90,7 +92,7 @@ The first character of the line can contain the following status codes:
 + ERROR
 + using epoll instead of select
 + wildcard : only subscriptions allowed
-- subscription limit
+- subscription limit => wont fix. would be great to have an overall memory limit instead
 + connection limit
 + input queue limit
 + maximum message size
@@ -106,7 +108,7 @@ The first character of the line can contain the following status codes:
 + WS: Buffer underrun, Buffer overflow
 + Make session threadsafe : use it only upfront!
 - STOMP: Buffer overflow, multiple messages
-- Grouped diagnostic message for session_stats
++ Grouped diagnostic message for session_stats
 ? Grouped diagnostic message for network io ( dropped ws data-frames, fixed underruns, cache size )
 + WS frame maximum: WS_DATA_FRAME_MAX_LENGTH
 + WS buffering stats DIAG messages
@@ -115,17 +117,19 @@ The first character of the line can contain the following status codes:
 + output buffering: every writer thread has an own 10k buffer for sending out multiple messages in a batch
 + handle WS client disconnect (opcode: 8)
 + more statistics, internal benchmark DIAGnostic messages
-+ TTL: minimal impl: config, put message back if < TTL in reader thread
++ TTL impl: with stale_queue. subscribers check stale_queue for messages when ttl>0
 - persistance: save messages to file if defined (high io need, needs benchmark stats )
 - replayability: start picking up and replay messages after a defined delay from file
 - change processors params name: 1) to reflect writer threads count 2) be more intuitive
 - add basic help and upload binary
 - Create one functional test in javascript that tests all the test-cases. STOMP protocol, connection, load scenarios.
-- Investigate POSIX message queues: man mq_overview
 ```
 
 Running
 -------
 
-/docker folder -> available docker files: for compiling and running
+A) You can build it with `./build.sh` having gcc and build essentials installed on a 64bit arhitecture.
+
+B) Docker files are located under the folder `/docker`
+
 

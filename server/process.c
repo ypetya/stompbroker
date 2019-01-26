@@ -2,13 +2,15 @@
 
 #include "process.h"
 #include "../logger.h"
+#include "../lib/queue.h"
 #include "../lib/thread_safe_queue.h"
 #include "../stomp/stomp.h"
 #include "../lib/emalloc.h"
 #include "../parse_args.h"
 #include "data/session_storage.h"
-#include "reader_thread.h"
-#include "writer_thread.h"
+#include "threads/worker_thread_data.h"
+#include "threads/reader_thread.h"
+#include "threads/writer_thread.h"
 
 typedef struct workers_thread_st {
     pthread_t reader_thread_id;
@@ -24,6 +26,7 @@ worker_thread_struct * workers;
 worker_thread_data_struct worker_data;
 ts_queue input_queue;
 ts_queue output_queue;
+queue stale_queue;
 
 ts_queue * process_start_threads() {
 
@@ -32,6 +35,7 @@ ts_queue * process_start_threads() {
 
     ts_queue_init(&input_queue);
     ts_queue_init(&output_queue);
+    queue_init(&stale_queue);
 
     worker_data.input_q = &input_queue;
     worker_data.output_q = &output_queue;
@@ -68,6 +72,7 @@ void process_kill_threads() {
 
     ts_queue_free(&input_queue);
     ts_queue_free(&output_queue);
+    queue_free(&stale_queue);
 }
 
 

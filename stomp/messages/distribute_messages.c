@@ -12,10 +12,19 @@ char * itoa(int num);
 unsigned int message_id = 0;
 
 /**
+ * Matches message destination topics against existing subrscriptions. If there is a match, message is pup into output_queue.
+ * If there is no match and TTL > 0, message is put into stale_queue.
+ * The message returns trueish if the input message is processed a clone has been put into output and needs to be freed.
+ * 
  * @return 1 if message consumed, 0 if not consumed
 */
-int distribute_messages(ts_queue* input_queue, ts_queue* output_queue, 
-    message_with_timestamp *input, parsed_message * pm,
+int distribute_messages(
+    ts_queue* input_queue,
+    unsigned max_stale_queue_size,
+    queue * stale_queue,
+    ts_queue* output_queue, 
+    message_with_timestamp *input,
+    parsed_message * pm,
     unsigned int ttl) {
     int ret = STOMP_MESSAGE_CONSUMED;
 
@@ -65,9 +74,9 @@ int distribute_messages(ts_queue* input_queue, ts_queue* output_queue,
         ts_enqueue_multiple(output_queue, messages_out);
         // ret = STOMP_MESSAGE_CONSUMED (default)
     } else if(ttl>0) {
-        // not consumed, and there is a ttl. enqueue it back
-        ts_enqueue(input_queue,input);
-        ret = STOMP_MESSAGE_NOT_CONSUMED;
+        // not consumed, and there is a ttl. enqueue it to stale_queue
+        if(enqueue_limited(stale_queue, pm, max_stale_queue_size)>=0)
+            ret = STOMP_MESSAGE_NOT_CONSUMED;
     }
     aa_free(message_headers);
 
@@ -79,6 +88,19 @@ int distribute_messages(ts_queue* input_queue, ts_queue* output_queue,
 
     return ret;
 }
+
+void distribute_messages_from_stale_q(
+    char * topic,
+    queue * stale_queue,
+    ts_queue* output_queue
+) {
+    // FIXME: implement:
+    // 1) topic -> pick-up all the messages
+    // 2) unchain all
+    // 3) generate output messages
+    // 4) free-up parsed messages
+}
+
 
 char str_buf[20];
 

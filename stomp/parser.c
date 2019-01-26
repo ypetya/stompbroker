@@ -10,6 +10,8 @@ parsed_message* parse_message(message_with_timestamp* message) {
     size_t pm_size = sizeof (parsed_message);
     parsed_message* pm = emalloc(pm_size);
 
+    pm->ts = message->ts;
+    
     pm->command = parse_command(message);
 
     if (pm->command > 0) {

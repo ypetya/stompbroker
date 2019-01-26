@@ -19,6 +19,18 @@ void enqueue(queue * q, void *new_data) {
     q->size++;
 }
 
+
+int enqueue_limited(queue * q, void *new_data, unsigned int limit) {
+    int ret_val = 0;
+
+    if (q->size < limit)
+        enqueue(&q, new_data);
+    else
+        ret_val = -1;
+
+    return ret_val;
+}
+
 void* dequeue(queue * q) {
     general_list_item * head = q->first;
     if(head==NULL) return NULL;

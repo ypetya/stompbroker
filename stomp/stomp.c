@@ -16,14 +16,19 @@
  * Time to live, from config at startup
  * */
 unsigned int ttl;
+unsigned int stale_queue_max_size;
 
 /**
  * Processing incoming STOMP message
  * 
  * @return 1: message consumed. 0: message not consumed
 */
-int stomp_process(ts_queue* input_queue, ts_queue* output_queue, message_with_timestamp *input) {
-    int ret = STOMP_MESSAGE_CONSUMED;
+void stomp_process(ts_queue* input_queue, 
+    queue* stale_queue, 
+    ts_queue* output_queue, 
+    message_with_timestamp *input) {
+    
+    int message_consumed = STOMP_MESSAGE_CONSUMED;
     int client_id = input->fd;
     int client_id_wo_flags = session_without_flags(input->fd);
     if (client_id != client_id_wo_flags) {
@@ -33,7 +38,7 @@ int stomp_process(ts_queue* input_queue, ts_queue* output_queue, message_with_ti
             debug("Purge STOMP session fd: %d %s\n",client_id_wo_flags,session_is_encoded(client_id) ? "Websocket": "");
             pubsub_remove_client(session_with_other_flags);
             stomp_session_set_connected(client_id_wo_flags, 0);
-            return ret;
+            return;
         }
     }
     int client_connected = stomp_session_is_connected(client_id_wo_flags);
@@ -72,6 +77,7 @@ int stomp_process(ts_queue* input_queue, ts_queue* output_queue, message_with_ti
                 resp = message_error(input->fd, "No destination defined!");
             else if (client_connected > 0) {
                 pubsub_subscribe(pm->topic, client_id, pm->id);
+                distribute_messages_from_stale_q(pm->topic,stale_queue,output_queue);
             } else
                 resp = message_error(input->fd, "Not connected!");
             break;
@@ -100,7 +106,10 @@ int stomp_process(ts_queue* input_queue, ts_queue* output_queue, message_with_ti
                     break;
                 };
                 
-                ret = distribute_messages(input_queue, output_queue, input, pm, ttl);
+                message_consumed = distribute_messages(input_queue, 
+                    stale_queue_max_size,
+                    stale_queue,
+                    output_queue, input, pm, ttl);
 
             } else resp = message_error(input->fd, "Not connected!");
 
@@ -125,20 +134,26 @@ int stomp_process(ts_queue* input_queue, ts_queue* output_queue, message_with_ti
         ts_enqueue(output_queue, message_receipt(input->fd, pm->receipt_id));
     }
 
-    free_parsed_message(pm);
+    if(message_consumed) free_parsed_message(pm);
 
-    return ret;
 }
 
 void stomp_start() {
     stomp_app_config* config = config_get_config();
     ttl = config->ttl;
+    stale_queue_max_size = config->max_stale_queue_size;
 
     stomp_session_init();
     pubsub_init();
 }
 
-void stomp_stop() {
+void stomp_stop(queue * stale_queue) {
     pubsub_dispose();
+    //free-up stale_queue
+    general_list_item* c = stale_queue->first;
+    while(c!=NULL) {
+        free_parsed_message(c->data);
+        c=c->next;
+    }
     //stomp_session_dispose(); - not needed, no such method exists
 }

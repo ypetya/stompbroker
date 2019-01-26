@@ -22,6 +22,7 @@ extern "C" {
 
 #include "../server/data/message/with_timestamp.h"
 #include "../lib/associative_array.h"
+#include <time.h>
 
     typedef struct parsed_message_st {
         int command;
@@ -32,6 +33,8 @@ extern "C" {
         char* topic;
         // SUBSCRIPTION id
         char* id;
+        // time-stamp
+        clock_t ts;
     } parsed_message;
 
     parsed_message* parse_message(message_with_timestamp* message);

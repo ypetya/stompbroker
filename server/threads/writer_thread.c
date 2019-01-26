@@ -1,10 +1,10 @@
 #include <unistd.h>
 #include <errno.h>
 #include "writer_thread.h"
-#include "data/message/with_payload_length.h"
-#include "../logger.h"
-#include "../lib/emalloc.h"
-#include "../parse_args.h"
+#include "../data/message/with_payload_length.h"
+#include "../../logger.h"
+#include "../../lib/emalloc.h"
+#include "../../parse_args.h"
 
 #define MESSAGES_BATCH_SIZE 1000
 void ts_dequeue_multiple_messages_for_same_fd(message_with_frame_len* (*ret)[MESSAGES_BATCH_SIZE], ts_queue * q, int buffer_size);

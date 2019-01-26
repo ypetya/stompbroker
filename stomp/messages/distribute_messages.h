@@ -11,13 +11,23 @@ extern "C" {
 
 #include "../../server/data/message/with_timestamp.h"
 #include "../parser.h"
+#include "../../lib/queue.h"
 #include "../../lib/thread_safe_queue.h"
 
-int distribute_messages(ts_queue* input_queue, 
+int distribute_messages(
+    ts_queue* input_queue,
+    unsigned max_stale_queue_size,
+    queue * stale_queue,
     ts_queue* output_queue, 
     message_with_timestamp *input, 
     parsed_message * pm,
     unsigned int ttl);
+
+void distribute_messages_from_stale_q(
+    char * topic,
+    queue * stale_queue,
+    ts_queue* output_queue
+);
 
 #ifdef __cplusplus
 }
