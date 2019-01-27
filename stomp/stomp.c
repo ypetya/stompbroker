@@ -18,6 +18,7 @@
 unsigned int ttl;
 unsigned int stale_queue_max_size;
 
+int check_stomp_version(parsed_message * pm);
 /**
  * Processing incoming STOMP message
  * 
@@ -51,11 +52,14 @@ void stomp_process(ts_queue* input_queue,
             if (client_connected > 0){
                 resp = message_error(input->fd, "Can not connect,"
                     " client is already connected!");
-            }
-            else {
+            } else if(check_stomp_version(pm)){
                 stomp_session_set_connected(client_id_wo_flags, 1);
                 resp = message_connected(input->fd, client_id_wo_flags);
+            } else {
+                resp = message_error(input->fd, "Can not connect,"
+                    " STOMP version 1.2 is not supported by client!");            
             }
+            
             break;
         }
         case FRM_DISCONNECT_ID:
@@ -156,4 +160,15 @@ void stomp_stop(queue * stale_queue) {
         c=c->next;
     }
     //stomp_session_dispose(); - not needed, no such method exists
+}
+
+/**
+ * @return 1: if "1.2" is present in header "accept-version"; 0: otherwise
+*/
+int check_stomp_version(parsed_message * pm) {
+    aa_item* header = aa_get(pm->headers, "accept-version");
+    if(header) {
+        if(strstr(header->value,"1.2")) return 1;
+    }
+    return 0;
 }
