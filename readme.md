@@ -1,17 +1,31 @@
 STOMP Broker
 ============
 
-This is not a safe or production ready implementation,
-and still is in "Work in progress" phase.
+This is not a safe or production ready implementation, and still is in "Work in progress" phase. This is an experiment with messaging patterns on my own.
+Tests are written mainly in javascript, which you can find under the folder
+examples/js.
 
-More information about STOMP protocol : https://stomp.github.io/stomp-specification-1.2.html
-Implemented stomp scenarios can be found in functional tests: js/stomp.protocol.test.js
+Used protocolls
+---------------
 
-Websocket implementation is intended to follow RFC6455 with limitations:
-It is still under implementation.
-- lacks of security
-- no fragmented messages yet
-- taking only limited size messages: (see config on startup)
+*Stomp* implementation is tend to follow the protocol description at https://stomp.github.io/stomp-specification-1.2.html
+
+*Websocket* implementation is intended to follow RFC6455 with some limitations:
+
+Limitations
+-----------
+
+Some features are under implementation, especially in the following area
+
+- Lack of security (WS/STOMP)
+- No fragmented messages (WS)
+- Taking only limited size messages: (WS/STOMP). See config on startup.
+- Messaging patterns
+
+Messaging
+---------
+
+See [Messaging](pubsub.md)
 
 Configuration
 -------------
@@ -50,6 +64,10 @@ It makes backpressure with starting as many output thread as free cores left.
 In the future it must be balanced.
 Further measurements needed.
 
+In a TTL=0 case, 1 nodejs connection, 117 bytes messages over WS with 75
+subscribers it was able to deliver 1M messages under 9 seconds on a 2014
+mac-book air (i5). That means 120Mb / sec over loopback interface.
+
 Feature Status
 --------------
 
@@ -57,15 +75,14 @@ The following list are notes about implementing features in priority order
 
 The first character of the line can contain the following status codes:
 
-```
+```:text
 ?: To be defined, unknown or need decomposition
 +: Implemented and ready
 -: Not implemented yet
 ~: Implemented, but it is incomplete
 ```
 
-
-```
+```:text
 ~ Parse arguments (Accepting: processors,port,max_input_queue_size,TTL)
 + Logger: Log output if necessary
 + Segregate main modules
@@ -81,7 +98,7 @@ The first character of the line can contain the following status codes:
 - BEGIN
 - COMMIT
 - ABORT
-? ACK (missing, no persistance)
+- ACK
 - NACK
 + DISCONNECT
 + MESSAGE
@@ -131,5 +148,3 @@ Running
 A) You can build it with `./build.sh` having gcc and build essentials installed on a 64bit arhitecture.
 
 B) Docker files are located under the folder `/docker`
-
-
