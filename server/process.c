@@ -8,6 +8,8 @@
 #include "../lib/emalloc.h"
 #include "../parse_args.h"
 #include "data/session_storage.h"
+#include "data/message/with_payload_length.h"
+#include "data/message/with_timestamp.h"
 #include "threads/worker_thread_data.h"
 #include "threads/reader_thread.h"
 #include "threads/writer_thread.h"
@@ -39,6 +41,7 @@ ts_queue * process_start_threads() {
 
     worker_data.input_q = &input_queue;
     worker_data.output_q = &output_queue;
+    worker_data.stale_queue = &stale_queue;
 
     stomp_app_config * config = config_get_config();
     workers = emalloc(sizeof (worker_thread_struct));
@@ -57,9 +60,11 @@ ts_queue * process_start_threads() {
 }
 
 void process_kill_threads() {
-    ts_enqueue(&input_queue, message_poison_pill());
+    // kill reader thread
+    ts_enqueue(&input_queue, message_poison_pill_with_timestamp());
+    // kill writer threads
     for (int i = 0; i < workers->writers_count; i++)
-        ts_enqueue(&output_queue, message_wl_poison_pill());
+        ts_enqueue(&output_queue, message_poison_pill_with_frame_len());
 
     // JOIN threads
     pthread_join(workers->reader_thread_id, NULL);

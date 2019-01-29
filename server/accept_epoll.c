@@ -103,6 +103,8 @@ void setnonblocking(int conn_sock) {
 }
 
 void put_stomp_messages_on_queue(int conn_sock, char* read_buffer, ts_queue * input_queue, int received_length) {
+    if(received_length==0) return;
+
     read_buffer[received_length] = '\0';
     char * token = read_buffer;
     for (int i = 0; i < received_length; i++) {
@@ -162,45 +164,48 @@ void do_use_fd(int epollfd, int conn_sock, char* read_buffer, ts_queue * input_q
             return;
         }
 
-        size_t decoded_buf_len;
+        size_t decoded_buf_len=0;
         char * decoded_messages = NULL;
         int fd_with_flag;
 
-        switch (ws_input_filter_dataframe(conn_sock, read_buffer,
+        ws_filter_dataframe_status ws_filter_status = ws_input_filter_dataframe(conn_sock, read_buffer,
                 received_length,
-                &decoded_messages, &decoded_buf_len)) {
-            case WS_COMPLETE_DATAFRAME:
-                fd_with_flag = session_set_encoded(conn_sock);
-                put_stomp_messages_on_queue(fd_with_flag,
-                        decoded_messages,
-                        input_queue,
-                        (int) decoded_buf_len);
-                free(decoded_messages);
-                break;
-            case WS_NOT_A_DATAFRAME:
-                put_stomp_messages_on_queue(conn_sock,
+                &decoded_messages, &decoded_buf_len);
+
+        if(ws_filter_status==WS_NOT_A_DATAFRAME)
+            put_stomp_messages_on_queue(conn_sock,
                         read_buffer,
                         input_queue,
                         received_length);
-                break;
-            case WS_OPCODE_CLIENT_DISCONNECT:
-                close_connection(conn_sock, input_queue);
-                free(decoded_messages);
-                break;
-            case WS_BUFFER_EXCEEDED_MAX:
-                warn("server: ws buffer exceeded \n");
-            case WS_INVALID_HEADER:
-            case WS_TOO_LARGE_DATAFRAME:
-                warn("server: may drop websocket data-frame, closing conn on fd:%llu\n", conn_sock);
-                close_connection(conn_sock, input_queue);
-                free(decoded_messages);
-                break;
-            case WS_INCOMPLETE_DATAFRAME:
-                // do nothing, buffering is made
-                info("server: Incomplete dataframe, waiting to continue... on fd:%llu\n", conn_sock);
-                break;
-        }
+        else {
+            fd_with_flag = session_set_encoded(conn_sock);
+            put_stomp_messages_on_queue(fd_with_flag,
+                    decoded_messages,
+                    input_queue,
+                    (int) decoded_buf_len);
 
+            switch (ws_filter_status)
+            {
+               case WS_OPCODE_CLIENT_DISCONNECT:
+                    close_connection(conn_sock, input_queue);
+                break;
+                case WS_BUFFER_EXCEEDED_MAX:
+                    warn("server: ws buffer exceeded \n");
+                case WS_INVALID_HEADER:
+                case WS_TOO_LARGE_DATAFRAME:
+                    // TODO: send purge frame here to stomp, close connection should be done on writer thread to get messages delivered
+                    warn("server: may drop websocket data-frame, closing conn on fd:%llu\n", conn_sock);
+                    close_connection(conn_sock, input_queue);
+                    break;
+                case WS_INCOMPLETE_DATAFRAME:
+                    // continue buffering 
+                    info("server: Incomplete dataframe, waiting to continue... on fd:%llu\n", conn_sock);
+                    break;
+            }
+            
+            if(decoded_messages!=NULL) 
+                free(decoded_messages);
+        }
     }
 }
 

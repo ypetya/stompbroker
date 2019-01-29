@@ -1,9 +1,18 @@
 #!/usr/bin/env node
 
+/**
+ * Test description
+ * ================
+ * 
+ * Create one websocket connection.
+ * Send N messages to a topic.
+ * Create one subscription, 
+ * wait all the messages to arrive.
+ */
+
 const Stomp = require('stompjs');
 
 const N = 1000;
-// create N websocket connections
 const sock = Stomp.overWS('ws://localhost:3490');
 
 let i = 0;
@@ -20,4 +29,5 @@ p.then(resolve => {
 .then(()=> new Promise(resolve => sock.connect([], resolve)))
 .then(()=> new Promise(resolve => sock.subscribe('/topic/1',msg=>{
   if (++i >= N) resolve(); })))
-.then(()=>console.log('All message arrived!'));
+.then(()=>console.log('All message arrived!'))
+.catch(e => console.error('An error happened:',e));

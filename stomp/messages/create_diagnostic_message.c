@@ -84,7 +84,8 @@ message_with_frame_len *create_diagnostic_message(message_with_timestamp *input,
 */
 void create_diagnostic_headers(associative_array *headers, char *message_body,
                                ts_queue *q_in,
-                               ts_queue *q_out)
+                               ts_queue *q_out,
+                               queue * q_stale)
 {
     debug("Diagnostic query %s\n", message_body);
     memset(msg_buffer, 0, 4000);
@@ -122,11 +123,11 @@ void create_diagnostic_headers(associative_array *headers, char *message_body,
     else if (strncmp(message_body, "ws_buffer", 9) == 0)
     {
         struct ws_buffer_stat_t *stats = ws_buffer_get_stats();
-        sprintf(msg_buffer, "%llu", &stats->allocated_size);
+        sprintf(msg_buffer, "%llu", stats->allocated_size);
         aa_put(headers, "allocated", msg_buffer);
-        sprintf(msg_buffer, "%llu", &stats->hit);
+        sprintf(msg_buffer, "%llu", stats->hit);
         aa_put(headers, "hits", msg_buffer);
-        sprintf(msg_buffer, "%llu", &stats->miss);
+        sprintf(msg_buffer, "%llu", stats->miss);
         aa_put(headers, "misses", msg_buffer);
     }
     else if (strncmp(message_body, "stale", 5) == 0)
@@ -135,5 +136,7 @@ void create_diagnostic_headers(associative_array *headers, char *message_body,
         aa_put(headers, "input-queue-size", msg_buffer);
         sprintf(msg_buffer, "%d", q_out->q.size);
         aa_put(headers, "output-queue-size", msg_buffer);
+        sprintf(msg_buffer, "%d", q_stale->size);
+        aa_put(headers, "stale-queue-size", msg_buffer);
     }
 }

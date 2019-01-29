@@ -16,6 +16,8 @@ extern "C" {
     
     void message_destroy_with_frame_len(message_with_frame_len *m);
 
+    message_with_frame_len * message_poison_pill_with_frame_len();
+
 #ifdef __cplusplus
 }
 #endif

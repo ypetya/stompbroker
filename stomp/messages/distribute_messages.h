@@ -24,9 +24,10 @@ int distribute_messages(
     unsigned int ttl);
 
 void distribute_messages_from_stale_q(
-    char * topic,
+    char * topic, int client_session_id, char* subscription_id,
     queue * stale_queue,
-    ts_queue* output_queue
+    ts_queue* output_queue,
+    unsigned int configured_ttl
 );
 
 #ifdef __cplusplus

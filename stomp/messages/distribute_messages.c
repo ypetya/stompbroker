@@ -6,15 +6,14 @@
 
 char * itoa(int num);
 
-/**
- * message_id is incremented with every sent out message
-*/
-unsigned int message_id = 0;
+void add_next_message_id(associative_array * headers);
 
 /**
- * Matches message destination topics against existing subrscriptions. If there is a match, message is pup into output_queue.
+ * Matches message destination topics against existing subrscriptions. If there 
+ * is a match, message is pup into output_queue.
  * If there is no match and TTL > 0, message is put into stale_queue.
- * The message returns trueish if the input message is processed a clone has been put into output and needs to be freed.
+ * The message returns trueish if the input message is processed a clone has
+ * been put into output and needs to be freed.
  * 
  * @return 1 if message consumed, 0 if not consumed
 */
@@ -48,15 +47,12 @@ int distribute_messages(
     aa_put(message_headers, "content-length", itoa(strlen(pm->message_body)));
     // Handle special topic, diagnostic messages
     if(strncmp(pm->topic,"DIAG",4)==0) 
-        create_diagnostic_headers(message_headers,pm->message_body,input_queue,output_queue);
+        create_diagnostic_headers(message_headers, pm->message_body,
+            input_queue, output_queue, stale_queue);
 
     while (first != NULL) {
         subscription * sub = first->data;
-#ifdef DEBUG
-        aa_put(message_headers, "message-id", itoa(message_id));
-#else
-        aa_put(message_headers, "message-id", itoa(message_id++));
-#endif
+        add_next_message_id(message_headers);
         aa_put(message_headers, "destination", pm->topic);
         aa_put(message_headers, "subscription", sub->id);
 
@@ -89,22 +85,105 @@ int distribute_messages(
     return ret;
 }
 
+/**
+ * Run on stale_q:
+ * - drop expired items
+ * - collect matching topics
+*/
 void distribute_messages_from_stale_q(
-    char * topic,
+    char * topic, int client_session_id, char* subscription_id,
     queue * stale_queue,
-    ts_queue* output_queue
+    ts_queue* output_queue,
+    unsigned int configured_ttl
 ) {
-    // FIXME: implement:
-    // 1) topic -> pick-up all the messages
-    // 2) unchain all
-    // 3) generate output messages
-    // 4) free-up parsed messages
-}
+    char * topic_mask_wild_card = strchr(topic, '*');
+    int topic_mask_len = topic_mask_wild_card == NULL ?
+            strlen(topic) :
+            topic_mask_wild_card - topic;
 
+    // 1) topic -> pick-up all the messages
+    general_list_item * parent = NULL;
+    general_list_item * processed_item = NULL;
+    general_list_item * q_item = stale_queue->first;
+    general_list * messages_out = list_new();
+
+    clock_t now = clock();
+
+    // 2) unchain all matching topics
+    while(q_item) {
+        parsed_message * pm = (parsed_message *)q_item->data;
+        processed_item = q_item;
+
+        clock_t ellapsed = now- pm->ts;
+    
+        // Drop TTL expired message
+        if(pm->ts != 0 && configured_ttl !=0 && ellapsed > configured_ttl) {
+            unchain_child(stale_queue, parent, processed_item);
+            q_item = processed_item->next;
+            
+            free_parsed_message(pm);
+            free(processed_item);
+            continue;
+        }
+
+        if( strncmp(pm->topic, topic, topic_mask_len)==0) {
+            unchain_child(stale_queue, parent, processed_item);
+            // 3A) generate output message
+
+            associative_array * message_headers = emalloc(sizeof (associative_array));
+
+            aa_merge(message_headers, pm->headers->root);
+            aa_put(message_headers, "content-type", "text/plain");
+            aa_put(message_headers, "content-length", itoa(strlen(pm->message_body)));
+            add_next_message_id(message_headers);
+            aa_put(message_headers, "destination", topic);
+            aa_put(message_headers, "subscription", subscription_id);
+            
+            message_with_frame_len * o = message_send_with_headers(client_session_id,
+                    message_headers,
+                    pm->message_body);
+
+            list_add(messages_out, o);
+            
+            aa_free(message_headers);
+
+            q_item = processed_item->next;
+            
+            free_parsed_message(pm);
+            free(processed_item);
+            continue;
+        }
+        parent = q_item;
+        q_item = parent->next;
+    }
+
+    // 3B) Deliver messages
+     if(messages_out->size>0) 
+        ts_enqueue_multiple(output_queue, messages_out);
+
+    // 4) free-up parsed messages
+    list_clear(messages_out);
+    free(messages_out);
+}
 
 char str_buf[20];
 
 char * itoa(int num) {
     snprintf(str_buf, 20, "%d", num);
     return str_buf;
+}
+
+
+
+/**
+ * message_id is incremented with every sent out message
+*/
+unsigned int message_id = 0;
+
+void add_next_message_id(associative_array * headers){
+#ifdef DEBUG
+    aa_put(headers, "message-id", itoa(message_id));
+#else
+    aa_put(headers, "message-id", itoa(message_id++));
+#endif
 }

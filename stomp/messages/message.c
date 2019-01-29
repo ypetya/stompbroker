@@ -5,14 +5,6 @@
 #include "../../lib/emalloc.h"
 #include "../../lib/clone_str.h"
 
-message_with_timestamp * message_poison_pill() {
-    return message_create_with_timestamp(-1, "KILL", 0);
-}
-
-message_with_frame_len * message_wl_poison_pill() {
-    return message_create_with_frame_len(-1, "KILL");
-}
-
 char * ERROR_TEMPLATE = "ERROR\n"
         "content-type:text/plain\n"
         "content-length:%d\n\n%s\n";

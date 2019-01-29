@@ -11,8 +11,9 @@ sock.connect([], () => {
     sock.subscribe(topic, msg => {
         const input=msg.headers["input-queue-size"];
         const output=msg.headers["output-queue-size"];
+        const stale=msg.headers["stale-queue-size"];
         const latency = Date.now() - Number(msg.headers.ts);
-        console.log(`latency: ${latency}, input-queue-size: ${input}, output-queue-size:${output}`);
+        console.log(`latency: ${latency}, input-queue-size: ${input}, output-queue-size:${output}, stale-queue-size:${stale}`);
     });
     setInterval(() =>
         sock.send(topic, { ts: Date.now() }, 'stale'), 500);

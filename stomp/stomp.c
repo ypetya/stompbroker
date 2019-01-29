@@ -52,13 +52,14 @@ void stomp_process(ts_queue* input_queue,
             if (client_connected > 0){
                 resp = message_error(input->fd, "Can not connect,"
                     " client is already connected!");
-            } else if(check_stomp_version(pm)){
+            } else /*if(check_stomp_version(pm)) */{
                 stomp_session_set_connected(client_id_wo_flags, 1);
                 resp = message_connected(input->fd, client_id_wo_flags);
-            } else {
-                resp = message_error(input->fd, "Can not connect,"
-                    " STOMP version 1.2 is not supported by client!");            
-            }
+            } 
+            // else {
+            //     resp = message_error(input->fd, "Can not connect,"
+            //         " STOMP version 1.2 is not supported by client!");            
+            // }
             
             break;
         }
@@ -81,7 +82,7 @@ void stomp_process(ts_queue* input_queue,
                 resp = message_error(input->fd, "No destination defined!");
             else if (client_connected > 0) {
                 pubsub_subscribe(pm->topic, client_id, pm->id);
-                distribute_messages_from_stale_q(pm->topic,stale_queue,output_queue);
+                distribute_messages_from_stale_q(pm->topic, client_id, pm->id, stale_queue,output_queue, ttl);
             } else
                 resp = message_error(input->fd, "Not connected!");
             break;
@@ -166,7 +167,7 @@ void stomp_stop(queue * stale_queue) {
  * @return 1: if "1.2" is present in header "accept-version"; 0: otherwise
 */
 int check_stomp_version(parsed_message * pm) {
-    aa_item* header = aa_get(pm->headers, "accept-version");
+    aa_item* header = aa_get(pm->headers->root, "accept-version");
     if(header) {
         if(strstr(header->value,"1.2")) return 1;
     }
