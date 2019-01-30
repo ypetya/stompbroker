@@ -127,7 +127,10 @@ void distribute_messages_from_stale_q(
             continue;
         }
 
-        if( strncmp(pm->topic, topic, topic_mask_len)==0) {
+        int message_topic_len = strlen(pm->topic);
+        if ((topic_mask_wild_card == NULL && message_topic_len == topic_mask_len
+            || topic_mask_wild_card != NULL && topic_mask_len < message_topic_len) && 
+            strncmp(pm->topic, topic, topic_mask_len)==0) {
             unchain_child(stale_queue, parent, processed_item);
             // 3A) generate output message
 
