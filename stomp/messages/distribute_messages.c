@@ -1,5 +1,6 @@
 #include "distribute_messages.h"
 #include "../data_wrappers/pub_sub.h"
+#include "../../lib/queue.h"
 #include "../../server/data/message/with_payload_length.h"
 #include "create_diagnostic_message.h"
 #include <time.h>
@@ -172,8 +173,6 @@ char * itoa(int num) {
     snprintf(str_buf, 20, "%d", num);
     return str_buf;
 }
-
-
 
 /**
  * message_id is incremented with every sent out message

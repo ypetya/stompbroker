@@ -144,7 +144,7 @@ ws_filter_dataframe_status ws_input_filter_dataframe(int fd, char* buffer, size_
                 size_t decoded_data_len = ws_buff->frame_len;
                 char * decoded_data = ws_dataframe_decode(ws_buff);
 
-                ag_decoded_data = realloc(ag_decoded_data, ag_decoded_data_len + decoded_data_len);
+                ag_decoded_data = erealloc(ag_decoded_data, ag_decoded_data_len + decoded_data_len);
                 memcpy(&ag_decoded_data[ag_decoded_data_len], decoded_data, decoded_data_len);
                 ag_decoded_data_len += decoded_data_len;
 

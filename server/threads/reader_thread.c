@@ -33,7 +33,7 @@ void *reader_thread(void *vargp) {
             } while( msg = ts_dequeue(input_queue));
         }
 
-        usleep(10);
+        usleep(5);
     }
 
     return NULL;
