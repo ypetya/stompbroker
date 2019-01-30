@@ -69,7 +69,7 @@ int encode_websocket_frame(char * buffer, char** out) {
     return len;
 }
 
-size_t ws_dataframe_read_headers(buffer_item* buf);
+int ws_dataframe_read_headers(buffer_item* buf);
 
 char* ws_dataframe_decode(buffer_item* buf);
 
@@ -130,7 +130,7 @@ ws_filter_dataframe_status ws_input_filter_dataframe(int fd, char* buffer, size_
         size_t ag_decoded_data_len = 0;
         char * ag_decoded_data = NULL;
 
-        size_t full_frame_len;
+        int full_frame_len;
 
         while (ws_buff->received_len > MIN_DATA_FRAME_SIZE && (ws_buff->frame_len == 0)) {
 
@@ -214,7 +214,7 @@ char * ws_dataframe_decode(buffer_item* buf) {
  * sets buf's mask and frame_len attribute, which willcontain the payload_length
  * @returns full frame length = (header+payload)
  */
-size_t ws_dataframe_read_headers(buffer_item* buf) {
+int ws_dataframe_read_headers(buffer_item* buf) {
     char * buffer = buf->received;
 
     // TODO: check fin flag and append continue
