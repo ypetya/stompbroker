@@ -11,5 +11,5 @@ void print_system_info(){
     
     getrlimit(RLIMIT_NOFILE, &r);
 
-    info("system: Maximum file descriptors (ulimit): %d.\n", r.rlim_max);
+    info("system: Maximum file descriptors (ulimit): %d.\n", r.rlim_cur);
 }
