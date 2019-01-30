@@ -1,30 +1,45 @@
 STOMP Broker
 ============
 
-This is not a safe or production ready implementation,
-and still is in "Work in progress" phase.
+This is not a safe or production ready implementation, and still is in "Work in progress" phase. This is an experiment with messaging patterns on my own.
+Tests are written mainly in javascript, which you can find under the folder
+examples/js.
 
-More information about STOMP protocol : https://stomp.github.io/stomp-specification-1.2.html
-Implemented stomp scenarios can be found in functional tests: js/stomp.protocol.test.js
+Used protocolls
+---------------
 
-Websocket implementation is intended to follow RFC6455 with limitations:
-It is still under implementation.
-- lacks of security
-- no fragmented messages yet
-- taking only limited size messages: (see config on startup)
+*Stomp* implementation is tend to follow the protocol description at https://stomp.github.io/stomp-specification-1.2.html
+
+*Websocket* implementation is intended to follow RFC6455 with some limitations:
+
+Limitations
+-----------
+
+Some features are under implementation, especially in the following area
+
+- Lack of security (WS/STOMP)
+- No fragmented messages (WS)
+- Taking only limited size messages: (WS/STOMP). See config on startup.
+- Messaging patterns
+
+Messaging
+---------
+
+See [Messaging](pubsub.md)
 
 Configuration
 -------------
 
 ### Common mistakes
 
-Too many open file errors: Increase the file limits for process with 
+Number of connections are limited:
+Too many open file error can occure, oncrease the file limits for chlid-processes with 
 
 ```
-ulimit -n 50000
+ulimit -n 5000
 ```
 
-### via command line args
+### Config parameters via command line args
 
 Every argument are optional
 ```
@@ -35,7 +50,8 @@ Usage example:
 processors=<num>            : writers count is processors-2 or at least 1
 port=<num>                  : port to listen to
 max_input_queue_size=<num>  : input queue limit
-TTL=<num>                   : Time to live limit in <mikro seconds>
+max_stale_queue_size=<num>  : stale queue limit
+TTL=<num>                   : Time to live limit in <milli seconds>
 ```
 
 Performance
@@ -48,6 +64,10 @@ It makes backpressure with starting as many output thread as free cores left.
 In the future it must be balanced.
 Further measurements needed.
 
+In a TTL=0 case, 1 nodejs connection, 117 bytes messages over WS with 75
+subscribers it was able to deliver 1M messages under 9 seconds on a 2014
+mac-book air (i5). That means 120Mb / sec over loopback interface.
+
 Feature Status
 --------------
 
@@ -55,15 +75,14 @@ The following list are notes about implementing features in priority order
 
 The first character of the line can contain the following status codes:
 
-```
+```:text
 ?: To be defined, unknown or need decomposition
 +: Implemented and ready
 -: Not implemented yet
 ~: Implemented, but it is incomplete
 ```
 
-
-```
+```:text
 ~ Parse arguments (Accepting: processors,port,max_input_queue_size,TTL)
 + Logger: Log output if necessary
 + Segregate main modules
@@ -79,7 +98,7 @@ The first character of the line can contain the following status codes:
 - BEGIN
 - COMMIT
 - ABORT
-? ACK (missing, no persistance)
+- ACK
 - NACK
 + DISCONNECT
 + MESSAGE
@@ -90,7 +109,7 @@ The first character of the line can contain the following status codes:
 + ERROR
 + using epoll instead of select
 + wildcard : only subscriptions allowed
-- subscription limit
+- subscription limit => wont fix. would be great to have an overall memory limit instead
 + connection limit
 + input queue limit
 + maximum message size
@@ -106,7 +125,7 @@ The first character of the line can contain the following status codes:
 + WS: Buffer underrun, Buffer overflow
 + Make session threadsafe : use it only upfront!
 - STOMP: Buffer overflow, multiple messages
-- Grouped diagnostic message for session_stats
++ Grouped diagnostic message for session_stats
 ? Grouped diagnostic message for network io ( dropped ws data-frames, fixed underruns, cache size )
 + WS frame maximum: WS_DATA_FRAME_MAX_LENGTH
 + WS buffering stats DIAG messages
@@ -115,17 +134,17 @@ The first character of the line can contain the following status codes:
 + output buffering: every writer thread has an own 10k buffer for sending out multiple messages in a batch
 + handle WS client disconnect (opcode: 8)
 + more statistics, internal benchmark DIAGnostic messages
-+ TTL: minimal impl: config, put message back if < TTL in reader thread
++ TTL impl: with stale_queue. subscribers check stale_queue for messages when ttl>0
 - persistance: save messages to file if defined (high io need, needs benchmark stats )
 - replayability: start picking up and replay messages after a defined delay from file
 - change processors params name: 1) to reflect writer threads count 2) be more intuitive
 - add basic help and upload binary
 - Create one functional test in javascript that tests all the test-cases. STOMP protocol, connection, load scenarios.
-- Investigate POSIX message queues: man mq_overview
 ```
 
 Running
 -------
 
-/docker folder -> available docker files: for compiling and running
+A) You can build it with `./build.sh` having gcc and build essentials installed on a 64bit arhitecture.
 
+B) Docker files are located under the folder `/docker`

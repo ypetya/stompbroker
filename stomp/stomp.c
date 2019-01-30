@@ -16,11 +16,20 @@
  * Time to live, from config at startup
  * */
 unsigned int ttl;
+unsigned int stale_queue_max_size;
 
+int check_stomp_version(parsed_message * pm);
 /**
  * Processing incoming STOMP message
+ * 
+ * @return 1: message consumed. 0: message not consumed
 */
-void stomp_process(ts_queue* input_queue, ts_queue* output_queue, message_with_timestamp *input) {
+void stomp_process(ts_queue* input_queue, 
+    queue* stale_queue, 
+    ts_queue* output_queue, 
+    message_with_timestamp *input) {
+    
+    int message_consumed = STOMP_MESSAGE_CONSUMED;
     int client_id = input->fd;
     int client_id_wo_flags = session_without_flags(input->fd);
     if (client_id != client_id_wo_flags) {
@@ -43,11 +52,15 @@ void stomp_process(ts_queue* input_queue, ts_queue* output_queue, message_with_t
             if (client_connected > 0){
                 resp = message_error(input->fd, "Can not connect,"
                     " client is already connected!");
-            }
-            else {
+            } else /*if(check_stomp_version(pm)) */{
                 stomp_session_set_connected(client_id_wo_flags, 1);
                 resp = message_connected(input->fd, client_id_wo_flags);
-            }
+            } 
+            // else {
+            //     resp = message_error(input->fd, "Can not connect,"
+            //         " STOMP version 1.2 is not supported by client!");            
+            // }
+            
             break;
         }
         case FRM_DISCONNECT_ID:
@@ -69,6 +82,7 @@ void stomp_process(ts_queue* input_queue, ts_queue* output_queue, message_with_t
                 resp = message_error(input->fd, "No destination defined!");
             else if (client_connected > 0) {
                 pubsub_subscribe(pm->topic, client_id, pm->id);
+                distribute_messages_from_stale_q(pm->topic, client_id, pm->id, stale_queue,output_queue, ttl);
             } else
                 resp = message_error(input->fd, "Not connected!");
             break;
@@ -97,7 +111,10 @@ void stomp_process(ts_queue* input_queue, ts_queue* output_queue, message_with_t
                     break;
                 };
                 
-                distribute_messages(input_queue, output_queue, input, pm, ttl);
+                message_consumed = distribute_messages(input_queue, 
+                    stale_queue_max_size,
+                    stale_queue,
+                    output_queue, input, pm, ttl);
 
             } else resp = message_error(input->fd, "Not connected!");
 
@@ -122,18 +139,37 @@ void stomp_process(ts_queue* input_queue, ts_queue* output_queue, message_with_t
         ts_enqueue(output_queue, message_receipt(input->fd, pm->receipt_id));
     }
 
-    free_parsed_message(pm);
+    if(message_consumed) free_parsed_message(pm);
+
 }
 
 void stomp_start() {
     stomp_app_config* config = config_get_config();
     ttl = config->ttl;
+    stale_queue_max_size = config->max_stale_queue_size;
 
     stomp_session_init();
     pubsub_init();
 }
 
-void stomp_stop() {
+void stomp_stop(queue * stale_queue) {
     pubsub_dispose();
+    //free-up stale_queue
+    general_list_item* c = stale_queue->first;
+    while(c!=NULL) {
+        free_parsed_message(c->data);
+        c=c->next;
+    }
     //stomp_session_dispose(); - not needed, no such method exists
+}
+
+/**
+ * @return 1: if "1.2" is present in header "accept-version"; 0: otherwise
+*/
+int check_stomp_version(parsed_message * pm) {
+    aa_item* header = aa_get(pm->headers->root, "accept-version");
+    if(header) {
+        if(strstr(header->value,"1.2")) return 1;
+    }
+    return 0;
 }

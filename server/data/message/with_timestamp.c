@@ -17,3 +17,7 @@ void message_destroy_with_timestamp(message_with_timestamp * m) {
     free(m->content);
     free(m);
 }
+
+message_with_timestamp * message_poison_pill_with_timestamp() {
+    return message_create_with_timestamp(-1, "KILL", 0);
+}

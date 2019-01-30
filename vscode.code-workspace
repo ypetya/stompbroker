@@ -22,7 +22,8 @@
 			"string_message.h": "c",
 			"epoll.h": "c",
 			"logger.h": "c",
-			"dataframe.h": "c"
+			"dataframe.h": "c",
+			"queue.h": "c"
 		}
 	}
 }

@@ -36,12 +36,7 @@ void ws_buffer_resize(buffer_item * buffer, size_t old_len, size_t new_len) {
     if (buffer != NULL) {
 
         if (new_len > 0) {
-            char* p = realloc(buffer->received, new_len);
-            if (p == NULL) {
-                fprintf(stderr, "Out of memory!\n");
-                exit(1);
-            }
-            buffer->received = p;
+            buffer->received = erealloc(buffer->received, new_len);
         } else {
             free(buffer->received);
             buffer->received = NULL;

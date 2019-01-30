@@ -5,14 +5,6 @@
 #include "../../lib/emalloc.h"
 #include "../../lib/clone_str.h"
 
-message_with_timestamp * message_poison_pill() {
-    return message_create_with_timestamp(-1, "KILL", 0);
-}
-
-message_with_frame_len * message_wl_poison_pill() {
-    return message_create_with_frame_len(-1, "KILL");
-}
-
 char * ERROR_TEMPLATE = "ERROR\n"
         "content-type:text/plain\n"
         "content-length:%d\n\n%s\n";
@@ -39,9 +31,10 @@ message_with_frame_len * message_error(int fd, char *reason) {
 }
 
 char * CONNECTED_TEMPLATE = "CONNECTED\n"
+        "version:1.2\n"
+        "server:kisp-stomp/0.0.1\n"
         "content-type:text/plain\n"
         "session:%d\n"
-        "server:kisp-stomp\n"
         "heart-beat:0,0\n\n"; // heart-beat not supported yet
 
 message_with_frame_len * message_connected(int fd, int session_id) {

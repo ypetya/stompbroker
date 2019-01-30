@@ -2,17 +2,15 @@
 #define PARSEARGS_H
 
 /**
- * # Responsiblity:
- * 
- * - Parse config values - from command line?
- * - Provide config values
+ * - Parse config values from command line
+ * - Provide config values for other modules
  */
 
 // the port users will be connecting to
 #define DEFAULT_PORT 3490
 // how many pending connections queue will hold
 #define DEFAULT_BACKLOG 10
-// maximum input queue size
+// maximum input/stale queue size
 #define DEFAULT_INPUT_QUEUE_LIMIT 1000000
 // maximum size of a single message
 #define DEFAULT_INPUT_BUFFER_SIZE 16000
@@ -25,6 +23,7 @@ struct CONFIG_STRUCTURE {
 
     unsigned int max_input_queue_size;
     unsigned int ttl;
+    unsigned int max_stale_queue_size;
     
     int input_buffer_size;
     int output_buffer_size; // per thread

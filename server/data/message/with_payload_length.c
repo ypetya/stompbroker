@@ -35,6 +35,9 @@ message_with_frame_len * message_create_with_frame_len(int fd, char * str) {
 
 void message_destroy_with_frame_len(message_with_frame_len *m){
     free(m->content);
-    m->content=NULL;
     free(m);
+}
+
+message_with_frame_len * message_poison_pill_with_frame_len() {
+    return message_create_with_frame_len(-1, "KILL");
 }

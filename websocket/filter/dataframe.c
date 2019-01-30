@@ -130,14 +130,12 @@ ws_filter_dataframe_status ws_input_filter_dataframe(int fd, char* buffer, size_
         size_t ag_decoded_data_len = 0;
         char * ag_decoded_data = NULL;
 
+        size_t full_frame_len;
+
         while (ws_buff->received_len > MIN_DATA_FRAME_SIZE && (ws_buff->frame_len == 0)) {
 
-            size_t full_frame_len = ws_dataframe_read_headers(ws_buff);
-            if (full_frame_len == WS_TOO_LARGE_DATAFRAME ||
-                    full_frame_len == WS_OPCODE_CLIENT_DISCONNECT)
-                return full_frame_len;
-            if (full_frame_len <= 0)
-                return WS_INVALID_HEADER;
+            full_frame_len = ws_dataframe_read_headers(ws_buff);
+            if (full_frame_len < 0) break;
 
             if (ws_buff->received_len < full_frame_len) {
                 break;
@@ -146,7 +144,7 @@ ws_filter_dataframe_status ws_input_filter_dataframe(int fd, char* buffer, size_
                 size_t decoded_data_len = ws_buff->frame_len;
                 char * decoded_data = ws_dataframe_decode(ws_buff);
 
-                ag_decoded_data = realloc(ag_decoded_data, ag_decoded_data_len + decoded_data_len);
+                ag_decoded_data = erealloc(ag_decoded_data, ag_decoded_data_len + decoded_data_len);
                 memcpy(&ag_decoded_data[ag_decoded_data_len], decoded_data, decoded_data_len);
                 ag_decoded_data_len += decoded_data_len;
 
@@ -164,8 +162,13 @@ ws_filter_dataframe_status ws_input_filter_dataframe(int fd, char* buffer, size_
         if (ag_decoded_data != NULL) {
             *out = ag_decoded_data;
             *decoded_buf_len = ag_decoded_data_len - 1;
-            return WS_COMPLETE_DATAFRAME;
         }
+
+        if(full_frame_len<0)
+            return full_frame_len;
+
+        if(ag_decoded_data != NULL)
+            return WS_COMPLETE_DATAFRAME;
 
         return WS_INCOMPLETE_DATAFRAME;
     }

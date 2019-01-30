@@ -1,8 +1,3 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 
 /* 
  * File:   emalloc.h
@@ -18,8 +13,8 @@
 extern "C" {
 #endif
 
-    static void *emalloc(size_t size);
-    static void *erealloc(void *ptr, size_t size);
+    inline static void * emalloc(size_t size);
+    inline static void *erealloc(void *ptr, size_t size);
 
 
 #ifdef __cplusplus

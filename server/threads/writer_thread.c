@@ -1,10 +1,12 @@
 #include <unistd.h>
 #include <errno.h>
 #include "writer_thread.h"
-#include "data/message/with_payload_length.h"
-#include "../logger.h"
-#include "../lib/emalloc.h"
-#include "../parse_args.h"
+#include "../data/message/with_payload_length.h"
+#include "../../logger.h"
+#include "../../lib/emalloc.h"
+#include "../../lib/general_list.h"
+#include "../../lib/thread_safe_queue.h"
+#include "../../parse_args.h"
 
 #define MESSAGES_BATCH_SIZE 1000
 void ts_dequeue_multiple_messages_for_same_fd(message_with_frame_len* (*ret)[MESSAGES_BATCH_SIZE], ts_queue * q, int buffer_size);
@@ -88,6 +90,7 @@ void ts_dequeue_multiple_messages_for_same_fd(message_with_frame_len* (*ret)[MES
 
     message_with_frame_len * msg = NULL;
     general_list_item * parent = NULL;
+    general_list_item * current = NULL;
     general_list_item * peek_cursor = NULL;
     int first_fd = 0;
     int index = 0;
@@ -96,19 +99,19 @@ void ts_dequeue_multiple_messages_for_same_fd(message_with_frame_len* (*ret)[MES
     pthread_mutex_lock(&q->lock);
 
     if (peek_cursor = q->q.first) {
-        for (;
-                index < MESSAGES_BATCH_SIZE && peek_cursor != NULL && remaining_len > 0;
-                peek_cursor = peek_cursor->next) {
-
+        while(index < MESSAGES_BATCH_SIZE && peek_cursor != NULL && remaining_len > 0) {
+            current = peek_cursor;
             msg = (message_with_frame_len *) peek_cursor->data;
             if (msg->fd == -1) {
                 (*ret)[index++] = msg;
                 unchain_child(&q->q, parent, peek_cursor);
+                free(peek_cursor);
                 break;
             } else if (first_fd == 0)
                 first_fd = msg->fd; // first item, always pick-up
             else if (msg->fd != first_fd) {
                 parent = peek_cursor;
+                peek_cursor = peek_cursor->next;
                 continue; // skip different fd
             } else if (msg->frame_len > remaining_len) break; // too large msg to fit in
             // pick-up msg
@@ -116,6 +119,8 @@ void ts_dequeue_multiple_messages_for_same_fd(message_with_frame_len* (*ret)[MES
             remaining_len -= msg->frame_len;
             // unchain
             unchain_child(&q->q, parent, peek_cursor);
+            peek_cursor = peek_cursor->next;
+            free(current);
         }
     }
 

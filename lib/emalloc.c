@@ -5,7 +5,7 @@
 
 #include "emalloc.h"
 
-static void *emalloc(size_t size) {
+inline static void *emalloc(size_t size) {
     void *p = malloc(size);
     if (p == NULL) {
         fprintf(stderr, "Out of memory!\n");
@@ -16,7 +16,7 @@ static void *emalloc(size_t size) {
     return p;
 }
 
-static void *erealloc(void *ptr, size_t size) {
+inline static void *erealloc(void *ptr, size_t size) {
     void *p = realloc(ptr, size);
     if (p == NULL) {
         fprintf(stderr, "Out of memory!\n");

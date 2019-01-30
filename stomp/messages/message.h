@@ -17,9 +17,6 @@ extern "C" {
             int message_id, char* dest, char* body);
     message_with_frame_len * message_send_with_headers(int fd, associative_array * headers,
             char* body);
-    message_with_timestamp * message_poison_pill();
-    message_with_frame_len * message_wl_poison_pill();
-    
     message_with_frame_len * message_diagnostic(int fd, char * key, char * value);
 
 #ifdef __cplusplus

@@ -20,6 +20,8 @@ extern "C" {
     message_with_timestamp * message_create_with_timestamp(int fd, char * str, clock_t ts);
     
     void message_destroy_with_timestamp(message_with_timestamp * m);
+
+    message_with_timestamp * message_poison_pill_with_timestamp();
 #ifdef __cplusplus
 }
 #endif

@@ -1,13 +1,14 @@
 #include "reader_thread.h"
-#include "process.h"
-#include "data/message/with_timestamp.h"
-#include "../websocket/filter/handshake.h"
+#include "worker_thread_data.h"
+#include "../data/message/with_timestamp.h"
+#include "../../websocket/filter/handshake.h"
 
 void *reader_thread(void *vargp) {
     worker_thread_data_struct * queues = vargp;
 
     ts_queue * input_queue = queues->input_q;
     ts_queue * output_queue = queues->output_q;
+    queue * stale_queue = queues->stale_queue;
 
     while (1) {
 
@@ -18,20 +19,21 @@ void *reader_thread(void *vargp) {
                 if (msg->fd == -1) {
                     debug(" * Reader thread: Poison pill detected.\n");
                     message_destroy_with_timestamp(msg);
-                    stomp_stop();
+                    stomp_stop(stale_queue);
                     return NULL; // exit thread
                 }
-
+                
                 if (ws_input_filter_handshake(output_queue, msg) == WS_NO_NEED_OF_HANDSHAKE) {
                     debug("<<<\n%s\n", msg->content);
 
-                    stomp_process(input_queue, output_queue, msg);
+                    stomp_process(input_queue, stale_queue, output_queue, msg);
                 }
+
                 message_destroy_with_timestamp(msg);
-            } while(msg = ts_dequeue(input_queue));
+            } while( msg = ts_dequeue(input_queue));
         }
 
-        usleep(10);
+        usleep(5);
     }
 
     return NULL;
