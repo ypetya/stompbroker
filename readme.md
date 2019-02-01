@@ -83,7 +83,7 @@ The first character of the line can contain the following status codes:
 ```
 
 ```:text
-~ Parse arguments (Accepting: processors,port,max_input_queue_size,TTL)
+~ Parse arguments (Accepting: processors,port,max_input_queue_size,max_stale_queue_size,TTL)
 + Logger: Log output if necessary
 + Segregate main modules
 + TCP connection parent listener
@@ -95,11 +95,11 @@ The first character of the line can contain the following status codes:
 + SEND
 + SUBSCRIBE (handle id header for subscription!)
 + UNSUBSCRIBE
+- ACK
+- NACK
 - BEGIN
 - COMMIT
 - ABORT
-- ACK
-- NACK
 + DISCONNECT
 + MESSAGE
 + SEND
@@ -110,26 +110,33 @@ The first character of the line can contain the following status codes:
 + using epoll instead of select
 + wildcard : only subscriptions allowed
 - subscription limit => wont fix. would be great to have an overall memory limit instead
+- subscriptions list -> tree
 + connection limit
 + input queue limit
 + maximum message size
 + multithreaded output processing
-~ performace testing
 + LICENSE
 + move code one level up
 + publish to github
-~ create tests and nodejs applications, see `js` directory
-+ js/stomp.protocol.test.js
+~ create tests and nodejs applications, see `examples/js` directory
++ examples/js/raw/stomp.protocol.test.js  - RAW frame tests compiled with DEBUG mode in main.c
++ examples/js/websocket/* performance, TTL, diagnostic messages
+- Create one functional test in javascript that tests all the test-cases. STOMP protocol, connection, load scenarios.
 + Websocket handshake filter
 ~ Websocket data frames encoding-decoding (Limited: opcode=1,8 text-content,fin=1 no fragments)
 + WS: Buffer underrun, Buffer overflow
 + Make session threadsafe : use it only upfront!
 - STOMP: Buffer overflow, multiple messages
-+ Grouped diagnostic message for session_stats
-? Grouped diagnostic message for network io ( dropped ws data-frames, fixed underruns, cache size )
+~ performace testing
++ Diagnostic message for session_stats `examples/js/stomp.diag.session.js`
++ Diagnostic message for ws_buff `examples/js/stomp.diag.ws.js`
++ Diagnostic message for checking internal queue sizes `examples/js/stomp.diag.stale.js`
+? Internal benchmarks for possible bottle-necks + Diagnostic message
+? ( dropped ws data-frames, fixed underruns, cache size )
 + WS frame maximum: WS_DATA_FRAME_MAX_LENGTH
 + WS buffering stats DIAG messages
 - WS ping-pong
+- STOMP heartbeat
 + peek messages: pick multiple messages for same FD (output queue only)
 + output buffering: every writer thread has an own 10k buffer for sending out multiple messages in a batch
 + handle WS client disconnect (opcode: 8)
@@ -138,8 +145,11 @@ The first character of the line can contain the following status codes:
 - persistance: save messages to file if defined (high io need, needs benchmark stats )
 - replayability: start picking up and replay messages after a defined delay from file
 - change processors params name: 1) to reflect writer threads count 2) be more intuitive
-- add basic help and upload binary
-- Create one functional test in javascript that tests all the test-cases. STOMP protocol, connection, load scenarios.
++ add basic help and upload binary
++ message exchange PUB-SUB distribution by default
+- message exchange Workerqueue distribution with special topic names
+- Introduce new internal queue for ACK/NACK: ack_queue, with command line arg ack_timeout
+? multiple message dispatcher threads
 ```
 
 Running

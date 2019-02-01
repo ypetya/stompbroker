@@ -8,7 +8,7 @@ const sock = Stomp.overWS('ws://localhost:3490');
 //const subs_count = 100, display_interval = 1000, send_interval = 1000, send_amount = 1500;
 // limit
 //const subs_count = 1750, display_interval = 1000, send_interval = 800, send_amount = 100;
-const subs_count = 50, display_interval = 1000, send_interval = 100, send_amount = 1000;
+const subs_count = 1000, display_interval = 1000, send_interval = 500, send_amount = 10000;
 
 // -> Total messages sent: 600000, received 1188229 on 2 subscriptions. (#60)
 //subs_count = 75, display_interval = 1000, send_interval = 1000, send_amount = 2000
@@ -30,4 +30,8 @@ sock.connect([], () => {
     }, send_interval);
 
     setInterval(() => console.log(`Total messages sent: ${total_sent}, received ${total_received} on ${subs_count} subscriptions. (#${++display_intervals_count})`), display_interval);
-}, console.error);
+}, e=>{
+    console.error(e);
+    console.trace();
+    process.exit(1);
+});

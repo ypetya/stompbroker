@@ -187,6 +187,7 @@ void do_use_fd(int epollfd, int conn_sock, char* read_buffer, ts_queue * input_q
             switch (ws_filter_status)
             {
                case WS_OPCODE_CLIENT_DISCONNECT:
+                    info("server: ws disconnect from client. fd:%llu\n", conn_sock);
                     close_connection(conn_sock, input_queue);
                 break;
                 case WS_BUFFER_EXCEEDED_MAX:

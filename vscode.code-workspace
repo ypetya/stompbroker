@@ -23,7 +23,8 @@
 			"epoll.h": "c",
 			"logger.h": "c",
 			"dataframe.h": "c",
-			"queue.h": "c"
+			"queue.h": "c",
+			"with_payload_length.h": "c"
 		}
 	}
 }
