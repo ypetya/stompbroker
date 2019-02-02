@@ -36,48 +36,37 @@ void *writer_thread(void *vargp) {
             debug(">>>\n%s\n", msg->content);
             size_t len = ws_output_filter(msg);
             fd = msg->fd;
-#ifdef DEBUG_OUTPUT
-            printf("Buffering message for output: fd: %d, len: %d, data:", fd, len);
-            for (int j = 0; j < len; j++) {
-                if (j < 2 || j == len - 1)printf("%02x", msg->content[j] & 0xff);
-                else printf("%c", msg->content[j]);
-            }
-            printf("\n\n");
-#endif
             memcpy(&write_buffer[buffer_ptr], msg->content, len);
             buffer_ptr += len;
             message_destroy_with_frame_len(msg);
         }
+
         if (buffer_ptr > 0) {
-            res = write(fd, write_buffer, buffer_ptr);
+            int offset=0;
+            do{
+                { 
+                    int retry_count = 100;
+                    // non blocking write attempt
+                    do{
+                        res = write(fd, &write_buffer[offset], buffer_ptr);
+                        if(res<0 && errno == EAGAIN) {
+                            usleep(10);
+                        }
+                    } while(res<0 && --retry_count>0);
 
+                    if(retry_count<=0) {
+                        // we have tried to recover, but failed.
+                        // FIXME: should gracefully close connection (and purge invalid data from internal queues)
+                        close(fd);
+                        break;
+                    }
+                }
+                offset+=res;
+                buffer_ptr -=res;              
+            } while(buffer_ptr>0);
+
+            
             for (int i = 0; i < MESSAGES_BATCH_SIZE; i++)messages[i] = NULL;
-
-#ifdef DEBUG_OUTPUT
-            printf("Last wrote was len: %d/%d, data:", res, buffer_ptr);
-            for (int j = 0; j < buffer_ptr; j++) {
-                if (j < 2 || j == buffer_ptr - 1)printf("%02x", write_buffer[j] & 0xff);
-                else printf("%c", write_buffer[j]);
-            }
-            printf("\n\n");
-#endif
-
-            if (res > 0 && res < buffer_ptr) {
-#ifdef DEBUG_OUTPUT
-                debug("Half frame\n");
-#endif
-            }
-            if (res < 0) {
-
-                //perror("Could not send messages. Client may disconnected");
-                //warn("fd:%d\n", fd);
-
-#ifdef DEBUG_OUTPUT
-                debug("Problem\n");
-                if (errno == EAGAIN) debug("EAGAIN!\n");
-
-#endif
-            }
         }
 
         usleep(10);

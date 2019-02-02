@@ -124,6 +124,7 @@ void put_stomp_messages_on_queue(int conn_sock, char* read_buffer, ts_queue * in
     }
 }
 
+//TODO: make this available from writer thread
 void close_connection(int conn_sock, ts_queue * input_queue) {
 
     close(conn_sock);
