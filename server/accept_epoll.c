@@ -69,7 +69,7 @@ void accept_epoll(stomp_app_config * app_config, int listen_sock) {
         int nfds;
         do {
             nfds = epoll_wait(epollfd, events, MAX_EVENTS, -1);
-        } while (nfds < -1 && errno == EINTR);
+        } while (nfds < -1);
 
         now=clock();
 
@@ -116,15 +116,18 @@ void put_stomp_messages_on_queue(int conn_sock, char* read_buffer, ts_queue * in
         if (ts_enqueue_limited(input_queue,
                 incoming_message,
                 config->max_input_queue_size
-                ) < 0)
+                ) < 0){
+            
             warn("server: Dropping message, input_queue limit reached! (%d)\n",
                 config->max_input_queue_size);
+
+            message_destroy_with_timestamp(incoming_message);
+        }
 
         while (token[i] != '\0') i++;
     }
 }
 
-//TODO: make this available from writer thread
 void close_connection(int conn_sock, ts_queue * input_queue) {
 
     close(conn_sock);

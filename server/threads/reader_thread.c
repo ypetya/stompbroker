@@ -11,7 +11,7 @@ void *reader_thread(void *vargp) {
     queue * stale_queue = queues->stale_queue;
 
     while (1) {
-
+        // TODO: dequeue in a batch for speed improvement?
         message_with_timestamp * msg = ts_dequeue(input_queue);
 
         if (msg != NULL) {
@@ -26,7 +26,10 @@ void *reader_thread(void *vargp) {
                 if (ws_input_filter_handshake(output_queue, msg) == WS_NO_NEED_OF_HANDSHAKE) {
                     debug("<<<\n%s\n", msg->content);
 
-                    stomp_process(input_queue, stale_queue, output_queue, msg);
+                    int purge_fd = stomp_process(input_queue, stale_queue, output_queue, msg);
+                    if(purge_fd) {
+                        // FIXME: dequeue purge_fd 
+                    }
                 }
 
                 message_destroy_with_timestamp(msg);

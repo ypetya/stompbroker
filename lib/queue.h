@@ -14,6 +14,7 @@ extern "C" {
     } queue;
     
     void enqueue(queue * q, void *new_data);
+    void put_head(queue * q, void *new_data);
     void* dequeue(queue * q);
 
     // TODO: should be a list action instead

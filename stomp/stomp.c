@@ -22,9 +22,9 @@ int check_stomp_version(parsed_message * pm);
 /**
  * Processing incoming STOMP message
  * 
- * @return 1: message consumed. 0: message not consumed
+ * @return fd: to do cleanup for. 0: message processed
 */
-void stomp_process(ts_queue* input_queue, 
+int stomp_process(ts_queue* input_queue, 
     queue* stale_queue, 
     ts_queue* output_queue, 
     message_with_timestamp *input) {
@@ -39,7 +39,8 @@ void stomp_process(ts_queue* input_queue,
             debug("Purge STOMP session fd: %d %s\n",client_id_wo_flags,session_is_encoded(client_id) ? "Websocket": "");
             pubsub_remove_client(session_with_other_flags);
             stomp_session_set_connected(client_id_wo_flags, 0);
-            return;
+            
+            return client_id_wo_flags;
         }
     }
     int client_connected = stomp_session_is_connected(client_id_wo_flags);
@@ -56,6 +57,9 @@ void stomp_process(ts_queue* input_queue,
                 stomp_session_set_connected(client_id_wo_flags, 1);
                 resp = message_connected(input->fd, client_id_wo_flags);
             } 
+
+            // Although the specification wants a version header, the Stompjs does not support this!
+            //
             // else {
             //     resp = message_error(input->fd, "Can not connect,"
             //         " STOMP version 1.2 is not supported by client!");            
@@ -141,6 +145,7 @@ void stomp_process(ts_queue* input_queue,
 
     if(message_consumed) free_parsed_message(pm);
 
+    return 0;
 }
 
 void stomp_start() {

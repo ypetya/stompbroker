@@ -10,6 +10,12 @@ void ts_enqueue(ts_queue * q, void *new_data) {
     pthread_mutex_unlock(&q->lock);
 }
 
+void ts_put_head(ts_queue *q, void *new_data) {
+    pthread_mutex_lock(&q->lock);
+    put_head(&q->q, new_data);
+    pthread_mutex_unlock(&q->lock);
+}
+
 void ts_enqueue_multiple(ts_queue *q, general_list* new_items) {
     pthread_mutex_lock(&q->lock);
     general_list_item * first = new_items->first;

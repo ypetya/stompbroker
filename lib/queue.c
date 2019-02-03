@@ -7,6 +7,9 @@
 #include "queue.h"
 #include "general_list.h"
 
+/**
+ * put a message on the tail
+*/
 void enqueue(queue * q, void *new_data) {
     general_list_item * new_list_item = create_general_list_item(new_data);
 
@@ -16,6 +19,22 @@ void enqueue(queue * q, void *new_data) {
         q->last->next = new_list_item;
         q->last = new_list_item;
     }
+    q->size++;
+}
+
+/**
+ * put a message on the front
+*/
+void put_head(queue * q, void *new_data) {
+    general_list_item * new_list_item = create_general_list_item(new_data);
+
+    new_list_item->next = q->first;
+    q->first = new_list_item;
+
+    if (q->size == 0) {
+        q->last = q->first;
+    }
+
     q->size++;
 }
 

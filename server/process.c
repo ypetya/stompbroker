@@ -53,7 +53,7 @@ ts_queue * process_start_threads() {
     // start multiple workers
     pthread_create(&workers->reader_thread_id, NULL, reader_thread, &worker_data);
     for (int i = 0; i < workers->writers_count; i++)
-        pthread_create(&(workers->writers[i]), NULL, writer_thread, &output_queue);
+        pthread_create(&(workers->writers[i]), NULL, writer_thread, &worker_data);
 
 
     return &input_queue;
