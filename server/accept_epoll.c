@@ -129,9 +129,6 @@ void put_stomp_messages_on_queue(int conn_sock, char* read_buffer, ts_queue * in
 }
 
 void close_connection(int conn_sock, ts_queue * input_queue) {
-
-    close(conn_sock);
-
     int fd_with_flags = session_storage_get(conn_sock);
     if (fd_with_flags != 0) {
         fd_with_flags = session_set_cmd_purge(fd_with_flags);
@@ -161,6 +158,8 @@ void do_use_fd(int epollfd, int conn_sock, char* read_buffer, ts_queue * input_q
 
         epoll_ctl(epollfd, EPOLL_CTL_DEL, conn_sock, NULL);
     } else {
+        session_storage_lock();
+        
         if (session_storage_add_new(conn_sock) == MAX_SESSION_NUMBER_EXCEEDED) {
             warn("server: max session size exceeded, dropping connection on fd:%llu\n", conn_sock);
             // Sorry-sorry, no bananas left. :)
@@ -175,6 +174,8 @@ void do_use_fd(int epollfd, int conn_sock, char* read_buffer, ts_queue * input_q
         ws_filter_dataframe_status ws_filter_status = ws_input_filter_dataframe(conn_sock, read_buffer,
                 received_length,
                 &decoded_messages, &decoded_buf_len);
+        
+        session_storage_unlock();
 
         if(ws_filter_status==WS_NOT_A_DATAFRAME)
             put_stomp_messages_on_queue(conn_sock,

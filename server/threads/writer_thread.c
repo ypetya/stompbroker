@@ -133,8 +133,6 @@ void ts_dequeue_multiple_messages_for_same_fd(message_with_frame_len* (*ret)[MES
 
 void w_close_connection(int conn_sock, int fd_with_session, ts_queue * input_queue) {
     info("server: drop blocked connection. fd:%d\n", conn_sock);
-    
-    close(conn_sock);
 
     int fd_with_flags = session_set_cmd_purge(conn_sock);
     char * CMD = clone_str("CMD");
@@ -145,5 +143,7 @@ void w_close_connection(int conn_sock, int fd_with_session, ts_queue * input_que
     free(CMD);
     ts_put_head(input_queue, incoming_message);
 
+    session_storage_lock();
     clean_by_fd(conn_sock);
+    session_storage_unlock();
 }

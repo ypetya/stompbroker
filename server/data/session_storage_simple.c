@@ -8,11 +8,21 @@
 int* clients;
 int number_of_clients;
 
+pthread_mutex_t session_storage_mutex;
 
 void session_storage_init() {
     info("Session storage supports %d connections\n", MAX_NUMBER_OF_CONNECTIONS)
     number_of_clients = 0;
     clients = emalloc(sizeof (int) * (MAX_NUMBER_OF_CONNECTIONS + 1));
+    pthread_mutex_init(&session_storage_mutex, (const pthread_mutexattr_t*) PTHREAD_PROCESS_PRIVATE);
+}
+
+void session_storage_lock() {
+    pthread_mutex_lock(&session_storage_mutex);
+}
+
+void session_storage_unlock() {
+    pthread_mutex_unlock(&session_storage_mutex);
 }
 
 void session_storage_dispose() {
@@ -39,10 +49,6 @@ void session_storage_remove(int client_id) {
     clients[client_id] = EMPTY_SESSION;
 }
 
-int session_without_flags(int fd) {
-    return fd & FD_MASK;
-}
-
 int session_storage_get(int client_id) {
     return clients[client_id];
 }
@@ -61,6 +67,10 @@ int session_storage_encoded_size() {
         if (clients[i] & FD_IS_ENCODED_MASK) num++;
     }
     return num;
+}
+
+int session_without_flags(int fd) {
+    return fd & FD_MASK;
 }
 
 int session_is_encoded(int fd) {

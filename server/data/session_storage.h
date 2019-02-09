@@ -44,6 +44,9 @@ extern "C" {
     void session_storage_init();
     void session_storage_dispose();
 
+    void session_storage_lock();
+    void session_storage_unlock();
+
     /** 
      * @return return index if inserted, -1 if already exists, -2 if no more conn limit reached
      */
