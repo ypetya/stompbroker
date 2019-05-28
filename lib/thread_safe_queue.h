@@ -12,6 +12,7 @@ extern "C" {
     typedef struct ts_queue_st {
         queue q;
         pthread_mutex_t lock;
+        pthread_cond_t has_new_elements; 
     } ts_queue;
 
     void ts_queue_init(ts_queue *q);
