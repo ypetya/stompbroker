@@ -1,0 +1,11 @@
+{
+    "name": "stompica",
+    "version": "0.0.2",
+    "description": "Stompbroker 4 development",
+    "main": "index.js",
+    "gypfile": true,
+    "dependencies": {
+        "node-addon-api": "*",
+        "bindings": "*"
+    }
+}

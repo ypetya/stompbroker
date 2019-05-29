@@ -5,3 +5,4 @@ examples/c/Websocket
 js/chat
 js/electron
 tetrace_hook
+node_modules
