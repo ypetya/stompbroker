@@ -1,11 +1,27 @@
 {
     "name": "stompica",
-    "version": "0.0.2",
-    "description": "Stompbroker 4 development",
+    "version": "0.0.3",
+    "description": "Stompbroker 4 development purposes",
     "main": "index.js",
     "gypfile": true,
     "dependencies": {
         "node-addon-api": "*",
         "bindings": "*"
-    }
+    },
+    "keywords": [
+        "stomp",
+        "messagebroker",
+        "websocket"
+    ],
+    "author": {
+        "name": "Peter Kiss",
+        "email": "ypetya@gmail.com"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/ypetya/stompbroker"
+    },
+    "os": [
+        "linux"
+    ]
 }
