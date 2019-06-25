@@ -1,14 +1,16 @@
 STOMP Broker
 ============
 
-This is not a safe or production ready implementation, and still is in "Work in progress" phase. This is an experiment with messaging patterns on my own.
+This is not a safe or production ready implementation, and still is in "Work in 
+progress" phase. This is an experiment with messaging patterns.
 Tests are written mainly in javascript, which you can find under the folder
 examples/js.
 
-Used protocolls
+Used protocols
 ---------------
 
-*Stomp* implementation is tend to follow the protocol description at https://stomp.github.io/stomp-specification-1.2.html
+*Stomp* implementation is tend to follow the protocol description at 
+https://stomp.github.io/stomp-specification-1.2.html
 
 *Websocket* implementation is intended to follow RFC6455 with some limitations:
 
@@ -33,7 +35,8 @@ Configuration
 ### Common mistakes
 
 Number of connections are limited:
-Too many open file error can occure, oncrease the file limits for chlid-processes with 
+Too many open file error can occure, oncrease the file limits for 
+chlid-processes with 
 
 ```
 ulimit -n 5000
@@ -83,7 +86,7 @@ The first character of the line can contain the following status codes:
 ```
 
 ```:text
-~ Parse arguments (Accepting: processors,port,max_input_queue_size,max_stale_queue_size,TTL)
+~ Parse arguments (Accepting: processors,port,max_input_queue_size, max_stale_queue_size,TTL)
 + Logger: Log output if necessary
 + Segregate main modules
 + TCP connection parent listener
@@ -147,7 +150,7 @@ The first character of the line can contain the following status codes:
 - change processors params name: 1) to reflect writer threads count 2) be more intuitive
 + add basic help and upload binary
 + message exchange PUB-SUB distribution by default
-- message exchange Workerqueue distribution with special topic names
+~ message exchange "Workerqueue distribution" with special topic name (only a single topic is guaranteed to keep the orders balanced)
 - Introduce new internal queue for ACK/NACK: ack_queue, with command line arg ack_timeout
 ? multiple message dispatcher threads
 + Lower CPU load: replace sleeping thread loops with mutex to wait/notify awake in threadsafe queue 
@@ -156,6 +159,16 @@ The first character of the line can contain the following status codes:
 Running
 -------
 
-A) You can build it with `./build.sh` having gcc and build essentials installed on a 64bit arhitecture.
+A) You can build it with `./build.sh` having gcc and build essentials installed 
+on a 64bit arhitecture.
 
 B) Docker files are located under the folder `/docker`
+
+C) There is an npm module distribution available for nodejs running on linux
+
+
+```
+npm i -g stompica
+echo "require('stompica')" | node
+```
+

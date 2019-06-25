@@ -28,12 +28,12 @@ consumers can join the subscription to share the load or disconnects can happen.
 
 To configure a topic for this setup, the topic must be marked!
 
-#### Requirements
+#### Limitations
 
 - topic-name must be start with special character: `#` for example(`#example-exchange/topic/1`)
-- topic pattern should be exact, no wildcards allowed
-- Has to use a TTL>0
-- Consider to change the internal input_queue_limit
+- the current implementation maintains only one global counter which has a modulo 
+to the matching subscriptions. This spreads the delivery.
+=> Using only one topic is guaranteed to have its order.
 
 ## Importance of TTL : Time to Live
 

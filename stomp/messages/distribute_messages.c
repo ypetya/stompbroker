@@ -9,12 +9,20 @@ char * itoa(int num);
 
 void add_next_message_id(associative_array * headers);
 
+general_list * pick_next(general_list * subscriptions);
+
 /**
  * Matches message destination topics against existing subrscriptions. If there 
- * is a match, message is pup into output_queue.
+ * is a match, message is put into the output_queue.
  * If there is no match and TTL > 0, message is put into stale_queue.
  * The message returns trueish if the input message is processed a clone has
  * been put into output and needs to be freed.
+ * 
+ * supporting load-balancing like message distributions:
+ * There is a maintained counter which is increased by every message towards
+ * any of the distributed topics. If the modulo of the index of a listeners 
+ * matches this counter it will be chosen as the single consumer of the message
+ * (sent to the matching distributed topic)
  * 
  * @return 1 if message consumed, 0 if not consumed
 */
@@ -36,53 +44,58 @@ int distribute_messages(
     // Find matching subscribers
     general_list * matching_clients = list_new();
     general_list * messages_out = list_new();
-    pubsub_find_matching(pm->topic, matching_clients);
+    
+    if(pubsub_find_matching(pm->topic, matching_clients) > 0) {
+        if(*pm->topic == '#' && matching_clients->size > 0) {
+            matching_clients = pick_next(matching_clients);
+        }
 
-    general_list_item * first = matching_clients->first;
+        general_list_item * first = matching_clients->first;
 
-    // Use headers
-    associative_array * message_headers = emalloc(sizeof (associative_array));
+        // Use headers
+        associative_array * message_headers = emalloc(sizeof (associative_array));
 
-    aa_merge(message_headers, pm->headers->root);
-    aa_put(message_headers, "content-type", "text/plain");
-    aa_put(message_headers, "content-length", itoa(strlen(pm->message_body)));
-    // Handle special topic, diagnostic messages
-    if(strncmp(pm->topic,"DIAG",4)==0) 
-        create_diagnostic_headers(message_headers, pm->message_body,
-            input_queue, output_queue, stale_queue);
+        aa_merge(message_headers, pm->headers->root);
+        aa_put(message_headers, "content-type", "text/plain");
+        aa_put(message_headers, "content-length", itoa(strlen(pm->message_body)));
+        // Handle special topic, diagnostic messages
+        if(strncmp(pm->topic,"DIAG",4)==0) 
+            create_diagnostic_headers(message_headers, pm->message_body,
+                input_queue, output_queue, stale_queue);
 
-    while (first != NULL) {
-        subscription * sub = first->data;
-        add_next_message_id(message_headers);
-        aa_put(message_headers, "destination", pm->topic);
-        aa_put(message_headers, "subscription", sub->id);
+        while (first != NULL) {
+            subscription * sub = first->data;
+            add_next_message_id(message_headers);
+            aa_put(message_headers, "destination", pm->topic);
+            aa_put(message_headers, "subscription", sub->id);
 
-        message_with_frame_len * o = message_send_with_headers(sub->session_id,
-                message_headers,
-                pm->message_body);
+            message_with_frame_len * o = message_send_with_headers(sub->session_id,
+                    message_headers,
+                    pm->message_body);
 
-        list_add(messages_out, o);
+            list_add(messages_out, o);
 
-        first = first->next;
+            first = first->next;
+        }
+
+        if(messages_out->size>0) {
+            // message consumed
+            ts_enqueue_multiple(output_queue, messages_out);
+            // ret = STOMP_MESSAGE_CONSUMED (default)
+        } else if(ttl>0) {
+            // not consumed, and there is a ttl. enqueue it to stale_queue
+            if(enqueue_limited(stale_queue, pm, max_stale_queue_size)>=0)
+                ret = STOMP_MESSAGE_NOT_CONSUMED;
+        }
+        aa_free(message_headers);
+
+        list_clear(messages_out);
+        free(messages_out);
+
+        list_clear(matching_clients);
+        free(matching_clients);
     }
-
-    if(messages_out->size>0) {
-        // message consumed
-        ts_enqueue_multiple(output_queue, messages_out);
-        // ret = STOMP_MESSAGE_CONSUMED (default)
-    } else if(ttl>0) {
-        // not consumed, and there is a ttl. enqueue it to stale_queue
-        if(enqueue_limited(stale_queue, pm, max_stale_queue_size)>=0)
-            ret = STOMP_MESSAGE_NOT_CONSUMED;
-    }
-    aa_free(message_headers);
-
-    list_clear(messages_out);
-    free(messages_out);
-
-    list_clear(matching_clients);
-    free(matching_clients);
-
+    
     return ret;
 }
 
@@ -188,4 +201,21 @@ void add_next_message_id(associative_array * headers){
 #else
     aa_put(headers, "message-id", itoa(message_id++));
 #endif
+}
+
+
+unsigned int next_counter = 0;
+
+general_list * pick_next(general_list * subscriptions) {
+    general_list * messages_out = list_new();
+    while(subscriptions->size <= next_counter) next_counter -= subscriptions->size;
+    
+    void * data = list_unchain_at(subscriptions, next_counter++);
+    
+    list_add(messages_out, data);
+        
+    list_clear(subscriptions);
+    free(subscriptions);
+    
+    return messages_out;
 }

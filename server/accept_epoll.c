@@ -148,7 +148,7 @@ void do_use_fd(int epollfd, int conn_sock, char* read_buffer, ts_queue * input_q
     int received_length = recv(conn_sock, read_buffer,
             config->input_buffer_size, 0);
     if (received_length < 1) {
-        if (received_length == 0) {
+        if (errno == 0) {
             info("server: socket closed nicely. fd:%d\n", conn_sock);
         } else {
             info("server: socked closed with error: %s\n", strerror(errno))

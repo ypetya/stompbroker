@@ -117,8 +117,11 @@ void pubsub_remove_client(int client_session_id) {
 }
 
 /**
- * @param topic_mask
- * @param matches
+ * 
+ * The method collects out matching subscriptions to a given topic_mask pattern. 
+ * 
+ * @param topic_mask the message is sent to
+ * @param matches linked list pointer where the matches are collected to
  * @return number of matches or -1 on error
  */
 int pubsub_find_matching(char* topic_mask, general_list * matches) {

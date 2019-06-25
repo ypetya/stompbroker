@@ -1,7 +1,7 @@
 {
     "name": "stompica",
     "version": "0.0.3",
-    "description": "Stompbroker 4 development purposes",
+    "description": "Stompbroker 4 development purposes - accessible via websocket and or raw text socket",
     "main": "index.js",
     "gypfile": true,
     "dependencies": {
@@ -11,6 +11,7 @@
     "keywords": [
         "stomp",
         "messagebroker",
+        "broker",
         "websocket"
     ],
     "author": {
