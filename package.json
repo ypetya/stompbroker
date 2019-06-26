@@ -1,6 +1,6 @@
 {
     "name": "stompica",
-    "version": "0.0.3",
+    "version": "0.0.4",
     "description": "Stompbroker 4 development purposes - accessible via websocket and or raw text socket",
     "main": "index.js",
     "gypfile": true,
