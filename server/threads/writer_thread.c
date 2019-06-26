@@ -100,7 +100,8 @@ void ts_dequeue_multiple_messages_for_same_fd(message_with_frame_len* (*ret)[MES
 
     pthread_mutex_lock(&q->lock);
     
-    pthread_cond_wait(&q->has_new_elements,&q->lock);
+    while(q->q.size==0)
+        pthread_cond_wait(&q->has_new_elements,&q->lock);
     
     if (peek_cursor = q->q.first) {
         while(index < MESSAGES_BATCH_SIZE && peek_cursor != NULL && remaining_len > 0) {

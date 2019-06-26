@@ -29,7 +29,7 @@ void sigchldHandler(int s) {
     int saved_errno = errno;
 
     // waitpid waits childprocesses to end
-    while (waitpid(-1, NULL, WNOHANG) > 0);
+    //while (waitpid(-1, NULL, WNOHANG) > 0);
 
     process_kill_threads();
     session_storage_dispose();
