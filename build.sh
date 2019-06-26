@@ -9,7 +9,7 @@ fi
 if [ "valgrind" == "$1" ]; then
     DEBUG_OPTS="-g"
 fi
-if gcc main.c -o stompbroker.out -std=gnu11 -lpthread $DEBUG_OPTS
+if gcc -std=gnu11 -pthread main.c -lpthread -o stompbroker.out $DEBUG_OPTS
 then 
     echo 'Build done!'
 else

@@ -66,10 +66,13 @@ void accept_epoll(stomp_app_config * app_config, int listen_sock) {
     }
 
     for (;;) {
-        int nfds;
-        do {
-            nfds = epoll_wait(epollfd, events, MAX_EVENTS, -1);
-        } while (nfds < -1);
+        int nfds = epoll_wait(epollfd, events, MAX_EVENTS, -1);
+        
+        if(nfds < 0) {
+            perror("epoll_wait problem");
+            
+            continue;
+        }
 
         now=clock();
 

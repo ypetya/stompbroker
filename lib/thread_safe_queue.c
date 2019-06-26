@@ -21,11 +21,13 @@ void ts_put_head(ts_queue *q, void *new_data) {
 void ts_enqueue_multiple(ts_queue *q, general_list* new_items) {
     pthread_mutex_lock(&q->lock);
     general_list_item * first = new_items->first;
-    while (first != NULL) {
-        enqueue(&q->q, first->data);
-        first = first->next;
+    if (first != NULL) {
+        pthread_cond_signal(&q->has_new_elements);
+        do {
+            enqueue(&q->q, first->data);
+            first = first->next;
+        } while (first != NULL);
     }
-    pthread_cond_signal(&q->has_new_elements);
     pthread_mutex_unlock(&q->lock);
 }
 
@@ -33,12 +35,13 @@ int ts_enqueue_limited(ts_queue * q, void *new_data, unsigned int limit) {
     int ret_val = 0;
 
     pthread_mutex_lock(&q->lock);
+
     if (q->q.size < limit) {
         enqueue(&q->q, new_data);
         pthread_cond_signal(&q->has_new_elements);
-    }
-    else
+    } else
         ret_val = -1;
+
     pthread_mutex_unlock(&q->lock);
 
     return ret_val;
@@ -46,7 +49,7 @@ int ts_enqueue_limited(ts_queue * q, void *new_data, unsigned int limit) {
 
 void* ts_dequeue(ts_queue * q) {
     pthread_mutex_lock(&q->lock);
-    pthread_cond_wait(&q->has_new_elements,&q->lock);
+    while (q->q.size == 0) pthread_cond_wait(&q->has_new_elements, &q->lock);
     void * retVal = dequeue(&q->q);
     pthread_mutex_unlock(&q->lock);
     return retVal;
@@ -59,7 +62,7 @@ void ts_queue_free(ts_queue *q) {
     queue_free(&q->q);
     pthread_mutex_unlock(&q->lock);
     // free up cond
-    pthread_cond_destroy(&q->has_new_elements); 
+    pthread_cond_destroy(&q->has_new_elements);
 
 }
 
