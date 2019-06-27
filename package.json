@@ -1,6 +1,6 @@
 {
     "name": "stompica",
-    "version": "0.0.4",
+    "version": "0.0.5",
     "description": "Stompbroker 4 development purposes - accessible via websocket and or raw text socket",
     "main": "index.js",
     "gypfile": true,
@@ -25,7 +25,7 @@
     "os": [
         "linux"
     ],
-    "scripts":{
-	"release": "npm version patch && npm publish && git push --tags"
+    "scripts": {
+        "release": "npm version patch && npm publish && git push --tags"
     }
 }
