@@ -208,9 +208,10 @@ unsigned int next_counter = 0;
 
 general_list * pick_next(general_list * subscriptions) {
     general_list * messages_out = list_new();
-    while(subscriptions->size <= next_counter) next_counter -= subscriptions->size;
     
-    void * data = list_unchain_at(subscriptions, next_counter++);
+    int next_index = next_counter++ % subscriptions->size;
+    
+    void * data = list_unchain_at(subscriptions, next_index);
     
     list_add(messages_out, data);
         
