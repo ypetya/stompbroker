@@ -3,6 +3,7 @@
 
 /**
  * - Parse config values from command line
+ * - Fill out config with a function call - this is an API for embedding
  * - Provide config values for other modules
  */
 
@@ -24,7 +25,7 @@ struct CONFIG_STRUCTURE {
     unsigned int max_input_queue_size;
     unsigned int ttl;
     unsigned int max_stale_queue_size;
-    
+
     int input_buffer_size;
     int output_buffer_size; // per thread
     int processors; // (writers_count := max(processors-2,1)
@@ -33,6 +34,13 @@ struct CONFIG_STRUCTURE {
 typedef struct CONFIG_STRUCTURE stomp_app_config;
 
 stomp_app_config* config_get_config();
+
 stomp_app_config config_parse_args(int argc, char* argv[]);
+stomp_app_config config_setup_by_args(int processors,
+        int port,
+        int max_input_queue_size,
+        int max_stale_queue_size,
+        int ttl
+        );
 
 #endif

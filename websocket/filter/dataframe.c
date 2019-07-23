@@ -62,11 +62,11 @@ int encode_websocket_frame(char * buffer, char** out) {
         memcpy(encoded_message + 2, &sz64, sizeof (uint64_t));
         memcpy(encoded_message + 10, buffer, orig_len);
     }
-    
+
 #ifdef DEBUG
     int fin = (encoded_message[0] & 0x80 ? 1 : 0);
     int op_code = (encoded_message[0] & 0xF);
-    
+
     debug(">>> Websocket data frame FIN: %d opcode: 0x%x payload_len: %llu\n", fin, op_code, orig_len);
 #endif
     *out = encoded_message;
@@ -110,8 +110,8 @@ ws_filter_dataframe_status ws_input_filter_dataframe(int fd, char* buffer, size_
     *out = NULL;
     if (ws_channel_is_encoded(fd, buffer)) {
         buffer_item * ws_buff = ws_buffer_find(fd);
-        
-        if (ws_buffer_size_left(read_len)<0) {
+
+        if (ws_buffer_size_left(read_len) < 0) {
             if (ws_buff) ws_buffer_free(ws_buff);
             return WS_BUFFER_EXCEEDED_MAX;
         }
@@ -122,11 +122,11 @@ ws_filter_dataframe_status ws_input_filter_dataframe(int fd, char* buffer, size_
             ws_buffer_resize(ws_buff, old_len, ws_buff->received_len + read_len);
             memcpy(&ws_buff->received[old_len], buffer, read_len);
             ws_buff->frame_len = 0;
-            
+
             debug("Merged dataframes. Buffer size: %llu fd: %d\n", ws_buff->received_len, ws_buff->fd);
         } else {
             ws_buff = ws_buffer_add(fd, buffer, read_len);
-            if(!ws_buff) return WS_BUFFER_OUT_OF_SLOTS;
+            if (!ws_buff) return WS_BUFFER_OUT_OF_SLOTS;
 
             debug("New dataframe. Buffer size: %llu fd: %d\n", ws_buff->received_len, ws_buff->fd);
         }
@@ -134,7 +134,7 @@ ws_filter_dataframe_status ws_input_filter_dataframe(int fd, char* buffer, size_
         size_t ag_decoded_data_len = 0;
         char * ag_decoded_data = NULL;
 
-        int full_frame_len;
+        int full_frame_len = 0;
 
         while (ws_buff->received_len > MIN_DATA_FRAME_SIZE && (ws_buff->frame_len == 0)) {
 
@@ -168,10 +168,10 @@ ws_filter_dataframe_status ws_input_filter_dataframe(int fd, char* buffer, size_
             *decoded_buf_len = ag_decoded_data_len - 1;
         }
 
-        if(full_frame_len<0)
+        if (full_frame_len < 0)
             return full_frame_len;
 
-        if(ag_decoded_data != NULL)
+        if (ag_decoded_data != NULL)
             return WS_COMPLETE_DATAFRAME;
 
         return WS_INCOMPLETE_DATAFRAME;

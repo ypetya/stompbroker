@@ -26,6 +26,9 @@
         "linux"
     ],
     "scripts": {
-        "release": "npm version patch && npm publish && git push --tags"
-    }
+        "release": "npm version patch && npm publish && git push --tags",
+        "build-with-npm-defaults": "npm install",
+        "build": "node-gyp build"
+    },
+    "license": "AGPL-3.0-or-later"
 }

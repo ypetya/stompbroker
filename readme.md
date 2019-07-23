@@ -169,6 +169,15 @@ C) There is an npm module distribution available for nodejs running on linux
 
 ```
 npm i -g stompica
-echo "require('stompica')" | node
+echo "require('stompica').runDefault()" | node
+
+# or you can pass arguments by:
+
+echo "require('stompica').run(0,5555,0,0,5000)" | node
+
+# arguments have to be numbers in the following order:
+# processors, port, input_q, stale_q, TTL millies
+# value 0 -> configure to the default
+
 ```
 
