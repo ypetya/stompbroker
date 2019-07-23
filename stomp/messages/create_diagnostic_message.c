@@ -32,7 +32,7 @@ message_with_frame_len *create_diagnostic_message(message_with_timestamp *input,
     }
     else if (strncmp(pm->message_body, "session-connected-size", 73 - 51) == 0)
     {
-        sprintf(msg_buffer, "%llu", stomp_session_connected_size());
+        sprintf(msg_buffer, "%d", stomp_session_connected_size());
         debug("connected %llu\n", stomp_session_connected_size());
         resp = message_diagnostic(input->fd, pm->message_body, msg_buffer);
     }
@@ -58,8 +58,8 @@ message_with_frame_len *create_diagnostic_message(message_with_timestamp *input,
     else if (strncmp(pm->message_body, "ws_buffer", 9) == 0)
     {
         struct ws_buffer_stat_t *stats = ws_buffer_get_stats();
-        sprintf(msg_buffer, "{\"allocated\":%llu,\"hits\":%llu,\"misses\":%llu}",
-                &stats->allocated_size, &stats->hit, &stats->miss);
+        sprintf(msg_buffer, "{\"allocated\":%zu,\"hits\":%zu,\"misses\":%zu}",
+                stats->allocated_size, stats->hit, stats->miss);
         resp = message_diagnostic(input->fd, pm->message_body, msg_buffer);
     }
     else if (strncmp(pm->message_body, "stale", 5) == 0)
@@ -101,7 +101,7 @@ void create_diagnostic_headers(associative_array *headers, char *message_body,
     }
     else if (strncmp(message_body, "session-connected-size", 73 - 51) == 0)
     {
-        sprintf(msg_buffer, "%llu", stomp_session_connected_size());
+        sprintf(msg_buffer, "%d", stomp_session_connected_size());
         aa_put(headers, "session-connected-size", msg_buffer);
     }
     else if (strncmp(message_body, "pubsub-size", 11) == 0)
@@ -123,11 +123,11 @@ void create_diagnostic_headers(associative_array *headers, char *message_body,
     else if (strncmp(message_body, "ws_buffer", 9) == 0)
     {
         struct ws_buffer_stat_t *stats = ws_buffer_get_stats();
-        sprintf(msg_buffer, "%llu", stats->allocated_size);
+        sprintf(msg_buffer, "%zu", stats->allocated_size);
         aa_put(headers, "allocated", msg_buffer);
-        sprintf(msg_buffer, "%llu", stats->hit);
+        sprintf(msg_buffer, "%zu", stats->hit);
         aa_put(headers, "hits", msg_buffer);
-        sprintf(msg_buffer, "%llu", stats->miss);
+        sprintf(msg_buffer, "%zu", stats->miss);
         aa_put(headers, "misses", msg_buffer);
     }
     else if (strncmp(message_body, "stale", 5) == 0)

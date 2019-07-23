@@ -6,6 +6,7 @@
 #include "../../lib/thread_safe_queue.h"
 #include "../../server/data/session_storage.h"
 #include "../../parse_args.h"
+#include <netinet/in.h>
 
 #include "../buffer.h"
 
@@ -61,10 +62,13 @@ int encode_websocket_frame(char * buffer, char** out) {
         memcpy(encoded_message + 2, &sz64, sizeof (uint64_t));
         memcpy(encoded_message + 10, buffer, orig_len);
     }
+    
+#ifdef DEBUG
     int fin = (encoded_message[0] & 0x80 ? 1 : 0);
     int op_code = (encoded_message[0] & 0xF);
-
+    
     debug(">>> Websocket data frame FIN: %d opcode: 0x%x payload_len: %llu\n", fin, op_code, orig_len);
+#endif
     *out = encoded_message;
     return len;
 }
@@ -80,13 +84,13 @@ char* ws_dataframe_decode(buffer_item* buf);
  */
 int ws_channel_is_encoded(int fd, char* buffer) {
     int is_data_frame = 0;
-    int has_mask = has_mask = buffer[1] & 0x80 ? 1 : 0;
-    if (!has_mask) {
-        is_data_frame = session_storage_is_encoded(fd);
-    }
+    int has_mask = buffer[1] & 0x80 ? 1 : 0;
+
     if (has_mask) {
         if (!is_data_frame) session_storage_set_encoded(fd);
         is_data_frame = 1;
+    } else {
+        is_data_frame = session_storage_is_encoded(fd);
     }
     return is_data_frame;
 }
@@ -102,7 +106,7 @@ int ws_channel_is_encoded(int fd, char* buffer) {
  * @param out  only complete, decoded data-frames ( can contain multiple stomp messages)
  * @return status
  */
-ws_filter_dataframe_status ws_input_filter_dataframe(int fd, char* buffer, size_t read_len, char** out, size_t *decoded_buf_len) {
+ws_filter_dataframe_status ws_input_filter_dataframe(int fd, char* buffer, size_t read_len, char** out, size_t* decoded_buf_len) {
     *out = NULL;
     if (ws_channel_is_encoded(fd, buffer)) {
         buffer_item * ws_buff = ws_buffer_find(fd);
@@ -211,7 +215,9 @@ char * ws_dataframe_decode(buffer_item* buf) {
 #define WS_DATA_FRAME_MAX_LENGTH 1000000
 
 /**
- * sets buf's mask and frame_len attribute, which willcontain the payload_length
+ * sets buffer_item's mask and frame_len attribute, which will contain the 
+ * payload_length
+ * 
  * @returns full frame length = (header+payload)
  */
 int ws_dataframe_read_headers(buffer_item* buf) {

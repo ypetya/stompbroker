@@ -96,6 +96,8 @@ inline char * parse_headers(parsed_message *pm, associative_array * aa, char* st
         }
     }
     while(nr_ptr);
+    
+    return NULL;
 }
 
 #ifndef FRM_IS

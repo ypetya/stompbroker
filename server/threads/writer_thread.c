@@ -20,7 +20,7 @@ void *writer_thread(void *vargp) {
 
     ts_queue * input_queue = queues->input_q;
     ts_queue * output_queue = queues->output_q;
-    queue * stale_queue = queues->stale_queue;
+    //queue * stale_queue = queues->stale_queue;
 
     stomp_app_config * config = config_get_config();
 
@@ -103,7 +103,7 @@ void ts_dequeue_multiple_messages_for_same_fd(message_with_frame_len* (*ret)[MES
     while(q->q.size==0)
         pthread_cond_wait(&q->has_new_elements,&q->lock);
     
-    if (peek_cursor = q->q.first) {
+    if ((peek_cursor = q->q.first)) {
         while(index < MESSAGES_BATCH_SIZE && peek_cursor != NULL && remaining_len > 0) {
             current = peek_cursor;
             msg = (message_with_frame_len *) peek_cursor->data;

@@ -7,9 +7,9 @@ stomp_app_config config_main;
 
 char buffer[20];
 
-void config_parse_parse(int argc, char* argv[]);
+void config_parse_parse(int argc, char* argv[argc]);
 
-stomp_app_config config_parse_args(int argc, char* argv[]) {
+stomp_app_config config_parse_args(int argc, char* argv[argc]) {
     config_main.port = NULL;
     config_main.processors = 0;
     config_main.max_input_queue_size = 0;

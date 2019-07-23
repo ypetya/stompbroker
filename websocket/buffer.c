@@ -44,10 +44,7 @@ void ws_buffer_resize(buffer_item * buffer, size_t old_len, size_t new_len) {
 
         buffer->received_len = new_len;
 
-        if (new_len < old_len)
-            ws_buffer_stat.allocated_size -= old_len - new_len; // ensure -- ==> +
-        else
-            ws_buffer_stat.allocated_size += new_len - old_len;
+        ws_buffer_stat.allocated_size += new_len - old_len;
     }
 }
 

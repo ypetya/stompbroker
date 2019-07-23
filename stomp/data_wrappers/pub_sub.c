@@ -127,8 +127,8 @@ void pubsub_remove_client(int client_session_id) {
 int pubsub_find_matching(char* topic_mask, general_list * matches) {
 
     if (topics->size == 0) return matches->size;
-    // NOTE: This function should be harnessed in a higher abstraction level \
-not to use wildcards in the topic_mask
+    /* NOTE: This function should be harnessed in a higher abstraction level not
+     *  to use wildcards in the topic_mask */
     char * topic_mask_wild_card = strchr(topic_mask, '*');
     int topic_mask_len = topic_mask_wild_card == NULL ?
             strlen(topic_mask) :
@@ -151,8 +151,8 @@ not to use wildcards in the topic_mask
         // if no wild-card and length does not match
         // or there is a wildcard but len is shorter
         // => it is a no match!
-        if (wild_card == NULL && len2 != topic_mask_len
-                || wild_card != NULL && topic_mask_len < len2
+        if ((wild_card == NULL && len2 != topic_mask_len) ||
+                (wild_card != NULL && topic_mask_len < len2)
                 ) {
             c = c->next;
             continue;
