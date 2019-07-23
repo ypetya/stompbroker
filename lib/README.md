@@ -11,7 +11,9 @@ Maintains the size information
 ## thread_safe_queue
 
 Inserting and removing elements are guarded by pthread_mutex locks.
-Based on queue
+Dequeue operations are waiting on conditional thread wait, which are provided by
+the queue counterpart.
+Based on queue.
 
 ## avltree
 
@@ -24,7 +26,7 @@ ratio is high.
 ## associative_array
 
 A basic tree structure with a node having a left, right element.
-Each node can contain a key and a value char *.
+Each node can contain a key and a value string.
 
 ## clone_str
 
