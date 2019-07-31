@@ -6,21 +6,20 @@
 #include "emalloc.h"
 
 inline static void *emalloc(size_t size) {
-    void *p = malloc(size);
-    if (p == NULL) {
-        fprintf(stderr, "Out of memory!\n");
-        exit(1);
+    void *p = calloc(size,1);
+    if (!p) {
+        perror("Could not allocate memory!");
+        exit(EXIT_FAILURE);
     }
-    memset(p, '\0', size);
 
     return p;
 }
 
 inline static void *erealloc(void *ptr, size_t size) {
     void *p = realloc(ptr, size);
-    if (p == NULL) {
-        fprintf(stderr, "Out of memory!\n");
-        exit(1);
+    if (!p) {
+        perror("Could not reallocate memory!");
+        exit(EXIT_FAILURE);
     }
 
     return p;

@@ -21,8 +21,7 @@
 
 int start_listening(char *port, int backlog);
 
-int do_listen(char *port, int backlog)
-{
+int do_listen(char *port, int backlog) {
     int listenSockFD = start_listening(port, backlog);
     exitOnSignal();
     accept_incoming_data_loop(listenSockFD);
@@ -40,29 +39,25 @@ int start_listening(char *port, int backlog) {
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_flags = AI_PASSIVE; // use my IP
 
-    if ((rv = getaddrinfo(NULL, port, &hints, &servinfo)) != 0)
-    {
+    if ((rv = getaddrinfo(NULL, port, &hints, &servinfo)) != 0) {
         warn("getaddrinfo: %s\n", gai_strerror(rv));
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     // loop through all the results and bind to the first we can
-    for (p = servinfo; p != NULL; p = p->ai_next)
-    {
-        if ((listenSockFD = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1)
-        {
+    for (p = servinfo; p != NULL; p = p->ai_next) {
+        if ((listenSockFD = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
             perror("server: socket");
             continue;
         }
 
-        if (setsockopt(listenSockFD, SOL_SOCKET, SO_REUSEADDR, &YES, sizeof(int)) == -1)
-        {
+        if (setsockopt(listenSockFD, SOL_SOCKET, SO_REUSEADDR, &YES,
+                sizeof (int)) == -1) {
             perror("setsockopt");
-            exit(1);
+            exit(EXIT_FAILURE);
         }
 
-        if (bind(listenSockFD, p->ai_addr, p->ai_addrlen) == -1)
-        {
+        if (bind(listenSockFD, p->ai_addr, p->ai_addrlen) == -1) {
             close(listenSockFD);
             perror("server: bind");
             continue;
@@ -73,17 +68,15 @@ int start_listening(char *port, int backlog) {
 
     freeaddrinfo(servinfo); // all done with this structure
 
-    if (p == NULL)
-    {
+    if (!p) {
         warn("server: failed to bind\n");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
-    if (listen(listenSockFD, backlog) == -1)
-    {
+    if (listen(listenSockFD, backlog) == -1) {
         perror("listen");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
-    
+
     return listenSockFD;
 }

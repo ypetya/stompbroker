@@ -17,7 +17,7 @@ void exitOnSignal() {
     signalActionStruct.sa_flags = SA_RESTART;
     if (sigaction(SIGINT, &signalActionStruct, NULL) == -1) {
         perror("sigaction");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     // if we try to write to a closed socket -> do nothing

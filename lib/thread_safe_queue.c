@@ -21,12 +21,12 @@ void ts_put_head(ts_queue *q, void *new_data) {
 void ts_enqueue_multiple(ts_queue *q, general_list* new_items) {
     pthread_mutex_lock(&q->lock);
     general_list_item * first = new_items->first;
-    if (first != NULL) {
+    if (first) {
         pthread_cond_signal(&q->has_new_elements);
         do {
             enqueue(&q->q, first->data);
             first = first->next;
-        } while (first != NULL);
+        } while (first);
     }
     pthread_mutex_unlock(&q->lock);
 }

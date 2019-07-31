@@ -52,7 +52,7 @@ int enqueue_limited(queue * q, void *new_data, unsigned int limit) {
 
 void* dequeue(queue * q) {
     general_list_item * head = q->first;
-    if(head==NULL) return NULL;
+    if(!head) return NULL;
     void * data = head->data;
     q->first = head->next;
     if(q->last==head) q->last=NULL;
@@ -69,7 +69,7 @@ void unchain_child(queue * q, general_list_item * parent, general_list_item * ch
     q->size--;
 
     // was first item
-    if(parent==NULL) q->first=child->next;
+    if(!parent) q->first=child->next;
     else parent->next = child->next;
     // was last item
     if(q->last==child) q->last=parent;
@@ -77,14 +77,14 @@ void unchain_child(queue * q, general_list_item * parent, general_list_item * ch
   
 // NOTE: caution! - frees up the data!
 void queue_free(queue *q) {
-    general_list_item* c = q->first;
-    general_list_item* n;
+    general_list_item* current_item = q->first;
+    general_list_item* next_item;
 
-    while (c != NULL) {
-        n = c->next;
-        free(c->data);
-        free(c);
-        c = n;
+    while (current_item) {
+        next_item = current_item->next;
+        free(current_item->data);
+        free(current_item);
+        current_item = next_item;
     }
 }
 
