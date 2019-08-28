@@ -1,10 +1,8 @@
 #include <node.h>
 
-//#define DEBUG 1
-//#define DEBUG_OUTPUT
-
-// pick-up all the implementations
-
+extern "C" {
+    
+// pick-up all the implementations    
 #include "lib/emalloc.c"
 #include "lib/general_list.c"
 #include "lib/queue.c"
@@ -19,6 +17,7 @@
 #include "stomp/main.h"
 #include "server/main.h"
 
+}
 
 using v8::Exception;
 using v8::FunctionCallbackInfo;

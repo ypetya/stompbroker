@@ -1,50 +1,72 @@
+#include <stdio.h>
+#include <string.h>
 #include "lib/minunit.h"
 
-#include <stdio.h>
+#define LINE_LEN 100
+typedef char STR[LINE_LEN];
+
+// BEGIN mock logs info
 int calls=0;
-
-typedef char STR[100];
-
 STR strings[2] = {0};
 
-// mock info
 #define SERVER_LOGGER_H
-#define info(...) sprintf(strings[calls++], __VA_ARGS__)
+#define info(...) snprintf(strings[calls++], LINE_LEN, __VA_ARGS__)
 
 #include "print_system_info.c"
 
-#include <string.h>
-static char * test_print_system_info() {
-    print_system_info();
+#undef SERVER_LOGGER_H
+#undef info
+// END mock logs info
+
+int is_numeric(char c) {
+    return c >= '0' && c <= '9';
+}
+
+/**
+ * s1 can contain numeric characters but will get skipped at comparison
+ * @param s1
+ * @param s2
+ * @return 0 if equals - omitting the numerals in s1
+ */
+int strcmp_wo_nums(char* s1,char* s2) {
+    if(!s1 || !s2) return -1;
     
-    int str1 = strcmp("system: Has 4 processors configured and 4 processors available.\n", strings[0]);
-    //printf(strings[0]);
-    mu_assert("First string does not match!", str1==0 );
+    int len1 = strlen(s1);
+    int len2 = strlen(s2);
     
+    if(len1<len2) return -1;
     
-    str1 = strcmp("system: Maximum file descriptors (ulimit): 1048576.\n", strings[1]);
-    //printf(strings[1]);
-    mu_assert("Second string does not match!", str1==0 );
-    
+    for(int i=0,j=0;j<len2;){
+        if(is_numeric(s1[i])) {
+            i++;
+            continue;
+        };
+        if(s1[i]!=s2[j]) return s1[i]-s2[i];
+        i++;
+        j++;
+    }
     
     return 0;
 }
 
-
- static char * all_tests() {
-     mu_run_test(test_print_system_info);
-     return 0;
- }
- 
- int main(int argc, char **argv) {
-     char *result = all_tests();
-     if (result != 0) {
-         printf("%s\n", result);
-     }
-     else {
-         printf("ALL TESTS PASSED\n");
-     }
-     printf("Tests run: %d\n", tests_run);
- 
-     return result != 0;
- }
+static char * test_print_system_info() {
+    print_system_info();
+    
+    int str1 = strcmp_wo_nums(
+        strings[0],
+        "system: Has  processors configured and  processors available.\n");
+    
+    //printf(strings[0]);
+    mu_assert("Expected to print available processors!", str1==0 );
+    
+    
+    str1 = strcmp_wo_nums(
+            strings[1],
+            "system: Maximum file descriptors (ulimit): .\n");
+    
+    //printf(strings[1]);
+    mu_assert("Expected to print maximum file descriptors!", str1==0 );
+    
+    
+    return 0;
+}

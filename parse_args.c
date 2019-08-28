@@ -3,9 +3,9 @@
 #include "logger.h"
 #include <string.h>
 
-stomp_app_config config_main;
+static stomp_app_config config_main;
 
-char buffer[20] = {0};
+static char buffer[20] = {0};
 
 void config_parse_parse(int argc, char* argv[]);
 
