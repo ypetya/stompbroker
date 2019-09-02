@@ -15,7 +15,7 @@ parsed_message* parse_message(message_with_timestamp* message) {
     pm->command = parse_command(message);
 
     if (pm->command > 0) {
-        pm->headers = emalloc(sizeof (associative_array));
+        pm->headers = aa_create();
 
         char * next_line = next_row(message->content);
         

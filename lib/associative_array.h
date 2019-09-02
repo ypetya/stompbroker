@@ -34,10 +34,11 @@ extern "C" {
     void aa_put(associative_array* aa, char * key, char * value);
     int aa_has(aa_item* aa, char * key);
     aa_item* aa_get(aa_item* aa, char * key);
+    associative_array * aa_create();
     void aa_free(associative_array * aa);
     void aa_merge(associative_array* target, aa_item* tree);
     char* aa_create_str_representation(aa_item* aa);
-
+    
 
 #ifdef __cplusplus
 }

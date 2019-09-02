@@ -39,7 +39,7 @@ void aa_set_or_put_item(aa_item* a, char * key, char * value) {
 }
 
 int aa_has(aa_item* aa, char * key) {
-    if (aa == NULL) return -1;
+    if (aa == NULL) return 0;
 
     int c = strcmp(aa->key, key);
 
@@ -137,4 +137,9 @@ void aa_free(associative_array * aa) {
         aa_item_free(aa->root);
         free(aa);
     }
+}
+
+
+associative_array * aa_create() {
+    return emalloc(sizeof (associative_array));
 }

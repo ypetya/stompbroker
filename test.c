@@ -3,9 +3,14 @@
 #include "lib/minunit.h"
 
 #include "print_system_info_test.c"
+#include "lib/emalloc.c"
+#include "lib/clone_str.c"
+#include "lib/associative_array_test.c"
 
 static char * all_tests() {
     mu_run_test(test_print_system_info);
+    
+    mu_run_test(test_associative_array);
     return 0;
 }
 

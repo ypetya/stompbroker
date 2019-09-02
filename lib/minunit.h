@@ -17,6 +17,7 @@ int is_numeric(char c) {
     return c >= '0' && c <= '9';
 }
 
+#include "string.h"
 /**
  * s1 can contain numeric characters but will get skipped at comparison
  * @param s1
