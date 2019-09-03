@@ -39,12 +39,59 @@ static char * test_should_find_values() {
     return 0;
 }
 
+static char * test_should_be_able_to_query_the_depth_of_an_item() {    
+    // GIVEN
+    aa = aa_create();
+    int depth_level=0;
+    
+    aa_put(aa, "first", "1");
+    mu_assert("The weight of the root element should be 0", aa->root->height==0);
+    // WHEN
+    depth_level = aa_has(aa->root, "first");
+    // THEN
+    mu_assert("The element 'first' should be at depth 1.", depth_level==1);
+  
+    aa_put(aa, "second", "2");
+    mu_assert("The weight of the root element should be +1", aa->root->height==1);
+    // WHEN
+    depth_level = aa_has(aa->root, "second");
+    // THEN
+    mu_assert("The element 'second' should be at depth 2.", depth_level==2);
+
+    aa_put(aa, "third", "3");
+    mu_assert("The tree should balance itself.", aa->root->height==0);
+    aa_put(aa, "fourth", "3");
+     mu_assert("The weight of the root element should be -1", aa->root->height==-1);
+   
+     // Check the new balanced state
+    
+    // WHEN
+    depth_level = aa_has(aa->root, "first");
+    // THEN
+    mu_assert("The element 'first' should be at depth 2.", depth_level==2);
+    // WHEN
+    depth_level = aa_has(aa->root, "second");
+    // THEN
+    mu_assert("The element 'second' should be at depth 1.", depth_level==1);
+    // WHEN
+    depth_level = aa_has(aa->root, "third");
+    // THEN
+    mu_assert("The element 'third' should be at depth 2.", depth_level==2);
+    // WHEN
+    depth_level = aa_has(aa->root, "fourth");
+    // THEN
+    mu_assert("The element 'fourth' should be at depth 2.", depth_level==2);
+    
+    aa_free(aa);
+    return 0;
+}
+
 
 static char * test_associative_array() {
 
     mu_run_test(test_get_returns_false_on_empty_arr);
-    
     mu_run_test(test_should_find_values);
+    mu_run_test(test_should_be_able_to_query_the_depth_of_an_item);
 
     return 0;
 }

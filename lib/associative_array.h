@@ -21,6 +21,7 @@ extern "C" {
 #endif
 
     typedef struct aa_item_st {
+        int height;
         char * key;
         char * value;
         struct aa_item_st * left;
