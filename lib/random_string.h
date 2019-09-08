@@ -19,7 +19,7 @@ extern "C" {
 #endif
 
     void print_random_str(int len);
-
+    char * random_str(int len);
 
 
 #ifdef __cplusplus

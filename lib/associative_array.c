@@ -32,7 +32,7 @@ int balance(aa_item* node) {
     int left = 0,right = 0;
     if (node->left && node->left->height) left = node->left->height;
     if (node->right && node->right->height) right = node->right->height;
-    return left - right;
+    return right - left;
 }
 
 /**
@@ -74,13 +74,13 @@ int aa_set_or_put_item(aa_item** p, aa_item* a, char * key, char * value) {
             if (balance(a->left) <= 0) {
                 aa_rotate_right(p, a);
             } else {
-                aa_rotate_right_left(p, a);
+                aa_rotate_left_right(p, a);
             }
         } else if (b > 1) {
             if (balance(a->right) >= 0) {
                 aa_rotate_left(p, a);
             } else {
-                aa_rotate_left_right(p, a);
+                aa_rotate_right_left(p, a);
             }
         }
 
@@ -138,8 +138,8 @@ void aa_rotate_right(aa_item** parents_pointer, aa_item* node) {
     node->left = tmp->right;
     tmp->right = node;
     *parents_pointer = tmp;
-    node->height-=1;
-    tmp->height+=1;
+    node->height= max_h(node) + 1;//-= tmp->height;
+    tmp->height= max_h(tmp) + 1;
 }
 
 void aa_rotate_left(aa_item** parents_pointer, aa_item* node) {
@@ -147,8 +147,8 @@ void aa_rotate_left(aa_item** parents_pointer, aa_item* node) {
     node->right = tmp->left;
     tmp->left = node;
     *parents_pointer = tmp;
-    node->height-=1;
-    tmp->height+=1;
+    node->height= max_h(node) + 1;//-= tmp->height;
+    tmp->height= max_h(tmp) + 1;
 }
 
 void aa_rotate_right_left(aa_item** parents_pointer, aa_item* node) {
@@ -234,7 +234,7 @@ aa_item * aa_item_create(char* key, char* value) {
     ptr->key = clone_str(key);
     ptr->value = clone_str(value);
     ptr->left = ptr->right = NULL;
-    ptr->height = 0;
+    ptr->height = 1;
 
     return ptr;
 }
