@@ -15,18 +15,11 @@ Dequeue operations are waiting on conditional thread wait, which are provided by
 the queue counterpart.
 Based on queue.
 
-## avltree
-
-Not implemented yet
-
-there is a need to implement key-value based data structure.
-avltree is a balanced tree focusing on the case where the get/insert
-ratio is high.
-
 ## associative_array
 
 A basic tree structure with a node having a left, right element.
 Each node can contain a key and a value string.
+Search is O(log n).
 
 ## clone_str
 

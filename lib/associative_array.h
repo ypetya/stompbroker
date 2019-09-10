@@ -3,10 +3,7 @@
  * 
  * It has a facade over key-value map
  * 
- * underlying implementation can be some tree implementation,
- * prefix tree, avl tree or hashmap.
- * 
- * FIXME: implementation is an unbalanced tree now
+ * underlying implementation is a height balanced tree.
  * 
  * Author: peter
  *

@@ -20,7 +20,7 @@ static char * test_get_returns_false_on_empty_arr() {
     return 0;
 }
 
-static char * test_should_find_values() {    
+static char * test_should_find_keys() {    
     // GIVEN
     aa = aa_create();
     
@@ -35,6 +35,26 @@ static char * test_should_find_values() {
     int exists = aa_has(aa->root, "second");
     // THEN
     mu_assert("Has expected to find 'second' as an existing item", exists);
+    
+    aa_free(aa);
+    return 0;
+}
+
+static char * test_should_return_null_on_key_not_found() {
+     // GIVEN
+    aa = aa_create();
+    
+    aa_put(aa, "first", "1");
+    aa_put(aa, "second", "2");
+    
+    // WHEN
+    aa_item* has = aa_get(aa->root, "third");
+    // THEN
+    mu_assert("Get expected to return falsey when no match.", !has);
+    // WHEN
+    int exists = aa_has(aa->root, "third");
+    // THEN
+    mu_assert("Has expected to return falsey when no match.", !exists);
     
     aa_free(aa);
     return 0;
@@ -167,11 +187,12 @@ static char * test_balance_with_a_load() {
     aa = aa_create();
     
     for(int i=0;i<count;i++) aa_put(aa, strings[i], "1");
-    
+    // n <= 2^(h+1)-1
+    // Why 12?
     mu_assert("The tree with 1024 strings should be 12 tall tops",
             aa->root->height<=12);
     
-    //printf("%s %d\n",aa->root->key,aa->root->height);
+    printf("%s %d\n",aa->root->key,aa->root->height);
     
     for(int i=0;i<count;i++) free(strings[i]);
     
@@ -181,7 +202,8 @@ static char * test_balance_with_a_load() {
 
 static char * test_associative_array() {
     mu_run_test(test_get_returns_false_on_empty_arr);
-    mu_run_test(test_should_find_values);
+    mu_run_test(test_should_find_keys);
+    mu_run_test(test_should_return_null_on_key_not_found);
     mu_run_test(test_elem_heights_on_insertion);
     mu_run_test(test_balance_with_rotate_left);
     mu_run_test(test_balance_with_rotate_right);

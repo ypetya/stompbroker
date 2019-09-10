@@ -153,7 +153,8 @@ The first character of the line can contain the following status codes:
 ~ message exchange "Workerqueue distribution" with special topic name (only a single topic is guaranteed to keep the orders balanced)
 - Introduce new internal queue for ACK/NACK: ack_queue, with command line arg ack_timeout
 ? multiple message dispatcher threads
-+ Lower CPU load: replace sleeping thread loops with mutex to wait/notify awake in threadsafe queue 
++ Lower CPU load: replace sleeping thread loops with mutex to wait/notify awake in threadsafe queue
++ balanced tree implementation for associative array
 ```
 
 Running

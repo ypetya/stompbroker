@@ -162,16 +162,22 @@ void aa_rotate_left_right(aa_item** parents_pointer, aa_item* node) {
 }
 
 int aa_has(aa_item* aa, char * key) {
-    if (aa == NULL) return 0;
+    int found = 0;
+    if (aa == NULL) return found;
 
     int c = strcmp(key, aa->key);
 
     if (c == 0) {
         return 1;
     } else if (c < 0) {
-        return aa_has(aa->left, key) + 1;
+        found = aa_has(aa->left, key);
+    } else {
+        found = aa_has(aa->right, key);
     }
-    return aa_has(aa->right, key) + 1;
+    
+    if(found) return found + 1;
+    
+    return found;
 }
 
 aa_item* aa_get(aa_item* aa, char * key) {
