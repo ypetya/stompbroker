@@ -21,7 +21,7 @@ static void *emalloc (size_t size)
   void *p = malloc(size);
   if (p == NULL) {
     fprintf(stderr, "Out of memory!\n");
-    exit(1);
+    exit(EXIT_FAILURE);
   }
 
   return p;

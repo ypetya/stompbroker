@@ -242,7 +242,7 @@ int ws_dataframe_read_headers(buffer_item* buf) {
     }
 
     uint64_t payload_len = 0;
-
+    // TODO could we use some shiny union instead of variable len header parsing
     int len = buffer[1] & 0x7f;
     int header_len = 0;
     if (len < 126) {

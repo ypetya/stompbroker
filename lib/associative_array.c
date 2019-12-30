@@ -89,6 +89,59 @@ int aa_set_or_put_item(aa_item** p, aa_item* a, char * key, char * value) {
     return inserted_new;
 }
 
+
+/**
+ * 
+ * @param a
+ * @param key
+ * @param value
+ * @return TRUE if new item created 
+ */
+int aa_remove_item(aa_item** p, aa_item* a, char * key) {
+    int item_removed = 0;
+    int c = strcmp(key, a->key);
+
+    if (c == 0) {
+        item_removed = 1;
+        // FIXME: chaining
+        free(a->value);
+        free(a->key);
+        free(a);
+        *p=NULL;
+    } else if (c < 0) {
+        if (a->left) {
+            item_removed = aa_remove_item(&a->left, a->left, key);
+        }
+    } else if (c > 0) {
+        if (a->right) {
+            item_removed = aa_remove_item(&a->right, a->right, key);
+        }
+    }
+
+    if (item_removed) {
+        a->height = max_h(a) + 1;
+
+        int b = balance(a);
+        if (b<-1) {
+            if (balance(a->left) <= 0) {
+                aa_rotate_right(p, a);
+            } else {
+                aa_rotate_left_right(p, a);
+            }
+        } else if (b > 1) {
+            if (balance(a->right) >= 0) {
+                aa_rotate_left(p, a);
+            } else {
+                aa_rotate_right_left(p, a);
+            }
+        }
+
+    }
+
+    return item_removed;
+}
+
+
 /*
  * Fundamental
  * 
