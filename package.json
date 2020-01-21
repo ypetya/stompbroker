@@ -28,10 +28,12 @@
     ],
     "scripts": {
         "release": "npm version patch && npm publish && git push --tags",
-        "prepublish": "npm run build",
+        "preversion": "npm run build",
         "build-with-npm-defaults": "npm install",
         "build": "npm run pre-build && node-gyp build",
-        "pre-build": "node-gyp configure"
+        "pre-build": "npm run test && npm run clean && node-gyp configure",
+        "clean": "rm -rf ./build",
+        "test": "./test.sh"
     },
     "license": "AGPL-3.0-or-later"
 }
