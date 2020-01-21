@@ -1,12 +1,13 @@
 {
     "name": "stompica",
     "version": "0.0.6",
-    "description": "Stompbroker 4 development purposes - accessible via websocket and or raw text socket",
+    "description": "Stomp broker 4 development purposes - accessible via websocket and or raw text socket",
     "main": "index.js",
+    "types": "index.d.ts",
     "gypfile": true,
     "dependencies": {
-        "node-addon-api": "*",
-        "bindings": "*"
+        "bindings": "*",
+        "node-addon-api": "*"
     },
     "keywords": [
         "stomp",
@@ -27,8 +28,10 @@
     ],
     "scripts": {
         "release": "npm version patch && npm publish && git push --tags",
+        "prepublish": "npm run build",
         "build-with-npm-defaults": "npm install",
-        "build": "node-gyp build"
+        "build": "npm run pre-build && node-gyp build",
+        "pre-build": "node-gyp configure"
     },
     "license": "AGPL-3.0-or-later"
 }

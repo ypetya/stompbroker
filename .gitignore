@@ -9,3 +9,4 @@ node_modules
 # TODO: add back after documenting is ready
 doxy
 Doxyfile
+build

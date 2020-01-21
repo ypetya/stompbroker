@@ -1,4 +1,7 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
 
 var stompica = require('bindings')('stompica');
 
-stompica.runSync();
+exports.runDefault = stompica.runDefault;
+exports.run = stompica.run;
