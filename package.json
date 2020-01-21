@@ -1,6 +1,6 @@
 {
     "name": "stompica",
-    "version": "0.0.6",
+    "version": "0.0.7",
     "description": "Stomp broker 4 development purposes - accessible via websocket and or raw text socket",
     "main": "index.js",
     "types": "index.d.ts",
