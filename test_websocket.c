@@ -639,68 +639,222 @@ static void test_accept_key_rfc_sample(void) {
     free(accept);
 }
 
-/** Runs the old filter and returns the queued response (or NULL). Caller frees. */
-static char *old_handshake(int fd, const char *request) {
-    ts_queue q;
-    ts_queue_init(&q);
-    message_with_timestamp *m = message_create_with_timestamp(fd, (char *) request, 0);
-    ws_input_filter_handshake(&q, m);
-    message_destroy_with_timestamp(m);
-    char *resp = NULL;
-    if (q.q.size > 0) {
-        message_with_frame_len *r = ts_dequeue(&q);
-        resp = strdup(r->content);
-        message_destroy_with_frame_len(r);
-    }
-    return resp;
+#define REQ_LINE "GET /chat HTTP/1.1\r\n"
+#define REQ_STD_HEADERS "Host: server.example.com\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
+#define REQ_KEY "Sec-WebSocket-Key: " RFC_SAMPLE_KEY "\r\n"
+#define REQ_V13 "Sec-WebSocket-Version: 13\r\n"
+#define VALID_REQUEST REQ_LINE REQ_STD_HEADERS REQ_KEY REQ_V13 "\r\n"
+
+/** Runs the pure handshake; returns the status, response copied to *resp (caller frees). */
+static int handshake(const char *request, const ws_handshake_policy *policy, char **resp, char *protocol) {
+    ws_handshake_result r;
+    int status = ws_handshake_process(request, strlen(request), policy, &r);
+    *resp = r.response ? strndup(r.response, r.response_len) : NULL;
+    if (protocol) strcpy(protocol, r.protocol);
+    ws_handshake_result_free(&r);
+    return status;
+}
+
+static int starts_with(const char *s, const char *prefix) {
+    return s != NULL && strncmp(s, prefix, strlen(prefix)) == 0;
 }
 
 static void test_handshake_valid(void) {
-    char *resp = old_handshake(new_test_fd(),
-            "GET /chat HTTP/1.1\r\nHost: server.example.com\r\nUpgrade: websocket\r\n"
-            "Connection: Upgrade\r\nSec-WebSocket-Key: " RFC_SAMPLE_KEY "\r\n"
-            "Sec-WebSocket-Version: 13\r\n\r\n");
-    WS_CHECK(resp != NULL && strncmp(resp, "HTTP/1.1 101", 12) == 0);
-    WS_CHECK(resp != NULL && strstr(resp, "Sec-WebSocket-Accept: " RFC_SAMPLE_ACCEPT "\r\n") != NULL);
+    char *resp;
+    WS_CHECK(handshake(VALID_REQUEST, NULL, &resp, NULL) == WS_HANDSHAKE_OK);
+    WS_CHECK(starts_with(resp, "HTTP/1.1 101 Switching Protocols\r\n"));
+    WS_CHECK(resp != NULL && strstr(resp, "\r\nSec-WebSocket-Accept: " RFC_SAMPLE_ACCEPT "\r\n") != NULL);
+    WS_CHECK(resp != NULL && strstr(resp, "\r\nUpgrade: websocket\r\n") != NULL);
+    WS_CHECK(resp != NULL && strstr(resp, "Sec-WebSocket-Protocol") == NULL);
+    WS_CHECK(resp != NULL && strlen(resp) > 4 && strcmp(resp + strlen(resp) - 4, "\r\n\r\n") == 0);
     free(resp);
 }
 
 static void test_handshake_mixed_case_headers(void) {
-    char *resp = old_handshake(new_test_fd(),
-            "GET /chat HTTP/1.1\r\nhost: server.example.com\r\nupgrade: WebSocket\r\n"
-            "connection: keep-alive, Upgrade\r\nsec-websocket-key: " RFC_SAMPLE_KEY "\r\n"
-            "SEC-WEBSOCKET-VERSION: 13\r\n\r\n");
-    WS_CHECK(resp != NULL && strncmp(resp, "HTTP/1.1 101", 12) == 0);
+    char *resp;
+    WS_CHECK(handshake(REQ_LINE "host: server.example.com\r\nupgrade: WebSocket\r\n"
+            "connection: keep-alive, Upgrade\r\nsec-websocket-key:   " RFC_SAMPLE_KEY "  \r\n"
+            "SEC-WEBSOCKET-VERSION: 13\r\n\r\n", NULL, &resp, NULL) == WS_HANDSHAKE_OK);
     WS_CHECK(resp != NULL && strstr(resp, RFC_SAMPLE_ACCEPT) != NULL);
     free(resp);
 }
 
 static void test_handshake_wrong_version(void) {
-    char *resp = old_handshake(new_test_fd(),
-            "GET /chat HTTP/1.1\r\nHost: h\r\nUpgrade: websocket\r\n"
-            "Connection: Upgrade\r\nSec-WebSocket-Key: " RFC_SAMPLE_KEY "\r\n"
-            "Sec-WebSocket-Version: 8\r\n\r\n");
-    WS_CHECK(resp != NULL && strncmp(resp, "HTTP/1.1 426", 12) == 0);
+    char *resp;
+    WS_CHECK(handshake(REQ_LINE REQ_STD_HEADERS REQ_KEY "Sec-WebSocket-Version: 8\r\n\r\n", NULL, &resp, NULL)
+            == WS_HANDSHAKE_UPGRADE_REQUIRED);
+    WS_CHECK(starts_with(resp, "HTTP/1.1 426"));
+    WS_CHECK(resp != NULL && strstr(resp, "\r\nSec-WebSocket-Version: 13\r\n") != NULL);
+    free(resp);
+    WS_CHECK(handshake(REQ_LINE REQ_STD_HEADERS REQ_KEY "\r\n", NULL, &resp, NULL) == WS_HANDSHAKE_UPGRADE_REQUIRED);
     free(resp);
 }
 
 static void test_handshake_missing_key(void) {
-    char *resp = old_handshake(new_test_fd(),
-            "GET /chat HTTP/1.1\r\nHost: h\r\nUpgrade: websocket\r\n"
-            "Connection: Upgrade\r\nSec-WebSocket-Version: 13\r\n\r\n");
-    WS_CHECK(resp != NULL && strncmp(resp, "HTTP/1.1 400", 12) == 0);
+    char *resp;
+    WS_CHECK(handshake(REQ_LINE REQ_STD_HEADERS REQ_V13 "\r\n", NULL, &resp, NULL) == WS_HANDSHAKE_BAD_REQUEST);
+    WS_CHECK(starts_with(resp, "HTTP/1.1 400"));
     free(resp);
 }
 
+static void test_handshake_bad_requests(void) {
+    const char *bad[] = {
+        "POST /chat HTTP/1.1\r\n" REQ_STD_HEADERS REQ_KEY REQ_V13 "\r\n", /* method */
+        "GET /chat HTTP/1.0\r\n" REQ_STD_HEADERS REQ_KEY REQ_V13 "\r\n", /* version */
+        "GET  HTTP/1.1\r\n" REQ_STD_HEADERS REQ_KEY REQ_V13 "\r\n", /* empty target */
+        REQ_LINE "Upgrade: websocket\r\nConnection: Upgrade\r\n" REQ_KEY REQ_V13 "\r\n", /* no Host */
+        REQ_LINE "Host: h\r\nConnection: Upgrade\r\n" REQ_KEY REQ_V13 "\r\n", /* no Upgrade */
+        REQ_LINE "Host: h\r\nUpgrade: websocket\r\nConnection: keep-alive\r\n" REQ_KEY REQ_V13 "\r\n",
+        REQ_LINE REQ_STD_HEADERS "Sec-WebSocket-Key: c2hvcnQ=\r\n" REQ_V13 "\r\n", /* 4 byte key */
+        REQ_LINE REQ_STD_HEADERS "Sec-WebSocket-Key: !!!!!!!!!!!!!!!!!!!!!!==\r\n" REQ_V13 "\r\n",
+        REQ_LINE REQ_STD_HEADERS "this line has no colon\r\n" REQ_KEY REQ_V13 "\r\n",
+    };
+    for (size_t i = 0; i < sizeof (bad) / sizeof (bad[0]); i++) {
+        char *resp;
+        int status = handshake(bad[i], NULL, &resp, NULL);
+        WS_CHECK(status == WS_HANDSHAKE_BAD_REQUEST);
+        if (status != WS_HANDSHAKE_BAD_REQUEST) printf("      case %zu\n", i);
+        WS_CHECK(starts_with(resp, "HTTP/1.1 400"));
+        free(resp);
+    }
+}
+
+static void test_handshake_oversize_request(void) {
+    size_t len = WS_HANDSHAKE_MAX_SIZE + 10;
+    char *req = repeat_char('a', len);
+    memcpy(req, "GET / HTTP/1.1\r\nX-Pad: ", 23);
+    ws_handshake_result r;
+    WS_CHECK(ws_handshake_process(req, len, NULL, &r) == WS_HANDSHAKE_BAD_REQUEST);
+    ws_handshake_result_free(&r);
+    free(req);
+}
+
+static void test_handshake_subprotocol(void) {
+    char *resp;
+    char protocol[16];
+    WS_CHECK(handshake(REQ_LINE REQ_STD_HEADERS REQ_KEY REQ_V13
+            "Sec-WebSocket-Protocol: v10.stomp, v11.stomp, v12.stomp\r\n\r\n", NULL, &resp, protocol) == WS_HANDSHAKE_OK);
+    WS_CHECK(strcmp(protocol, "v12.stomp") == 0);
+    WS_CHECK(resp != NULL && strstr(resp, "\r\nSec-WebSocket-Protocol: v12.stomp\r\n") != NULL);
+    free(resp);
+
+    WS_CHECK(handshake(REQ_LINE REQ_STD_HEADERS REQ_KEY REQ_V13
+            "Sec-WebSocket-Protocol: mqtt\r\nsec-websocket-protocol: V10.STOMP\r\n\r\n", NULL, &resp, protocol) == WS_HANDSHAKE_OK);
+    WS_CHECK(strcmp(protocol, "v10.stomp") == 0);
+    free(resp);
+
+    WS_CHECK(handshake(REQ_LINE REQ_STD_HEADERS REQ_KEY REQ_V13
+            "Sec-WebSocket-Protocol: mqtt, wamp\r\n\r\n", NULL, &resp, protocol) == WS_HANDSHAKE_OK);
+    WS_CHECK(protocol[0] == '\0' && resp != NULL && strstr(resp, "Sec-WebSocket-Protocol") == NULL);
+    free(resp);
+}
+
+static void test_handshake_origin_and_host_policy(void) {
+    char *resp;
+    const char *from_good = REQ_LINE REQ_STD_HEADERS REQ_KEY REQ_V13 "Origin: https://good.example\r\n\r\n";
+    const char *from_evil = REQ_LINE REQ_STD_HEADERS REQ_KEY REQ_V13 "Origin: https://evil.example\r\n\r\n";
+
+    /* default: allow everything */
+    WS_CHECK(handshake(from_evil, NULL, &resp, NULL) == WS_HANDSHAKE_OK);
+    free(resp);
+    ws_handshake_policy empty = {"", ""};
+    WS_CHECK(handshake(from_evil, &empty, &resp, NULL) == WS_HANDSHAKE_OK);
+    free(resp);
+
+    ws_handshake_policy origins = {"https://a.example, HTTPS://GOOD.EXAMPLE", NULL};
+    WS_CHECK(handshake(from_good, &origins, &resp, NULL) == WS_HANDSHAKE_OK);
+    free(resp);
+    WS_CHECK(handshake(from_evil, &origins, &resp, NULL) == WS_HANDSHAKE_FORBIDDEN);
+    WS_CHECK(starts_with(resp, "HTTP/1.1 403"));
+    free(resp);
+    WS_CHECK(handshake(VALID_REQUEST, &origins, &resp, NULL) == WS_HANDSHAKE_OK); /* no Origin: non-browser */
+    free(resp);
+
+    ws_handshake_policy hosts = {NULL, "server.example.com"};
+    WS_CHECK(handshake(VALID_REQUEST, &hosts, &resp, NULL) == WS_HANDSHAKE_OK);
+    free(resp);
+    WS_CHECK(handshake(REQ_LINE "Host: server.example.com:3490\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
+            REQ_KEY REQ_V13 "\r\n", &hosts, &resp, NULL) == WS_HANDSHAKE_OK);
+    free(resp);
+    WS_CHECK(handshake(REQ_LINE "Host: other.example\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
+            REQ_KEY REQ_V13 "\r\n", &hosts, &resp, NULL) == WS_HANDSHAKE_FORBIDDEN);
+    free(resp);
+}
+
+static void test_handshake_request_start_detection(void) {
+    WS_CHECK(ws_is_http_request_start("GET / HTTP/1.1", 14) == 1);
+    WS_CHECK(ws_is_http_request_start("GE", 2) == 0);
+    WS_CHECK(ws_is_http_request_start("CONNECT\n", 8) == -1);
+    WS_CHECK(ws_is_http_request_start("SEND\n", 5) == -1);
+    WS_CHECK(ws_is_http_request_start("GETX", 4) == -1);
+}
+
 static void test_handshake_split_request(void) {
+    const char *req = VALID_REQUEST "\x81\x80\x01\x02\x03\x04"; /* + an early empty frame */
+    size_t len = strlen(VALID_REQUEST) + 6;
+    for (size_t k = 1; k < strlen(VALID_REQUEST); k++) {
+        int fd = new_test_fd();
+        ws_handshake_result r;
+        WS_CHECK(ws_input_filter_handshake(fd, req, k, NULL, &r) == WS_HANDSHAKE_INCOMPLETE);
+        WS_CHECK(r.response == NULL && pending_bytes(fd) == k);
+        ws_handshake_result_free(&r);
+        WS_CHECK(ws_input_filter_handshake(fd, req + k, len - k, NULL, &r) == WS_HANDSHAKE_OK);
+        WS_CHECK(r.response != NULL && strstr(r.response, RFC_SAMPLE_ACCEPT) != NULL);
+        WS_CHECK(pending_bytes(fd) == 6); /* the early frame stays as WebSocket input */
+        ws_handshake_result_free(&r);
+        ws_buffer_free(ws_buffer_find(fd));
+    }
+}
+
+static void test_handshake_failure_clears_buffer(void) {
     int fd = new_test_fd();
-    char *first = old_handshake(fd, "GET /chat HTTP/1.1\r\nHost: h\r\nUpgrade: websocket\r\nConne");
-    char *second = old_handshake(fd, "ction: Upgrade\r\nSec-WebSocket-Key: " RFC_SAMPLE_KEY "\r\n"
-            "Sec-WebSocket-Version: 13\r\n\r\n");
-    WS_CHECK(first == NULL);
-    WS_CHECK(second != NULL && strncmp(second, "HTTP/1.1 101", 12) == 0);
-    free(first);
-    free(second);
+    const char *req = REQ_LINE REQ_STD_HEADERS REQ_V13 "\r\n";
+    ws_handshake_result r;
+    WS_CHECK(ws_input_filter_handshake(fd, req, 10, NULL, &r) == WS_HANDSHAKE_INCOMPLETE);
+    ws_handshake_result_free(&r);
+    WS_CHECK(ws_input_filter_handshake(fd, req + 10, strlen(req) - 10, NULL, &r) == WS_HANDSHAKE_BAD_REQUEST);
+    WS_CHECK(ws_buffer_find(fd) == NULL);
+    ws_handshake_result_free(&r);
+}
+
+/* ---------------------------------------------------------------------------
+ * Per-connection transport state (gap 6)
+ * ------------------------------------------------------------------------- */
+static void test_route_raw_stomp_stays_raw(void) {
+    int fd = new_test_fd();
+    ws_conn_reset(fd);
+    WS_CHECK(ws_conn_route(fd, "CONNECT\naccept-version:1.2\n\n", 29) == CONN_RAW_STOMP);
+    /* a later read that happens to start with "GET /" is still STOMP payload */
+    WS_CHECK(ws_conn_route(fd, "GET / HTTP/1.1\r\n", 16) == CONN_RAW_STOMP);
+    WS_CHECK(ws_conn_route(fd, "\n", 1) == CONN_RAW_STOMP);
+    ws_conn_reset(fd);
+}
+
+static void test_route_upgrade_then_frames(void) {
+    int fd = new_test_fd();
+    ws_conn_reset(fd);
+    WS_CHECK(ws_conn_route(fd, "GE", 2) == CONN_HTTP_PENDING);
+    WS_CHECK(ws_conn_route(fd, "T / HTTP/1.1", 12) == CONN_HTTP_PENDING);
+    ws_conn_set_state(fd, CONN_WS_OPEN); /* what the server does after a 101 */
+    WS_CHECK(ws_conn_route(fd, "GET / HTTP/1.1\r\n", 16) == CONN_WS_OPEN);
+
+    /* a STOMP frame whose body contains "GET /" is just a message */
+    unsigned char buf[128];
+    const char stomp[] = "SEND\ndestination:/a\n\nGET / HTTP/1.1\r\n";
+    size_t n = make_frame(buf, 1, WS_OP_TEXT, stomp, sizeof (stomp), 1);
+    ws_input_result r;
+    WS_CHECK(feed(fd, buf, n, &r) == WS_COMPLETE_DATAFRAME);
+    WS_CHECK(messages_equal(&r, stomp, sizeof (stomp)) && r.replies_len == 0);
+    ws_input_result_free(&r);
+
+    ws_conn_reset(fd);
+    WS_CHECK(ws_conn_get_state(fd) == CONN_NEW);
+}
+
+static void test_route_empty_read_keeps_new(void) {
+    int fd = new_test_fd();
+    ws_conn_reset(fd);
+    WS_CHECK(ws_conn_route(fd, "", 0) == CONN_NEW);
 }
 
 /* ---------------------------------------------------------------------------
@@ -738,6 +892,11 @@ int run_websocket_tests(void) {
     WS_RUN(test_close_without_code_is_echoed_empty);
     WS_RUN(test_messages_before_close_are_delivered);
 
+    printf("Connection transport state:\n");
+    WS_RUN(test_route_raw_stomp_stays_raw);
+    WS_RUN(test_route_upgrade_then_frames);
+    WS_RUN(test_route_empty_read_keeps_new);
+
     printf("WebSocket fragmentation:\n");
     WS_RUN(test_fragments_with_ping_between);
     WS_RUN(test_fragmented_binary_message);
@@ -762,7 +921,13 @@ int run_websocket_tests(void) {
     WS_RUN(test_handshake_mixed_case_headers);
     WS_RUN(test_handshake_wrong_version);
     WS_RUN(test_handshake_missing_key);
+    WS_RUN(test_handshake_bad_requests);
+    WS_RUN(test_handshake_oversize_request);
+    WS_RUN(test_handshake_subprotocol);
+    WS_RUN(test_handshake_origin_and_host_policy);
+    WS_RUN(test_handshake_request_start_detection);
     WS_RUN(test_handshake_split_request);
+    WS_RUN(test_handshake_failure_clears_buffer);
 
     ws_deinit_buffer();
     session_storage_dispose();

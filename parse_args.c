@@ -16,6 +16,8 @@ void config_init() {
     config_main.max_input_queue_size = 0;
     config_main.max_stale_queue_size = 0;
     config_main.ttl = 0;
+    config_main.ws_allowed_origins = NULL;
+    config_main.ws_allowed_hosts = NULL;
 }
 
 void config_setup_missing_defaults() {
@@ -42,6 +44,9 @@ void config_setup_missing_defaults() {
     info("server: max_input_queue_size: %d max_stale_queue_size: %d\n",
             config_main.max_input_queue_size, config_main.max_stale_queue_size);
     info("server: TTL: %d micro-seconds\n", config_main.ttl);
+    info("server: ws_allowed_origins: %s ws_allowed_hosts: %s\n",
+            config_main.ws_allowed_origins ? config_main.ws_allowed_origins : "(any)",
+            config_main.ws_allowed_hosts ? config_main.ws_allowed_hosts : "(any)");
 }
 
 stomp_app_config config_setup_by_args(int processors,
@@ -94,6 +99,10 @@ void config_parse_parse(int argc, char* argv[]) {
         } else if (strncmp("max_stale_queue_size", token, 20) == 0) {
             token = strtok(NULL, "=");
             sscanf(token, "%d", &config_main.max_stale_queue_size);
+        } else if (strncmp("ws_allowed_origins", token, 18) == 0) {
+            config_main.ws_allowed_origins = strtok(NULL, "");
+        } else if (strncmp("ws_allowed_hosts", token, 16) == 0) {
+            config_main.ws_allowed_hosts = strtok(NULL, "");
         } else if (strncmp("TTL", token, 3) == 0) {
             token = strtok(NULL, "=");
             sscanf(token, "%d", &config_main.ttl);

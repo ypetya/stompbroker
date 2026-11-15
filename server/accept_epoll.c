@@ -17,6 +17,8 @@
 #include "../parse_args.h"
 #include "process.h"
 #include "../websocket/filter/dataframe.h"
+#include "../websocket/filter/handshake.h"
+#include "../websocket/buffer.h"
 #include "../stomp/data_wrappers/pub_sub.h"
 #include "data/message/with_timestamp.h"
 #include "data/cleanup.h"
@@ -150,20 +152,6 @@ void close_connection(int conn_sock, ts_queue * input_queue) {
     ws_conn_reset(conn_sock);
 }
 
-/**
- * Legacy detection: a masked frame marks the session as WebSocket.
- * Must be called with the session storage locked.
- */
-int is_websocket_connection(int conn_sock, const char *read_buffer, int received_length) {
-    if (session_storage_is_encoded(conn_sock)) return 1;
-    if (received_length > 1 && (read_buffer[1] & 0x80)) {
-        session_storage_set_encoded(conn_sock);
-        ws_conn_set_state(conn_sock, CONN_WS_OPEN);
-        return 1;
-    }
-    return 0;
-}
-
 /** Sends pre-encoded bytes through the writer threads (keeps output single-pathed). */
 void queue_raw_output(int conn_sock, const char *bytes, size_t len, int close_after) {
     ts_enqueue(process_output_queue(), message_create_raw(conn_sock, bytes, len, close_after));
@@ -211,42 +199,94 @@ void handle_websocket_data(int conn_sock, const char *data, int received_length,
     ws_input_result_free(&result);
 }
 
-void do_use_fd(int epollfd, int conn_sock, char* read_buffer, ts_queue * input_queue) {
-    int received_length = recv(conn_sock, read_buffer,
-            config->input_buffer_size, 0);
-    if (received_length < 1) {
-        if (errno == 0) {
-            info("server: socket closed nicely. fd:%d\n", conn_sock);
-        } else {
-            info("server: socked closed with error: %s\n", strerror(errno))
-        }
+/**
+ * HTTP upgrade request (possibly split over several reads). On success the
+ * session is marked encoded and switches to WebSocket framing; on failure the
+ * HTTP error is sent and the writer closes the connection.
+ */
+void handle_handshake_data(int conn_sock, const char *data, int received_length, ts_queue * input_queue) {
+    ws_handshake_policy policy = {config->ws_allowed_origins, config->ws_allowed_hosts};
+    ws_handshake_result result;
+    ws_handshake_status status = ws_input_filter_handshake(conn_sock, data, (size_t) received_length,
+            &policy, &result);
 
-        close_connection(conn_sock, input_queue);
-
-        epoll_ctl(epollfd, EPOLL_CTL_DEL, conn_sock, NULL);
-    } else {
-        if (ws_conn_get_state(conn_sock) == CONN_WS_CLOSING) return; // closing handshake in progress
-
+    if (status == WS_HANDSHAKE_OK) {
         session_storage_lock();
+        session_storage_set_encoded(conn_sock);
+        session_storage_unlock();
+        ws_conn_set_state(conn_sock, CONN_WS_OPEN);
+        queue_raw_output(conn_sock, result.response, result.response_len, 0);
+        info("server: websocket handshake done%s%s. fd:%d\n",
+                result.protocol[0] ? ", subprotocol " : "", result.protocol, conn_sock);
 
-        if (session_storage_add_new(conn_sock) == MAX_SESSION_NUMBER_EXCEEDED) {
-            warn("server: max session size exceeded, dropping connection on fd:%d\n", conn_sock);
-            // Sorry-sorry, no bananas left. :)
-            session_storage_unlock();
-            close(conn_sock);
+        buffer_item *pending = ws_buffer_find(conn_sock); // frames sent right after the request
+        if (pending != NULL && pending->received_len > 0)
+            handle_websocket_data(conn_sock, "", 0, input_queue);
+    } else if (status != WS_HANDSHAKE_INCOMPLETE) {
+        warn("server: websocket handshake rejected (%d). fd:%d\n", status, conn_sock);
+        ws_conn_set_state(conn_sock, CONN_WS_CLOSING);
+        queue_raw_output(conn_sock, result.response, result.response_len, 1);
+    }
+
+    ws_handshake_result_free(&result);
+}
+
+/**
+ * Routes one chunk of received bytes by the connection's transport state.
+ * @return 0 if the connection was dropped
+ */
+int process_received(int conn_sock, char * read_buffer, int received_length, ts_queue * input_queue) {
+    if (ws_conn_get_state(conn_sock) == CONN_WS_CLOSING) return 1; // closing handshake in progress
+
+    session_storage_lock();
+    if (session_storage_add_new(conn_sock) == MAX_SESSION_NUMBER_EXCEEDED) {
+        warn("server: max session size exceeded, dropping connection on fd:%d\n", conn_sock);
+        // Sorry-sorry, no bananas left. :)
+        session_storage_unlock();
+        close(conn_sock);
+        ws_conn_reset(conn_sock);
+        return 0;
+    }
+    session_storage_unlock();
+
+    switch (ws_conn_route(conn_sock, read_buffer, (size_t) received_length)) {
+        case CONN_RAW_STOMP:
+            put_stomp_messages_on_queue(conn_sock, read_buffer, input_queue, received_length);
+            break;
+        case CONN_HTTP_PENDING:
+            handle_handshake_data(conn_sock, read_buffer, received_length, input_queue);
+            break;
+        case CONN_WS_OPEN:
+            handle_websocket_data(conn_sock, read_buffer, received_length, input_queue);
+            break;
+        default:
+            break;
+    }
+    return 1;
+}
+
+/** Edge triggered: drain the socket until it would block. */
+void do_use_fd(int epollfd, int conn_sock, char* read_buffer, ts_queue * input_queue) {
+    for (;;) {
+        int received_length = recv(conn_sock, read_buffer,
+                config->input_buffer_size, 0);
+        if (received_length < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) return;
+        if (received_length < 0 && errno == EINTR) continue;
+
+        if (received_length < 1) {
+            if (received_length == 0) {
+                info("server: socket closed nicely. fd:%d\n", conn_sock);
+            } else {
+                info("server: socked closed with error: %s\n", strerror(errno))
+            }
+
+            close_connection(conn_sock, input_queue);
+
+            epoll_ctl(epollfd, EPOLL_CTL_DEL, conn_sock, NULL);
             return;
         }
 
-        int is_websocket = is_websocket_connection(conn_sock, read_buffer, received_length);
-        session_storage_unlock();
-
-        if (!is_websocket)
-            put_stomp_messages_on_queue(conn_sock,
-                read_buffer,
-                input_queue,
-                received_length);
-        else
-            handle_websocket_data(conn_sock, read_buffer, received_length, input_queue);
+        if (!process_received(conn_sock, read_buffer, received_length, input_queue)) return;
     }
 }
 
