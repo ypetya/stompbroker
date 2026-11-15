@@ -88,6 +88,7 @@ void accept_epoll(stomp_app_config * app_config, int listen_sock) {
                 clientAddressStr = inet_ntoa(addr.sin_addr);
                 info("server: got connection from %s, fd %d\n", clientAddressStr, conn_sock);
                 setnonblocking(conn_sock);
+                ws_conn_reset(conn_sock); // fd numbers are reused: drop stale transport state
                 ev.events = EPOLLIN | EPOLLET;
                 ev.data.fd = conn_sock;
                 if (epoll_ctl(epollfd, EPOLL_CTL_ADD, conn_sock,
@@ -146,6 +147,7 @@ void close_connection(int conn_sock, ts_queue * input_queue) {
     }
 
     clean_by_fd(conn_sock);
+    ws_conn_reset(conn_sock);
 }
 
 /**
@@ -156,9 +158,15 @@ int is_websocket_connection(int conn_sock, const char *read_buffer, int received
     if (session_storage_is_encoded(conn_sock)) return 1;
     if (received_length > 1 && (read_buffer[1] & 0x80)) {
         session_storage_set_encoded(conn_sock);
+        ws_conn_set_state(conn_sock, CONN_WS_OPEN);
         return 1;
     }
     return 0;
+}
+
+/** Sends pre-encoded bytes through the writer threads (keeps output single-pathed). */
+void queue_raw_output(int conn_sock, const char *bytes, size_t len, int close_after) {
+    ts_enqueue(process_output_queue(), message_create_raw(conn_sock, bytes, len, close_after));
 }
 
 /**
@@ -177,7 +185,12 @@ void handle_websocket_data(int conn_sock, const char *data, int received_length,
             input_queue,
             (int) result.messages_len - 1); // the last '\0' terminates the buffer
 
+    if (result.replies_len > 0)
+        queue_raw_output(conn_sock, result.replies, result.replies_len, result.close);
+
     if (result.close) {
+        // The writer closes TCP after the close frame is out; ignore input until then.
+        ws_conn_set_state(conn_sock, CONN_WS_CLOSING);
         switch (status) {
             case WS_OPCODE_CLIENT_DISCONNECT:
                 info("server: got websocket close (%d) from client. disconnecting fd:%d\n", result.close_code, conn_sock);
@@ -193,7 +206,6 @@ void handle_websocket_data(int conn_sock, const char *data, int received_length,
                 warn("server: websocket protocol error (%d). disconnecting fd:%d\n", result.close_code, conn_sock);
                 break;
         }
-        close_connection(conn_sock, input_queue);
     }
 
     ws_input_result_free(&result);
@@ -213,6 +225,8 @@ void do_use_fd(int epollfd, int conn_sock, char* read_buffer, ts_queue * input_q
 
         epoll_ctl(epollfd, EPOLL_CTL_DEL, conn_sock, NULL);
     } else {
+        if (ws_conn_get_state(conn_sock) == CONN_WS_CLOSING) return; // closing handshake in progress
+
         session_storage_lock();
 
         if (session_storage_add_new(conn_sock) == MAX_SESSION_NUMBER_EXCEEDED) {

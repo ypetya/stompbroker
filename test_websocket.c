@@ -355,6 +355,105 @@ static void test_fuzz_random_bytes_always_progress(void) {
     }
 }
 
+/* ---------------------------------------------------------------------------
+ * Control frames (gap 3)
+ * ------------------------------------------------------------------------- */
+static void test_ping_gets_pong(void) {
+    unsigned char buf[64];
+    size_t n = make_frame(buf, 1, WS_OP_PING, "beat", 4, 1);
+    int fd = new_test_fd();
+    ws_input_result r;
+    WS_CHECK(feed(fd, buf, n, &r) == WS_INCOMPLETE_DATAFRAME);
+    const unsigned char pong[] = {0x8A, 0x04, 'b', 'e', 'a', 't'};
+    WS_CHECK(r.replies_len == sizeof (pong) && memcmp(r.replies, pong, sizeof (pong)) == 0);
+    WS_CHECK(!r.close && r.messages == NULL);
+    ws_input_result_free(&r);
+}
+
+static void test_empty_ping_gets_empty_pong(void) {
+    unsigned char buf[16];
+    size_t n = make_frame(buf, 1, WS_OP_PING, "", 0, 1);
+    int fd = new_test_fd();
+    ws_input_result r;
+    feed(fd, buf, n, &r);
+    WS_CHECK(r.replies_len == 2 && (unsigned char) r.replies[0] == 0x8A && r.replies[1] == 0);
+    ws_input_result_free(&r);
+}
+
+static void test_pong_is_ignored(void) {
+    unsigned char buf[16];
+    size_t n = make_frame(buf, 1, WS_OP_PONG, "x", 1, 1);
+    int fd = new_test_fd();
+    ws_input_result r;
+    WS_CHECK(feed(fd, buf, n, &r) == WS_INCOMPLETE_DATAFRAME);
+    WS_CHECK(r.replies_len == 0 && !r.close && pending_bytes(fd) == 0);
+    ws_input_result_free(&r);
+}
+
+static void test_close_is_echoed(void) {
+    unsigned char buf[64];
+    const char payload[] = {0x03, (char) 0xE8, 'b', 'y', 'e'}; /* 1000 + reason */
+    size_t n = make_frame(buf, 1, WS_OP_CLOSE, payload, sizeof (payload), 1);
+    n += make_frame(buf + n, 1, WS_OP_TEXT, SMALL_STOMP, SMALL_STOMP_LEN, 1); /* after close: ignored */
+    int fd = new_test_fd();
+    ws_input_result r;
+    WS_CHECK(feed(fd, buf, n, &r) == WS_OPCODE_CLIENT_DISCONNECT);
+    const unsigned char echo[] = {0x88, 0x02, 0x03, 0xE8};
+    WS_CHECK(r.replies_len == sizeof (echo) && memcmp(r.replies, echo, sizeof (echo)) == 0);
+    WS_CHECK(r.close == 1 && r.close_code == 1000 && r.messages == NULL);
+    WS_CHECK(ws_buffer_find(fd) == NULL);
+    ws_input_result_free(&r);
+}
+
+static void test_close_without_code_is_echoed_empty(void) {
+    unsigned char buf[16];
+    size_t n = make_frame(buf, 1, WS_OP_CLOSE, "", 0, 1);
+    int fd = new_test_fd();
+    ws_input_result r;
+    feed(fd, buf, n, &r);
+    WS_CHECK(r.replies_len == 2 && (unsigned char) r.replies[0] == 0x88 && r.replies[1] == 0);
+    WS_CHECK(r.close == 1 && r.close_code == WS_CLOSE_NORMAL);
+    ws_input_result_free(&r);
+}
+
+static void test_messages_before_close_are_delivered(void) {
+    unsigned char buf[64];
+    size_t n = make_frame(buf, 1, WS_OP_TEXT, SMALL_STOMP, SMALL_STOMP_LEN, 1);
+    n += make_frame(buf + n, 1, WS_OP_CLOSE, "\x03\xe8", 2, 1);
+    int fd = new_test_fd();
+    ws_input_result r;
+    feed(fd, buf, n, &r);
+    WS_CHECK(messages_equal(&r, "SEND\n\n", 7) && r.close == 1);
+    ws_input_result_free(&r);
+}
+
+/* ---------------------------------------------------------------------------
+ * Output messages
+ * ------------------------------------------------------------------------- */
+static void test_raw_output_message_is_written_verbatim(void) {
+    const char bytes[] = {(char) 0x88, 0x02, 0x03, (char) 0xEA};
+    message_with_frame_len *m = message_create_raw(42, bytes, sizeof (bytes), 1);
+    WS_CHECK(m->raw == 1 && m->close_after == 1 && m->frame_len == 4);
+    WS_CHECK(ws_output_filter(m) == 4 && memcmp(m->content, bytes, 4) == 0 && m->fd == 42);
+    message_destroy_with_frame_len(m);
+}
+
+static void test_frame_len_matches_encoded_size(void) {
+    size_t sizes[] = {0, 124, 125, 126, 65534, 65535, 70000};
+    int fd = new_test_fd();
+    for (size_t i = 0; i < sizeof (sizes) / sizeof (sizes[0]); i++) {
+        char *body = repeat_char('f', sizes[i]);
+        message_with_frame_len *m = message_create_with_frame_len(session_set_encoded(fd), body);
+        size_t predicted = m->frame_len;
+        WS_CHECK(ws_output_filter(m) == predicted);
+        message_destroy_with_frame_len(m);
+        m = message_create_with_frame_len(fd, body); /* raw STOMP: body + NUL */
+        WS_CHECK(m->frame_len == sizes[i] + 1 && ws_output_filter(m) == sizes[i] + 1);
+        message_destroy_with_frame_len(m);
+        free(body);
+    }
+}
+
 static void test_fragmented_message(void) {
     unsigned char buf[128];
     size_t n = make_frame(buf, 0, 1, "SEND\ndesti", 10, 1);
@@ -556,6 +655,18 @@ int run_websocket_tests(void) {
     WS_RUN(test_reject_too_large_frame);
     WS_RUN(test_fuzz_random_bytes_always_progress);
     WS_RUN(test_fragmented_message);
+
+    printf("WebSocket control frames:\n");
+    WS_RUN(test_ping_gets_pong);
+    WS_RUN(test_empty_ping_gets_empty_pong);
+    WS_RUN(test_pong_is_ignored);
+    WS_RUN(test_close_is_echoed);
+    WS_RUN(test_close_without_code_is_echoed_empty);
+    WS_RUN(test_messages_before_close_are_delivered);
+
+    printf("Output messages:\n");
+    WS_RUN(test_raw_output_message_is_written_verbatim);
+    WS_RUN(test_frame_len_matches_encoded_size);
 
     printf("WebSocket frame codec:\n");
     WS_RUN(test_codec_decode_all_length_encodings);

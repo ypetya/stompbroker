@@ -9,10 +9,30 @@ buffer_item ws_buffer[WS_CONTINUATION_BUFFER];
 
 struct ws_buffer_stat_t ws_buffer_stat = {0};
 
+static unsigned char ws_conn_states[WS_MAX_FD + 1];
+
+static int ws_fd_in_range(int fd) {
+    return fd > 0 && fd <= WS_MAX_FD;
+}
+
+ws_conn_state ws_conn_get_state(int fd) {
+    return ws_fd_in_range(fd) ? (ws_conn_state) ws_conn_states[fd] : CONN_NEW;
+}
+
+void ws_conn_set_state(int fd, ws_conn_state state) {
+    if (ws_fd_in_range(fd)) ws_conn_states[fd] = (unsigned char) state;
+}
+
+void ws_conn_reset(int fd) {
+    ws_conn_set_state(fd, CONN_NEW);
+    ws_buffer_free(ws_buffer_find(fd));
+}
+
 void ws_init_buffer() {
     debug("server: Websocket buffer size: %d connections with %d bytes data in total.\n",
             WS_CONTINUATION_BUFFER, WS_MAX_BUFFER_SIZE);
     memset(ws_buffer, 0, sizeof (ws_buffer));
+    memset(ws_conn_states, 0, sizeof (ws_conn_states));
 }
 
 buffer_item* ws_buffer_find(int fd) {
@@ -57,8 +77,8 @@ void ws_deinit_buffer() {
     }
 }
 
-int ws_buffer_size_left(size_t size_left) {
-    return WS_MAX_BUFFER_SIZE - (ws_buffer_stat.allocated_size + size_left);
+long long ws_buffer_size_left(size_t size_left) {
+    return (long long) WS_MAX_BUFFER_SIZE - (long long) (ws_buffer_stat.allocated_size + size_left);
 }
 
 buffer_item* ws_buffer_add(int fd, const char *buffer, size_t read_len) {
@@ -73,9 +93,9 @@ buffer_item* ws_buffer_add(int fd, const char *buffer, size_t read_len) {
 
     ws_buff->fd = fd;
     ws_buff->received_len = read_len;
-    ws_buff->received = emalloc(read_len);
+    ws_buff->received = read_len > 0 ? emalloc(read_len) : NULL;
     ws_buffer_stat.allocated_size += read_len;
-    memcpy(ws_buff->received, buffer, read_len);
+    if (read_len > 0) memcpy(ws_buff->received, buffer, read_len);
     
     return ws_buff;
 }

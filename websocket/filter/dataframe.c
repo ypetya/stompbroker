@@ -136,6 +136,10 @@ static size_t encode_websocket_frame(char * buffer, char** out) {
 }
 
 size_t ws_output_filter(message_with_frame_len *m) {
+    if (m->raw) { // already encoded control frame / HTTP response
+        m->fd = session_without_flags(m->fd);
+        return m->frame_len;
+    }
     size_t len = strlen(m->content);
     if (session_is_encoded(m->fd)) {
         m->fd = session_without_flags(m->fd);

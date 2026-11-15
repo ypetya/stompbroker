@@ -1,5 +1,6 @@
 
 #include "with_payload_length.h"
+#include <string.h>
 #include "../../../lib/clone_str.h"
 #include "../../../lib/emalloc.h"
 #include "../session_storage.h"
@@ -15,20 +16,32 @@
 message_with_frame_len * message_create_with_frame_len(int fd, char * str) {
     message_with_frame_len * new_m = emalloc(sizeof (message_with_frame_len));
 
-    size_t len = strlen(str);
+    size_t str_len = strlen(str);
+    size_t len = str_len;
     if(fd>0){ 
-        if(session_is_encoded(fd)) { // calculate websocket message frame length
-            int header_len = 0;
-            if (len < 126) header_len = 2;
-            else if (len < 65536) header_len = 4;
-            else header_len = 10;
-            len+=header_len;
-        } 
         len+=1; // stomp message ends with \0
+        if(session_is_encoded(fd)) { // websocket frame header for a payload of len bytes
+            if (len < 126) len += 2;
+            else if (len < 65536) len += 4;
+            else len += 10;
+        } 
     }
-    new_m->content = clone_str_len(str, len);
+    new_m->content = clone_str_len(str, str_len);
     new_m->fd = fd;
     new_m->frame_len = len;
+
+    return new_m;
+}
+
+message_with_frame_len * message_create_raw(int fd, const char * bytes, size_t len, int close_after) {
+    message_with_frame_len * new_m = emalloc(sizeof (message_with_frame_len));
+
+    new_m->content = emalloc(len + 1);
+    memcpy(new_m->content, bytes, len);
+    new_m->fd = fd;
+    new_m->frame_len = len;
+    new_m->raw = 1;
+    new_m->close_after = close_after;
 
     return new_m;
 }

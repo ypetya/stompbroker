@@ -13,7 +13,7 @@
 
 #define MESSAGES_BATCH_SIZE 1000
 void ts_dequeue_multiple_messages_for_same_fd(message_with_frame_len* (*ret)[MESSAGES_BATCH_SIZE], ts_queue * q, int buffer_size);
-void w_close_connection(int conn_sock, int fd_with_session, ts_queue * input_queue);
+void w_close_connection(int conn_sock, int fd_with_session, ts_queue * input_queue, const char * reason);
 
 void *writer_thread(void *vargp) {
     worker_thread_data_struct * queues = vargp;
@@ -28,11 +28,12 @@ void *writer_thread(void *vargp) {
     message_with_frame_len* msg = NULL;
     message_with_frame_len * messages[MESSAGES_BATCH_SIZE] = {NULL};
 
-    int res = 0, i, buffer_ptr, fd, fd_with_session;
+    int res = 0, i, buffer_ptr, fd, fd_with_session, close_after;
     while (YES) {
         res = -1;
         fd = 0;
         fd_with_session = 0;
+        close_after = 0;
 
         for (int i = 0; i < MESSAGES_BATCH_SIZE; i++)messages[i] = NULL;
         ts_dequeue_multiple_messages_for_same_fd(&messages, output_queue, config->output_buffer_size);
@@ -54,6 +55,7 @@ void *writer_thread(void *vargp) {
                 continue; 
             }
             debug(">>>\n%s\n", msg->content);
+            close_after |= msg->close_after;
             size_t len = ws_output_filter(msg);
             memcpy(&write_buffer[buffer_ptr], msg->content, len);
             buffer_ptr += len;
@@ -75,7 +77,8 @@ void *writer_thread(void *vargp) {
 
                     if(retry_count<=0) {
                         // we have tried to recover, but failed.
-                        w_close_connection(fd, fd_with_session, input_queue);
+                        w_close_connection(fd, fd_with_session, input_queue, "drop blocked connection");
+                        close_after = 0;
                         break;
                     }
                 }
@@ -83,6 +86,9 @@ void *writer_thread(void *vargp) {
                 buffer_ptr -=res;              
             } while(buffer_ptr>0);   
         }
+
+        if (close_after) // e.g. WebSocket close frame sent: now close TCP
+            w_close_connection(fd, fd_with_session, input_queue, "closing connection after close frame");
     }
 
     return NULL;
@@ -132,8 +138,8 @@ void ts_dequeue_multiple_messages_for_same_fd(message_with_frame_len* (*ret)[MES
     pthread_mutex_unlock(&q->lock);
 }
 
-void w_close_connection(int conn_sock, int fd_with_session, ts_queue * input_queue) {
-    info("server: drop blocked connection. fd:%d\n", conn_sock);
+void w_close_connection(int conn_sock, int fd_with_session, ts_queue * input_queue, const char * reason) {
+    info("server: %s. fd:%d\n", reason, conn_sock);
 
     int fd_with_flags = session_set_cmd_purge(conn_sock);
     char * CMD = clone_str("CMD");
