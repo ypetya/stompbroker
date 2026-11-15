@@ -80,6 +80,16 @@ static void put_header(parsed_message *pm, const char *name, size_t name_len,
     free(val);
 }
 
+static int content_length_matches(const char *value, size_t body_len) {
+    size_t declared = 0;
+    if (*value == '\0') return 0;
+    for (const char *p = value; *p != '\0'; p++) {
+        if (*p < '0' || *p > '9' || declared > body_len) return 0;
+        declared = declared * 10 + (size_t) (*p - '0');
+    }
+    return declared == body_len;
+}
+
 static parsed_message *parse_error(parsed_message *pm, const char *reason) {
     pm->command = -1;
     pm->error = reason;
@@ -108,7 +118,14 @@ parsed_message* parse_frame(const char *frame, size_t len, clock_t ts) {
         put_header(pm, header.p, name_len, colon + 1, header.len - name_len - 1);
     }
 
-    pm->message_body = span_dup(frame + offset, len - offset);
+    pm->body_len = len - offset;
+    pm->message_body = span_dup(frame + offset, pm->body_len);
+
+    aa_item *declared = aa_get(pm->headers->root, "content-length");
+    if (declared != NULL && !content_length_matches(declared->value, pm->body_len))
+        return parse_error(pm, "Invalid frame: the body does not match its content-length!");
+    if (declared == NULL && memchr(pm->message_body, '\0', pm->body_len) != NULL)
+        return parse_error(pm, "Invalid frame: a body with NUL bytes needs a content-length header!");
 
     if (pm->command < 0) return parse_error(pm, "Invalid message!");
     return pm;

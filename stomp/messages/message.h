@@ -16,7 +16,7 @@ extern "C" {
     message_with_frame_len * message_send(int fd, int subscription_id,
             int message_id, char* dest, char* body);
     message_with_frame_len * message_send_with_headers(int fd, associative_array * headers,
-            char* body);
+            const char* body, size_t body_len);
     message_with_frame_len * message_diagnostic(int fd, char * key, char * value);
 
 #ifdef __cplusplus

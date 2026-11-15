@@ -14,9 +14,12 @@
  * this way strlen does not have to be run again on the message content.
 */
 message_with_frame_len * message_create_with_frame_len(int fd, char * str) {
+    return message_create_with_frame_len_n(fd, str, strlen(str));
+}
+
+message_with_frame_len * message_create_with_frame_len_n(int fd, const char * bytes, size_t str_len) {
     message_with_frame_len * new_m = emalloc(sizeof (message_with_frame_len));
 
-    size_t str_len = strlen(str);
     size_t len = str_len;
     if(fd>0){ 
         len+=1; // stomp message ends with \0
@@ -26,7 +29,9 @@ message_with_frame_len * message_create_with_frame_len(int fd, char * str) {
             else len += 10;
         } 
     }
-    new_m->content = clone_str_len(str, str_len);
+    new_m->content = emalloc(str_len + 1); // zeroed: the STOMP NUL is in place
+    if (str_len > 0) memcpy(new_m->content, bytes, str_len);
+    new_m->content_len = str_len;
     new_m->fd = fd;
     new_m->frame_len = len;
 
@@ -38,6 +43,7 @@ message_with_frame_len * message_create_raw(int fd, const char * bytes, size_t l
 
     new_m->content = emalloc(len + 1);
     memcpy(new_m->content, bytes, len);
+    new_m->content_len = len;
     new_m->fd = fd;
     new_m->frame_len = len;
     new_m->raw = 1;

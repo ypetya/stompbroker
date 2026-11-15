@@ -37,7 +37,8 @@ extern "C" {
         const char* error;
         associative_array *headers;
         char* receipt_id;
-        char* message_body;
+        char* message_body; // body_len bytes, '\0' terminated; may contain '\0' when content-length is given
+        size_t body_len;
         // SUBSCRIPTION destination
         char* topic;
         // SUBSCRIPTION id

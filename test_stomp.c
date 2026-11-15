@@ -444,6 +444,73 @@ static void test_framing_error_becomes_error_frame(void) {
     if (out) message_destroy_with_frame_len(out);
 }
 
+/* ---------------------------------------------------------------------------
+ * content-length (gap 9)
+ * ------------------------------------------------------------------------- */
+static void receive_bytes(int fd, const char *frame, size_t len) {
+    message_with_timestamp *m = message_create_with_timestamp_len(fd, frame, len, 0);
+    stomp_process(&st_input_queue, &st_stale_queue, &st_output_queue, m);
+    message_destroy_with_timestamp(m);
+}
+
+static int contains_bytes(const char *hay, size_t hay_len, const char *needle, size_t needle_len) {
+    for (size_t i = 0; i + needle_len <= hay_len; i++)
+        if (memcmp(hay + i, needle, needle_len) == 0) return 1;
+    return 0;
+}
+
+static void test_parse_body_with_nul_and_content_length(void) {
+    const char frame[] = "SEND\ndestination:/a\ncontent-length:3\n\na\0b";
+    parsed_message *pm = parse_frame(frame, sizeof (frame) - 1, 0);
+    ST_CHECK(pm->command == FRM_SEND_ID && pm->error == NULL);
+    ST_CHECK(pm->body_len == 3 && memcmp(pm->message_body, "a\0b", 3) == 0);
+    free_parsed_message(pm);
+}
+
+static void test_parse_rejects_content_length_mismatch(void) {
+    const char *frames[] = {
+        "SEND\ndestination:/a\ncontent-length:5\n\nabc",
+        "SEND\ndestination:/a\ncontent-length:1\n\nabc",
+        "SEND\ndestination:/a\ncontent-length:x\n\nabc"
+    };
+    for (int i = 0; i < 3; i++) {
+        parsed_message *pm = parse_frame(frames[i], strlen(frames[i]), 0);
+        ST_CHECK(pm->command == -1 && pm->error != NULL);
+        free_parsed_message(pm);
+    }
+    const char nul_without_length[] = "SEND\ndestination:/a\n\na\0b";
+    parsed_message *pm = parse_frame(nul_without_length, sizeof (nul_without_length) - 1, 0);
+    ST_CHECK(pm->command == -1 && pm->error != NULL);
+    free_parsed_message(pm);
+}
+
+static void test_body_with_nul_round_trips(void) {
+    connect_client(5);
+    receive(5, "SUBSCRIBE\nid:1\ndestination:/bin\n\n");
+    const char frame[] = "SEND\ndestination:/bin\ncontent-length:5\n\nx\0y\0z";
+    connect_client(6);
+    receive_bytes(6, frame, sizeof (frame) - 1);
+    message_with_frame_len *m = next_output();
+    ST_CHECK(m != NULL && m->fd == 5 && starts_with(m->content, "MESSAGE\n"));
+    if (m != NULL) {
+        ST_CHECK(strstr(m->content, "\ncontent-length:5\n") != NULL);
+        ST_CHECK(m->content_len >= 7 && memcmp(m->content + m->content_len - 7, "\n\nx\0y\0z", 7) == 0);
+        size_t wire = ws_output_filter(m); /* raw TCP: frame + terminating NUL */
+        ST_CHECK(wire == m->content_len + 1 && m->content[m->content_len] == '\0');
+        message_destroy_with_frame_len(m);
+    }
+}
+
+static void test_body_with_nul_over_websocket(void) {
+    const char body[] = "MESSAGE\ncontent-length:3\n\na\0b";
+    message_with_frame_len *m = message_create_with_frame_len_n(session_set_encoded(9), body, sizeof (body) - 1);
+    size_t predicted = m->frame_len;
+    size_t len = ws_output_filter(m);
+    ST_CHECK(len == predicted && len == 2 + sizeof (body)); /* header + bytes + NUL */
+    ST_CHECK(contains_bytes(m->content, len, "a\0b\0", 4));
+    message_destroy_with_frame_len(m);
+}
+
 int run_stomp_tests(void) {
     printf("STOMP tests\n");
     session_storage_init();
@@ -469,6 +536,10 @@ int run_stomp_tests(void) {
     ST_RUN(test_framing_too_large_is_an_error);
     ST_RUN(test_framing_unterminated_headers_reach_the_parser);
     ST_RUN(test_framing_error_becomes_error_frame);
+    ST_RUN(test_parse_body_with_nul_and_content_length);
+    ST_RUN(test_parse_rejects_content_length_mismatch);
+    ST_RUN(test_body_with_nul_round_trips);
+    ST_RUN(test_body_with_nul_over_websocket);
 
     session_storage_dispose();
     printf("STOMP tests: %d run, %d failed\n", st_tests_run, st_tests_failed);

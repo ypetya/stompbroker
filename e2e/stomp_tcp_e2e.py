@@ -227,6 +227,27 @@ def scenario_too_large_frame_gets_error_and_close(port):
     connected_client(port).close()
 
 
+def scenario_body_with_nul_round_trips(port):
+    c = connected_client(port)
+    subscribe(c, "/topic/bin", 1)
+    body = b"x\0y\0z"
+    c.send(b"SEND\ndestination:/topic/bin\ncontent-length:5\n\n" + body)
+    msg = c.recv_frame()
+    head, got = msg.split(b"\n\n", 1)
+    expect(got == body, f"body {got!r}")
+    expect(b"\ncontent-length:5" in head, f"headers {head!r}")
+    c.close()
+
+
+def scenario_content_length_mismatch_gets_error(port):
+    c = connected_client(port)
+    c.send(b"SEND\ndestination:/topic/bin\ncontent-length:2\n\nabc")  # no NUL after 2 bytes
+    reply = c.recv()
+    expect(reply.startswith("ERROR\n"), f"expected ERROR, got {reply[:60]!r}")
+    c.expect_eof()
+    c.close()
+
+
 SCENARIOS = [
     scenario_pubsub_round_trip,
     scenario_two_frames_in_one_write,
@@ -236,6 +257,8 @@ SCENARIOS = [
     scenario_frame_split_at_every_offset,
     scenario_large_frame_spans_reads,
     scenario_too_large_frame_gets_error_and_close,
+    scenario_body_with_nul_round_trips,
+    scenario_content_length_mismatch_gets_error,
 ]
 
 

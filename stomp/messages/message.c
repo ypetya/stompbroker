@@ -83,15 +83,15 @@ char* MESSAGE_TEMPLATE_WITH_HEADERS = "MESSAGE\n"
         "%s\n\n%s";
 
 message_with_frame_len * message_send_with_headers(int fd, associative_array * aa_headers,
-        char* body) {
+        const char* body, size_t body_len) {
     char* headers = aa_create_str_representation(aa_headers->root);
-    int template_len = (int) (strlen(MESSAGE_TEMPLATE_WITH_HEADERS) - 4);
-    int total_len = template_len + strlen(headers) + strlen(body);
+    int head_len = snprintf(NULL, 0, MESSAGE_TEMPLATE_WITH_HEADERS, headers, "");
 
-    char * frame = emalloc(total_len + 1);
-    sprintf(frame, MESSAGE_TEMPLATE_WITH_HEADERS, headers, body);
+    char * frame = emalloc((size_t) head_len + body_len + 1);
+    sprintf(frame, MESSAGE_TEMPLATE_WITH_HEADERS, headers, "");
+    if (body_len > 0) memcpy(frame + head_len, body, body_len); // body may contain '\0'
     free(headers);
-    message_with_frame_len * m = message_create_with_frame_len(fd, frame);
+    message_with_frame_len * m = message_create_with_frame_len_n(fd, frame, (size_t) head_len + body_len);
     free(frame);
     return m;
 }

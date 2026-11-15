@@ -57,7 +57,7 @@ int distribute_messages(
 
         aa_merge(message_headers, pm->headers->root);
         aa_put(message_headers, "content-type", "text/plain");
-        aa_put(message_headers, "content-length", itoa(strlen(pm->message_body)));
+        aa_put(message_headers, "content-length", itoa((int) pm->body_len));
         // Handle special topic, diagnostic messages
         if (strncmp(pm->topic, "DIAG", 4) == 0)
             create_diagnostic_headers(message_headers, pm->message_body,
@@ -71,7 +71,7 @@ int distribute_messages(
 
             message_with_frame_len * o = message_send_with_headers(sub->session_id,
                     message_headers,
-                    pm->message_body);
+                    pm->message_body, pm->body_len);
 
             list_add(messages_out, o);
 
@@ -152,14 +152,14 @@ void distribute_messages_from_stale_q(
 
             aa_merge(message_headers, pm->headers->root);
             aa_put(message_headers, "content-type", "text/plain");
-            aa_put(message_headers, "content-length", itoa(strlen(pm->message_body)));
+            aa_put(message_headers, "content-length", itoa((int) pm->body_len));
             add_next_message_id(message_headers);
             aa_put(message_headers, "destination", topic);
             aa_put(message_headers, "subscription", subscription_id);
 
             message_with_frame_len * o = message_send_with_headers(client_session_id,
                     message_headers,
-                    pm->message_body);
+                    pm->message_body, pm->body_len);
 
             list_add(messages_out, o);
 

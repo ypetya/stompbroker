@@ -130,21 +130,18 @@ size_t ws_encode_close(uint16_t code, char **out) {
  * Output filter
  * ====================================================================== */
 
-/** STOMP text frame including the closing '\0' of the STOMP message. */
-static size_t encode_websocket_frame(char * buffer, char** out) {
-    return ws_encode_frame(WS_OP_TEXT, buffer, strlen(buffer) + 1, out);
-}
 
 size_t ws_output_filter(message_with_frame_len *m) {
     if (m->raw) { // already encoded control frame / HTTP response
         m->fd = session_without_flags(m->fd);
         return m->frame_len;
     }
-    size_t len = strlen(m->content);
+    size_t len = m->content_len;
     if (session_is_encoded(m->fd)) {
         m->fd = session_without_flags(m->fd);
         char* encoded_message;
-        len = encode_websocket_frame(m->content, &encoded_message);
+        // text frame carrying the STOMP frame and its closing '\0'
+        len = ws_encode_frame(WS_OP_TEXT, m->content, m->content_len + 1, &encoded_message);
         free(m->content);
         m->content = encoded_message;
     } else if (strncasecmp(m->content, "HTTP", 4) != 0) len++; // STOMP needs a closing '\0' HTTP handshake must not!
