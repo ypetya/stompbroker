@@ -7,7 +7,7 @@
 
 char * ERROR_TEMPLATE = "ERROR\n"
         "content-type:text/plain\n"
-        "content-length:%d\n\n%s\n";
+        "content-length:%d\n\n%s";
 
 int len_of_int(unsigned int len) {
     if (len == 0) return 1;

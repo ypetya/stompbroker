@@ -134,7 +134,7 @@ int stomp_process(ts_queue* input_queue,
             break;
         }
         default:
-            resp = message_error(input->fd, "Invalid message!");
+            resp = message_error(input->fd, pm->error ? (char *) pm->error : "Invalid message!");
     }
 
     if (resp != NULL) {

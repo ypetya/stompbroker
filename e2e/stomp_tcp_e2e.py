@@ -145,9 +145,45 @@ def scenario_two_frames_in_one_write(port):
     c.close()
 
 
+def scenario_malformed_frame_gets_error(port):
+    c = connected_client(port)
+    c.send("SEND\ndestination:/x\n")  # headers end without the blank line (used to crash the broker)
+    reply = c.recv()
+    expect(reply.startswith("ERROR\n"), f"expected ERROR, got {reply[:60]!r}")
+    c.close()
+    connected_client(port).close()  # still alive
+
+
+def scenario_truncated_frames_loop(port):
+    """Every prefix of valid frames, each on a fresh connection: the broker must survive."""
+    frames = [
+        "SUBSCRIBE\nid:1\ndestination:/t/*\nreceipt:r\n\n",
+        "SEND\ndestination:/t/a\ncontent-length:5\n\nhello",
+        "CONNECT\naccept-version:1.2\n\n",
+    ]
+    c = connected_client(port)
+    for frame in frames:
+        for cut in range(len(frame) + 1):
+            c.send(frame[:cut])
+    drain_until_receipt(c, "end-of-loop")
+    c.close()
+    connected_client(port).close()
+
+
+def drain_until_receipt(client, receipt):
+    """Reads every pending reply: the broker answers frames in order, so the receipt comes last."""
+    client.send(f"SUBSCRIBE\nid:{receipt}\ndestination:/drain\nreceipt:{receipt}\n\n")
+    while True:
+        frame = client.recv()
+        if frame.startswith("RECEIPT\n") and headers_of(frame).get("receipt-id") == receipt:
+            return
+
+
 SCENARIOS = [
     scenario_pubsub_round_trip,
     scenario_two_frames_in_one_write,
+    scenario_malformed_frame_gets_error,
+    scenario_truncated_frames_loop,
 ]
 
 

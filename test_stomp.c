@@ -159,6 +159,90 @@ static void test_receipt_is_sent(void) {
     if (m) message_destroy_with_frame_len(m);
 }
 
+/* ---------------------------------------------------------------------------
+ * Malformed input (gap 1: remote segfault)
+ * ------------------------------------------------------------------------- */
+static void check_parse_error(const char *frame) {
+    message_with_timestamp *m = message_create_with_timestamp(5, (char *) frame, 0);
+    parsed_message *pm = parse_message(m);
+    ST_CHECK(pm->command == -1);
+    ST_CHECK(pm->error != NULL);
+    if (pm->command != -1) printf("    accepted malformed frame %s\n", frame);
+    free_parsed_message(pm);
+    message_destroy_with_timestamp(m);
+}
+
+static void test_parse_rejects_truncated_frames(void) {
+    check_parse_error("SEND\ndestination:/x\n"); /* headers end without a blank line */
+    check_parse_error("SEND\ndestination:/x");   /* header line without EOL */
+    check_parse_error("SEND");                   /* no EOL after the command */
+    check_parse_error("");                       /* empty frame */
+    check_parse_error("SEND\ndestination\n\n");  /* header without colon */
+    check_parse_error("SEND\r\ndestination:/x\r\n"); /* CRLF variant */
+}
+
+static void test_headers_without_blank_line_get_error(void) {
+    connect_client(5);
+    receive(5, "SEND\ndestination:/x\n");
+    ST_CHECK(expect_output("ERROR\n"));
+    receive(5, "SEND\ndestination\n\nbody");
+    ST_CHECK(expect_output("ERROR\n"));
+}
+
+/** Deterministic pseudo random numbers (xorshift32): reproducible fuzz runs. */
+static unsigned int fuzz_state = 2463534242u;
+
+static unsigned int fuzz_next(void) {
+    fuzz_state ^= fuzz_state << 13;
+    fuzz_state ^= fuzz_state >> 17;
+    fuzz_state ^= fuzz_state << 5;
+    return fuzz_state;
+}
+
+static const char *FUZZ_TOKENS[] = {
+    "SEND", "SUBSCRIBE", "UNSUBSCRIBE", "CONNECT", "STOMP", "DISCONNECT", "DIAG", "SENDX",
+    "\n", "\n", "\r\n", "\r", ":", "::", "destination", "id", "receipt", "content-length",
+    "accept-version", "1.2", "/t", "/t/*", "#q", "0", "5", "999999", "x", "", " ", "\\c"
+};
+
+/** 10k random and truncated frames through parser and handlers: must never crash (ASan). */
+static void test_fuzz_random_and_truncated_frames(void) {
+    const char *valid[] = {
+        "SUBSCRIBE\nid:1\ndestination:/t/*\nreceipt:r\n\n",
+        "SEND\ndestination:/t/a\ncontent-length:5\n\nhello",
+        "UNSUBSCRIBE\nid:1\n\n",
+        "DIAG\n\nsession",
+        "DISCONNECT\nreceipt:9\n\n",
+        "CONNECT\naccept-version:1.2\n\n"
+    };
+    size_t n_tokens = sizeof (FUZZ_TOKENS) / sizeof (FUZZ_TOKENS[0]);
+    char frame[512];
+    connect_client(5);
+    for (int i = 0; i < 10000; i++) {
+        if (i % 2 == 0) { /* truncation of a valid frame */
+            const char *v = valid[fuzz_next() % 6];
+            size_t cut = fuzz_next() % (strlen(v) + 1);
+            memcpy(frame, v, cut);
+            frame[cut] = '\0';
+        } else { /* random token soup */
+            size_t used = 0;
+            int tokens = (int) (fuzz_next() % 12);
+            frame[0] = '\0';
+            for (int t = 0; t < tokens; t++) {
+                const char *tok = FUZZ_TOKENS[fuzz_next() % n_tokens];
+                size_t tl = strlen(tok);
+                if (used + tl + 1 >= sizeof (frame)) break;
+                memcpy(frame + used, tok, tl);
+                used += tl;
+                frame[used] = '\0';
+            }
+        }
+        receive(5 + (int) (fuzz_next() % 3), frame);
+        drop_output();
+    }
+    ST_CHECK(1); /* reaching this point without a sanitizer report is the test */
+}
+
 int run_stomp_tests(void) {
     printf("STOMP tests\n");
     session_storage_init();
@@ -168,6 +252,9 @@ int run_stomp_tests(void) {
     ST_RUN(test_send_requires_connection);
     ST_RUN(test_pubsub_round_trip);
     ST_RUN(test_receipt_is_sent);
+    ST_RUN(test_parse_rejects_truncated_frames);
+    ST_RUN(test_headers_without_blank_line_get_error);
+    ST_RUN(test_fuzz_random_and_truncated_frames);
 
     session_storage_dispose();
     printf("STOMP tests: %d run, %d failed\n", st_tests_run, st_tests_failed);

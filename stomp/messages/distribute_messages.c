@@ -88,13 +88,13 @@ int distribute_messages(
                 ret = STOMP_MESSAGE_NOT_CONSUMED;
         }
         aa_free(message_headers);
-
-        list_clear(messages_out);
-        free(messages_out);
-
-        list_clear(matching_clients);
-        free(matching_clients);
     }
+
+    list_clear(messages_out);
+    free(messages_out);
+
+    list_clear(matching_clients);
+    free(matching_clients);
 
     return ret;
 }

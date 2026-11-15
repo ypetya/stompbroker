@@ -33,6 +33,8 @@ extern "C" {
 
     typedef struct parsed_message_st {
         int command;
+        // reason of a parse error (static string), NULL if the frame is valid
+        const char* error;
         associative_array *headers;
         char* receipt_id;
         char* message_body;
@@ -43,6 +45,9 @@ extern "C" {
         // time-stamp
         clock_t ts;
     } parsed_message;
+
+    /** Parses one frame (without its terminating NUL); never reads outside [frame, frame+len) */
+    parsed_message* parse_frame(const char *frame, size_t len, clock_t ts);
 
     parsed_message* parse_message(message_with_timestamp* message);
 
