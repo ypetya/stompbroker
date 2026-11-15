@@ -2,6 +2,8 @@
 #ifndef STRING_MESSAGE_WITH_PAYLOAD_LENGTH_H
 #define STRING_MESSAGE_WITH_PAYLOAD_LENGTH_H
 
+#include <stddef.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif

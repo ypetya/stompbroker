@@ -1,5 +1,6 @@
 
 #include <stdlib.h>
+#include <pthread.h>
 #include "../../lib/emalloc.h"
 #include "../../lib/general_list.h"
 #include "../../logger.h"
@@ -14,7 +15,9 @@ void session_storage_init() {
     info("Session storage supports %d connections\n", MAX_NUMBER_OF_CONNECTIONS)
     number_of_clients = 0;
     clients = emalloc(sizeof (int) * (MAX_NUMBER_OF_CONNECTIONS + 1));
-    pthread_mutex_init(&session_storage_mutex, (const pthread_mutexattr_t*) PTHREAD_PROCESS_PRIVATE);
+    // NULL = default attributes (process-private). Casting PTHREAD_PROCESS_PRIVATE
+    // to an attribute pointer only worked where that constant happens to be 0.
+    pthread_mutex_init(&session_storage_mutex, NULL);
 }
 
 void session_storage_lock() {

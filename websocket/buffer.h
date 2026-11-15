@@ -14,6 +14,8 @@
 #ifndef BUFFER_H
 #define BUFFER_H
 
+#include <stddef.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -36,6 +38,7 @@ extern "C" {
     int ws_buffer_size_left(size_t size_left);
 
     buffer_item* ws_buffer_find(int fd);
+    void ws_buffer_free(buffer_item * buffer);
     void ws_buffer_resize(buffer_item * buffer, size_t old_len, size_t new_len);
     buffer_item* ws_buffer_add(int fd, char*buffer, size_t len);
 

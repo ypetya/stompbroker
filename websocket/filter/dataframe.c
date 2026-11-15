@@ -1,6 +1,11 @@
 
 #include "dataframe.h"
+#include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
+#include <strings.h>
+#include <arpa/inet.h>
+#include "../ntohl.h"
 #include "../../logger.h"
 #include "../../lib/emalloc.h"
 #include "../../lib/thread_safe_queue.h"

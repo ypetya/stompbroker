@@ -1,6 +1,9 @@
 
 #include "buffer.h"
+#include <stdlib.h>
+#include <string.h>
 #include "../logger.h"
+#include "../lib/emalloc.h"
 
 buffer_item ws_buffer[WS_CONTINUATION_BUFFER];
 

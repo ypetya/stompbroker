@@ -1,5 +1,12 @@
 
 #include "handshake.h"
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <arpa/inet.h>
+#include "../../logger.h"
+#include "../../lib/emalloc.h"
 
 #include "../utils/md5.c"
 #include "../utils/sha1.c"

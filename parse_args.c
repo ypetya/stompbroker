@@ -1,6 +1,7 @@
 #include "parse_args.h"
 
 #include "logger.h"
+#include "lib/sysinfo_compat.h"
 #include <string.h>
 
 static stomp_app_config config_main;
