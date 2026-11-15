@@ -92,6 +92,7 @@ static int next_fd = 100;
 static int new_test_fd(void) {
     int fd = next_fd++;
     session_storage_add_new(fd);
+    session_storage_set_encoded(fd); /* as after a completed handshake */
     return fd;
 }
 
@@ -239,6 +240,91 @@ static void test_fragmented_message(void) {
 }
 
 /* ---------------------------------------------------------------------------
+ * Pure frame codec
+ * ------------------------------------------------------------------------- */
+static void check_decode_roundtrip(size_t len) {
+    char *body = repeat_char('p', len);
+    unsigned char *frame = malloc(len + 16);
+    size_t n = make_frame(frame, 1, WS_OP_TEXT, body, len, 1);
+    ws_frame f;
+    WS_CHECK(ws_decode_frame(frame, n, WS_DATA_FRAME_MAX_LENGTH, &f) == WS_DECODE_OK);
+    WS_CHECK(f.consumed == n && f.payload_len == len && f.fin == 1 && f.opcode == WS_OP_TEXT);
+    WS_CHECK(f.payload != NULL && memcmp(f.payload, body, len) == 0 && f.payload[len] == '\0');
+    free(f.payload);
+    /* every strict prefix is incomplete and consumes nothing */
+    for (size_t k = 0; k < n; k += (n > 300 ? 97 : 1)) {
+        WS_CHECK(ws_decode_frame(frame, k, WS_DATA_FRAME_MAX_LENGTH, &f) == WS_DECODE_NEED_MORE);
+        WS_CHECK(f.consumed == 0 && f.payload == NULL);
+    }
+    free(frame);
+    free(body);
+}
+
+static void test_codec_decode_all_length_encodings(void) {
+    size_t sizes[] = {0, 1, 7, 125, 126, 127, 65535, 65536, 70000};
+    for (size_t i = 0; i < sizeof (sizes) / sizeof (sizes[0]); i++) check_decode_roundtrip(sizes[i]);
+}
+
+static void test_codec_masking(void) {
+    /* RFC 6455 5.7: masked "Hello" */
+    const unsigned char hello[] = {0x81, 0x85, 0x37, 0xfa, 0x21, 0x3d, 0x7f, 0x9f, 0x4d, 0x51, 0x58};
+    ws_frame f;
+    WS_CHECK(ws_decode_frame(hello, sizeof (hello), 1000, &f) == WS_DECODE_OK);
+    WS_CHECK(f.payload_len == 5 && memcmp(f.payload, "Hello", 5) == 0 && f.consumed == sizeof (hello));
+    free(f.payload);
+}
+
+static void test_codec_frame_too_large(void) {
+    unsigned char frame[256];
+    char *body = repeat_char('b', 200);
+    size_t n = make_frame(frame, 1, WS_OP_TEXT, body, 200, 1);
+    ws_frame f;
+    WS_CHECK(ws_decode_frame(frame, n, 100, &f) == WS_DECODE_ERROR && f.close_code == WS_CLOSE_MESSAGE_TOO_BIG);
+    /* detected from the header alone, without waiting for the payload */
+    WS_CHECK(ws_decode_frame(frame, 4, 100, &f) == WS_DECODE_ERROR && f.close_code == WS_CLOSE_MESSAGE_TOO_BIG);
+    free(body);
+}
+
+static void check_encode(size_t len, size_t header_len, unsigned char len_byte) {
+    char *body = repeat_char('e', len);
+    char *out = NULL;
+    size_t n = ws_encode_frame(WS_OP_TEXT, body, len, &out);
+    WS_CHECK(n == header_len + len);
+    WS_CHECK((unsigned char) out[0] == 0x81 && (unsigned char) out[1] == len_byte);
+    if (header_len == 4) WS_CHECK((((unsigned char) out[2] << 8) | (unsigned char) out[3]) == len);
+    if (header_len == 10) {
+        uint64_t v = 0;
+        for (int i = 0; i < 8; i++) v = (v << 8) | (unsigned char) out[2 + i];
+        WS_CHECK(v == len);
+    }
+    WS_CHECK(memcmp(out + header_len, body, len) == 0);
+    WS_CHECK(ws_frame_header_len(len) == header_len);
+    free(out);
+    free(body);
+}
+
+static void test_codec_encode_length_boundaries(void) {
+    check_encode(0, 2, 0);
+    check_encode(125, 2, 125);
+    check_encode(126, 4, 126);
+    check_encode(65535, 4, 126);
+    check_encode(65536, 10, 127);
+}
+
+static void test_codec_encode_control(void) {
+    char *out = NULL;
+    size_t n = ws_encode_close(WS_CLOSE_PROTOCOL_ERROR, &out);
+    WS_CHECK(n == 4 && (unsigned char) out[0] == 0x88 && out[1] == 2);
+    WS_CHECK((unsigned char) out[2] == 0x03 && (unsigned char) out[3] == 0xEA); /* 1002 */
+    free(out);
+    char *big = repeat_char('c', 200);
+    n = ws_encode_control(WS_OP_PONG, big, 200, &out);
+    WS_CHECK(n == 2 + 125 && (unsigned char) out[0] == 0x8A && out[1] == 125);
+    free(out);
+    free(big);
+}
+
+/* ---------------------------------------------------------------------------
  * Handshake tests (gap 5), written against the current handshake contract.
  * ------------------------------------------------------------------------- */
 #define RFC_SAMPLE_KEY "dGhlIHNhbXBsZSBub25jZQ=="
@@ -331,6 +417,13 @@ int run_websocket_tests(void) {
     WS_RUN(test_ping_does_not_wedge_connection);
     WS_RUN(test_unknown_opcode_is_consumed);
     WS_RUN(test_fragmented_message);
+
+    printf("WebSocket frame codec:\n");
+    WS_RUN(test_codec_decode_all_length_encodings);
+    WS_RUN(test_codec_masking);
+    WS_RUN(test_codec_frame_too_large);
+    WS_RUN(test_codec_encode_length_boundaries);
+    WS_RUN(test_codec_encode_control);
 
     printf("WebSocket handshake:\n");
     WS_RUN(test_accept_key_rfc_sample);
