@@ -1,5 +1,11 @@
 #!/bin/bash
 
+if [ "$(uname -s)" != "Linux" ]; then
+    echo "The broker uses epoll and builds on Linux only."
+    echo "On $(uname -s) run the portable unit tests (make test test-ws) or everything in a container (make docker-test)."
+    exit 1
+fi
+
 rm -fv *.out
 DEBUG_OPTS=""
 if [ "debug" == "$1" ]; then
