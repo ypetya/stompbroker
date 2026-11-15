@@ -102,49 +102,25 @@ int pubsub_has_subscription(int client_session_id, const char* subscription_id) 
  * @param matches linked list pointer where the matches are collected to
  * @return number of matches or -1 on error
  */
+int pubsub_topic_matches(const char* pattern, const char* destination) {
+    const char * wild_card = strchr(pattern, '*');
+    if (wild_card == NULL) return strcmp(pattern, destination) == 0;
+    size_t prefix_len = (size_t) (wild_card - pattern);
+    return strlen(destination) >= prefix_len && strncmp(pattern, destination, prefix_len) == 0;
+}
+
+/**
+ * Collects the subscriptions matching a destination.
+ *
+ * @param topic_mask destination of the message (wildcards are rejected before)
+ * @param matches linked list pointer where the matches are collected to
+ * @return number of matches
+ */
 int pubsub_find_matching(char* topic_mask, general_list * matches) {
-
-    if (topics->size == 0) return matches->size;
-    /* NOTE: This function should be harnessed in a higher abstraction level not
-     *  to use wildcards in the topic_mask */
-    char * topic_mask_wild_card = strchr(topic_mask, '*');
-    int topic_mask_len = topic_mask_wild_card == NULL ?
-            strlen(topic_mask) :
-            topic_mask_wild_card - topic_mask;
-
-    int len2;
-    char * wild_card;
-    subscription * sub;
-
-    general_list_item * c = topics->first;
-
-    while (c != NULL) {
-        sub = c->data;
-
-        wild_card = strchr(sub->topic_pattern, '*');
-        len2 = wild_card == NULL ?
-                strlen(sub->topic_pattern) :
-                wild_card - sub->topic_pattern;
-
-        // if no wild-card and length does not match
-        // or there is a wildcard but len is shorter
-        // => it is a no match!
-        if ((wild_card == NULL && len2 != topic_mask_len) ||
-                (wild_card != NULL && topic_mask_len < len2)
-                ) {
-            c = c->next;
-            continue;
-        }
-
-        // MIN of topic_mask_len and len2
-        int len = topic_mask_len < len2 ? topic_mask_len : len2;
-        if (strncmp(topic_mask, sub->topic_pattern, len) == 0) {
-            list_add(matches, sub);
-        }
-
-        c = c->next;
+    for (general_list_item * c = topics->first; c != NULL; c = c->next) {
+        subscription * sub = c->data;
+        if (pubsub_topic_matches(sub->topic_pattern, topic_mask)) list_add(matches, sub);
     }
-
     return matches->size;
 }
 

@@ -43,12 +43,12 @@ extern "C" {
         char* topic;
         // SUBSCRIPTION id
         char* id;
-        // time-stamp
-        clock_t ts;
+        // receive time-stamp (micro-seconds, see message_timestamp_now)
+        long long ts;
     } parsed_message;
 
     /** Parses one frame (without its terminating NUL); never reads outside [frame, frame+len) */
-    parsed_message* parse_frame(const char *frame, size_t len, clock_t ts);
+    parsed_message* parse_frame(const char *frame, size_t len, long long ts);
 
     parsed_message* parse_message(message_with_timestamp* message);
 

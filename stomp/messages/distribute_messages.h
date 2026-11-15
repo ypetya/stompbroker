@@ -23,6 +23,13 @@ int distribute_messages(
     parsed_message * pm,
     unsigned int ttl);
 
+/** Bytes the stale queue is charged with (bounded by stale_queue_max_bytes). */
+size_t stale_queue_bytes(void);
+extern size_t stale_queue_max_bytes;
+
+/** Frees every stored message. */
+void stale_queue_clear(queue * stale_queue);
+
 void distribute_messages_from_stale_q(
     char * topic, int client_session_id, char* subscription_id, unsigned int generation,
     queue * stale_queue,

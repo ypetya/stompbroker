@@ -70,6 +70,7 @@ static void stomp_test_setup(void) {
     stomp_app_config *config = config_get_config();
     config->ttl = 0;
     config->max_stale_queue_size = 1000;
+    config->max_stale_queue_bytes = DEFAULT_STALE_QUEUE_BYTES;
     ts_queue_init(&st_input_queue);
     ts_queue_init(&st_output_queue);
     queue_init(&st_stale_queue);
@@ -554,16 +555,13 @@ static void test_unsubscribe_needs_only_id(void) {
 
 static void test_duplicate_subscription_id_rejected(void) {
     connect_client(5);
-    receive(5, "SUBSCRIBE\nid:1\ndestination:/a\n\n");
-    receive(5, "SUBSCRIBE\nid:1\ndestination:/a\nreceipt:dup\n\n");
-    message_with_frame_len *m = next_output();
-    ST_CHECK(m != NULL && starts_with(m->content, "ERROR\n"));
-    if (m) message_destroy_with_frame_len(m);
-    ST_CHECK(pubsub_size() == 1);
-    /* the same id on another connection is fine */
     connect_client(6);
-    receive(6, "SUBSCRIBE\nid:1\ndestination:/a\n\n");
-    ST_CHECK(output_count() == 0 && pubsub_size() == 2);
+    receive(6, "SUBSCRIBE\nid:1\ndestination:/a\n\n"); /* the same id on another connection is fine */
+    ST_CHECK(output_count() == 0);
+    receive(5, "SUBSCRIBE\nid:1\ndestination:/a\n\n");
+    receive(5, "SUBSCRIBE\nid:1\ndestination:/a/*\n\n");
+    ST_CHECK(expect_output("ERROR\n"));
+    ST_CHECK(pubsub_size() == 1); /* ERROR ended the session of fd 5 */
 }
 
 static void test_duplicate_subscription_id_no_double_delivery(void) {
@@ -573,7 +571,7 @@ static void test_duplicate_subscription_id_no_double_delivery(void) {
     drop_output();
     connect_client(6);
     receive(6, "SEND\ndestination:/a\n\nonce");
-    ST_CHECK(output_count() == 1);
+    ST_CHECK(output_count() == 0); /* never twice; the erroneous session gets nothing at all */
 }
 
 static void test_http_prefixed_output_keeps_nul(void) {
@@ -763,6 +761,168 @@ static void test_replies_carry_the_session_generation(void) {
     if (out) message_destroy_with_frame_len(out);
 }
 
+/* ---------------------------------------------------------------------------
+ * DISCONNECT, ERROR and version negotiation (gaps 4, 10)
+ * ------------------------------------------------------------------------- */
+static void test_disconnect_with_receipt_then_close(void) {
+    connect_client(5);
+    receive(5, "SUBSCRIBE\nid:1\ndestination:/d\n\n");
+    receive(5, "DISCONNECT\nreceipt:77\n\n");
+    message_with_frame_len *m = next_output();
+    ST_CHECK(m != NULL && strcmp(m->content, "RECEIPT\nreceipt-id:77\n\n") == 0 && m->close_after);
+    if (m) message_destroy_with_frame_len(m);
+    ST_CHECK(pubsub_size() == 0);
+    ST_CHECK(stomp_session_is_connected(5) == 0);
+}
+
+static void test_disconnect_without_receipt_closes(void) {
+    connect_client(5);
+    receive(5, "DISCONNECT\n\n");
+    message_with_frame_len *m = next_output();
+    ST_CHECK(m != NULL && m->close_after && m->raw && m->content_len == 0); /* nothing to send, just close */
+    if (m) message_destroy_with_frame_len(m);
+}
+
+static void test_error_has_receipt_id_and_closes(void) {
+    connect_client(5);
+    receive(5, "SUBSCRIBE\nid:1\ndestination:/e\n\n");
+    receive(5, "SUBSCRIBE\nid:1\ndestination:/e\nreceipt:dup\n\n");
+    message_with_frame_len *m = next_output();
+    ST_CHECK(m != NULL && starts_with(m->content, "ERROR\n") && strstr(m->content, "\nreceipt-id:dup\n"));
+    ST_CHECK(m != NULL && m->close_after);
+    ST_CHECK(m != NULL && strstr(m->content, "\nmessage:Subscription id is already in use!\n"));
+    if (m) message_destroy_with_frame_len(m);
+    /* the session is over: no more deliveries, frames are refused */
+    ST_CHECK(pubsub_size() == 0 && stomp_session_is_connected(5) == 0);
+}
+
+static void test_every_error_closes(void) {
+    const char *bad[] = {"INVALID\n\n", "SEND\n\nno destination", "SUBSCRIBE\nid:1\n\n", "CONNECT\naccept-version:1.2\n\n"};
+    for (int i = 0; i < 4; i++) {
+        connect_client(5);
+        receive(5, bad[i]);
+        message_with_frame_len *m = next_output();
+        ST_CHECK(m != NULL && starts_with(m->content, "ERROR\n") && m->close_after);
+        if (m) message_destroy_with_frame_len(m);
+        drop_output();
+        stomp_session_set_connected(5, 0);
+    }
+}
+
+static void check_version(const char *accept_version_header, const char *expected) {
+    char frame[128];
+    snprintf(frame, sizeof (frame), "CONNECT\n%s\n", accept_version_header);
+    receive(5, frame);
+    message_with_frame_len *m = next_output();
+    char version_line[32];
+    snprintf(version_line, sizeof (version_line), "\nversion:%s\n", expected);
+    ST_CHECK(m != NULL && starts_with(m->content, "CONNECTED\n") && strstr(m->content, version_line));
+    if (m == NULL || !strstr(m->content, version_line))
+        printf("    %s -> %s\n", accept_version_header, m ? m->content : "(nothing)");
+    if (m) message_destroy_with_frame_len(m);
+    stomp_session_set_connected(5, 0);
+}
+
+static void test_accept_version_negotiation(void) {
+    check_version("accept-version:1.2\n", "1.2");
+    check_version("accept-version:1.1\n", "1.1");
+    check_version("accept-version:1.0,1.1\n", "1.1");
+    check_version("accept-version:1.0, 1.1 ,1.2\n", "1.2");
+    check_version("host:x\n", "1.0"); /* no accept-version: a STOMP 1.0 client */
+}
+
+static void test_unsupported_version_is_rejected(void) {
+    receive(5, "CONNECT\naccept-version:2.0,1.3\n\n");
+    message_with_frame_len *m = next_output();
+    ST_CHECK(m != NULL && starts_with(m->content, "ERROR\n") && m->close_after);
+    ST_CHECK(m != NULL && strstr(m->content, "\nversion:1.0,1.1,1.2\n"));
+    if (m) message_destroy_with_frame_len(m);
+    ST_CHECK(stomp_session_is_connected(5) == 0);
+}
+
+/* ---------------------------------------------------------------------------
+ * TTL stale queue (gap 3)
+ * ------------------------------------------------------------------------- */
+static void receive_now(int fd, const char *frame) {
+    message_with_timestamp *m = message_create_with_timestamp(fd, (char *) frame, message_timestamp_now());
+    stomp_process(&st_input_queue, &st_stale_queue, &st_output_queue, m);
+    message_destroy_with_timestamp(m);
+}
+
+static void test_ttl_message_waits_for_subscriber(void) {
+    ttl = 5000 * 1000; /* TTL=5000 ms */
+    connect_client(6);
+    receive_now(6, "SEND\ndestination:/ttl/a\ncustom:1\n\nkept");
+    ST_CHECK(output_count() == 0 && st_stale_queue.size == 1);
+
+    connect_client(5);
+    receive_now(5, "SUBSCRIBE\nid:s1\ndestination:/ttl/*\n\n");
+    message_with_frame_len *m = next_output();
+    ST_CHECK(m != NULL && m->fd == 5 && starts_with(m->content, "MESSAGE\n"));
+    if (m != NULL) {
+        ST_CHECK(strstr(m->content, "\ndestination:/ttl/a\n") != NULL); /* the message's destination */
+        ST_CHECK(strstr(m->content, "\nsubscription:s1\n") != NULL && strstr(m->content, "\ncustom:1\n") != NULL);
+        ST_CHECK(m->content_len > 6 && memcmp(m->content + m->content_len - 6, "\n\nkept", 6) == 0);
+        message_destroy_with_frame_len(m);
+    }
+    ST_CHECK(st_stale_queue.size == 0 && stale_queue_bytes() == 0);
+}
+
+static void test_ttl_zero_stores_nothing(void) {
+    connect_client(6);
+    receive_now(6, "SEND\ndestination:/ttl/a\n\nlost");
+    ST_CHECK(st_stale_queue.size == 0);
+}
+
+static void test_ttl_expired_messages_are_dropped(void) {
+    ttl = 1000; /* 1 ms */
+    connect_client(6);
+    receive_now(6, "SEND\ndestination:/ttl/a\n\nold");
+    ST_CHECK(st_stale_queue.size == 1);
+    usleep(20000);
+    connect_client(5);
+    receive_now(5, "SUBSCRIBE\nid:s1\ndestination:/ttl/a\n\n");
+    ST_CHECK(output_count() == 0 && st_stale_queue.size == 0 && stale_queue_bytes() == 0);
+    /* expired messages also leave when a new one is stored */
+    receive_now(6, "SEND\ndestination:/ttl/b\n\nold");
+    usleep(20000);
+    receive_now(6, "SEND\ndestination:/ttl/c\n\nnew");
+    ST_CHECK(st_stale_queue.size == 1);
+}
+
+static void test_ttl_store_is_bounded(void) {
+    ttl = 5000 * 1000;
+    stale_queue_max_size = 2;
+    connect_client(6);
+    receive_now(6, "SEND\ndestination:/ttl/1\n\na");
+    receive_now(6, "SEND\ndestination:/ttl/2\n\nb");
+    receive_now(6, "SEND\ndestination:/ttl/3\n\nc"); /* dropped: count limit */
+    ST_CHECK(st_stale_queue.size == 2);
+    stale_queue_max_size = 1000;
+    stale_queue_max_bytes = stale_queue_bytes() + sizeof (parsed_message) + 10; /* room for a small one */
+    receive_now(6, "SEND\ndestination:/ttl/4\n\nthis body is too large for the byte limit");
+    ST_CHECK(st_stale_queue.size == 2);
+    receive_now(6, "SEND\ndestination:/t\n\nok");
+    ST_CHECK(st_stale_queue.size == 3);
+    stale_queue_max_bytes = DEFAULT_STALE_QUEUE_BYTES;
+}
+
+static void test_message_headers_forwarded_from_send(void) {
+    connect_client(5);
+    receive(5, "SUBSCRIBE\nid:s\ndestination:/h\n\n");
+    connect_client(6);
+    receive(6, "SEND\ndestination:/h\ncontent-type:application/json\nreceipt:r9\nx-custom:1\n\n{}");
+    message_with_frame_len *m = next_output();
+    ST_CHECK(m != NULL && m->fd == 5 && starts_with(m->content, "MESSAGE\n"));
+    if (m != NULL) {
+        ST_CHECK(strstr(m->content, "\ncontent-type:application/json\n") != NULL); /* the client's type is kept */
+        ST_CHECK(strstr(m->content, "\nx-custom:1\n") != NULL && strstr(m->content, "\nmessage-id:") != NULL);
+        ST_CHECK(strstr(m->content, "receipt") == NULL); /* the sender's receipt request is not forwarded */
+        message_destroy_with_frame_len(m);
+    }
+    ST_CHECK(expect_output("RECEIPT\nreceipt-id:r9\n\n"));
+}
+
 int run_stomp_tests(void) {
     printf("STOMP tests\n");
     session_storage_init();
@@ -801,6 +961,17 @@ int run_stomp_tests(void) {
     ST_RUN(test_close_waits_for_writer_and_new_session_gets_no_old_bytes);
     ST_RUN(test_writer_requests_close_with_shutdown);
     ST_RUN(test_replies_carry_the_session_generation);
+    ST_RUN(test_disconnect_with_receipt_then_close);
+    ST_RUN(test_disconnect_without_receipt_closes);
+    ST_RUN(test_error_has_receipt_id_and_closes);
+    ST_RUN(test_every_error_closes);
+    ST_RUN(test_accept_version_negotiation);
+    ST_RUN(test_unsupported_version_is_rejected);
+    ST_RUN(test_ttl_message_waits_for_subscriber);
+    ST_RUN(test_ttl_zero_stores_nothing);
+    ST_RUN(test_ttl_expired_messages_are_dropped);
+    ST_RUN(test_ttl_store_is_bounded);
+    ST_RUN(test_message_headers_forwarded_from_send);
 
     session_storage_dispose();
     printf("STOMP tests: %d run, %d failed\n", st_tests_run, st_tests_failed);

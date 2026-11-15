@@ -11,13 +11,17 @@
  * - a frame string: compared by command, header set and body
  *   (the value of message-id is not compared, it is a running counter),
  * - a function(frame): returns an error text, or nothing if the frame is fine.
- * RECONNECT as a step opens a fresh connection.
+ * - CLOSED: nothing is sent, the broker must close the connection.
+ * RECONNECT as a step opens a fresh connection. The broker closes the
+ * connection after every ERROR and after DISCONNECT (STOMP 1.2).
  */
 const net = require("net");
 
 const PORT = Number(process.argv[2] || 3490);
 const TIMEOUT_MS = 2000;
 const RECONNECT = "RECONNECT";
+const CLOSED = "CLOSED";
+const closed = what => [`${what}: connection is closed`, null, CLOSED];
 
 const connected = version => frame =>
   frame.command !== "CONNECTED"
@@ -46,33 +50,57 @@ const STEPS = [
   ["STOMP 1.2 STOMP frame", "STOMP\naccept-version:1.2\nhost:localhost\n\n", connected("1.2")],
   ["Session size increment", "DIAG\n\nsession-connected-size", diag("session-connected-size", 1)],
   ["Disconnect with receipt", "DISCONNECT\nreceipt:77\n\n", receipt(77)],
+  closed("DISCONNECT"),
+  RECONNECT,
 
   ["STOMP 1.2 CONNECT frame", "CONNECT\naccept-version:1.2\nhost:localhost\n\n", connected("1.2")],
   ["Disconnect with receipt", "DISCONNECT\nreceipt:77\n\n", receipt(77)],
+  closed("DISCONNECT"),
+  RECONNECT,
 
-  ["STOMP 1.1 CONNECT frame", "CONNECT\naccept-version:1.1\nhost:localhost\n\n", connected()],
+  ["STOMP 1.1 CONNECT frame", "CONNECT\naccept-version:1.1\nhost:localhost\n\n", connected("1.1")],
   ["Disconnect with receipt", "DISCONNECT\nreceipt:77\n\n", receipt(77)],
+  closed("DISCONNECT"),
+  RECONNECT,
 
-  ["CONNECT frame with CRLF", "CONNECT\r\naccept-version:1.1\r\nhost:localhost\r\n\r\n", connected()],
-  ["SUBSCRIBE with missing destination", "SUBSCRIBE\nid:1\nreceipt:m-a\n\n", error("No destination defined!")],
-  ["SUBSCRIBE with missing id", "SUBSCRIBE\ndestination:/*\nreceipt:m-a\n\n", error("No id defined!")],
+  ["CONNECT without accept-version is STOMP 1.0", "CONNECT\nhost:localhost\n\n", connected("1.0")],
+  ["Disconnect without receipt", "DISCONNECT\n\n", CLOSED],
+  RECONNECT,
+
+  ["Unsupported version", "CONNECT\naccept-version:2.0\nhost:localhost\n\n", error("Supported protocol versions are 1.0,1.1,1.2")],
+  closed("ERROR"),
+  RECONNECT,
+
+  ["CONNECT frame with CRLF", "CONNECT\r\naccept-version:1.1\r\nhost:localhost\r\n\r\n", connected("1.1")],
   ["UNSUBSCRIBE needs only an id", "UNSUBSCRIBE\nid:1\nreceipt:m-u\n\n", receipt("m-u")],
-  ["UNSUBSCRIBE with missing id", "UNSUBSCRIBE\ndestination:/*\nreceipt:m-a\n\n", error("No id defined!")],
-  ["Disconnect with receipt", "DISCONNECT\nreceipt:77\n\n", receipt(77)],
+  ["SUBSCRIBE with missing destination", "SUBSCRIBE\nid:1\nreceipt:m-a\n\n", error("No destination defined!", "m-a")],
+  closed("ERROR"),
+  RECONNECT,
+  ["Connect", "CONNECT\naccept-version:1.2\nhost:localhost\n\n", connected("1.2")],
+  ["SUBSCRIBE with missing id", "SUBSCRIBE\ndestination:/*\nreceipt:m-b\n\n", error("No id defined!", "m-b")],
+  closed("ERROR"),
+  RECONNECT,
+  ["Connect", "CONNECT\naccept-version:1.2\nhost:localhost\n\n", connected("1.2")],
+  ["UNSUBSCRIBE with missing id", "UNSUBSCRIBE\ndestination:/*\nreceipt:m-c\n\n", error("No id defined!", "m-c")],
+  closed("ERROR"),
+  RECONNECT,
 
   ["Header line without ':' is an error", "CONNECT\naccept-version:1.1\nhost:localhost\nbody\n\n", error("header line without ':'")],
+  closed("ERROR"),
+  RECONNECT,
 
   ["0> Connect", "CONNECT\naccept-version:1.2\nhost:localhost\n\n", connected("1.2")],
   ["0> Subscribe * frame with receipt", "SUBSCRIBE\ndestination:/*\nid:1\nreceipt:m-99\n\n", receipt("m-99")],
   ["0> increases pubsub-size", "DIAG\n\npubsub-size", diag("pubsub-size", 1)],
   ["0> Subscribe to topic", "SUBSCRIBE\ndestination:/a_topic\nid:2\nreceipt:m-a\n\n", receipt("m-a")],
-  ["0> Duplicate subscription id", "SUBSCRIBE\ndestination:/a_topic\nid:2\n\n", error("Subscription id is already in use!")],
   ["0> Increased pubsub-size", "DIAG\n\npubsub-size", diag("pubsub-size", 2)],
   ["0> Diag message for listing subscriptions", "DIAG\n\nsubs", diag("subs", "/*,/a_topic")],
   ["0> Unsubscribe frame", "UNSUBSCRIBE\nid:2\nreceipt:m-au\n\n", receipt("m-au")],
   ["0> Decreases pubsub-size", "DIAG\n\npubsub-size", diag("pubsub-size", 1)],
-  ["0> Disconnect with receipt (removes subscription)", "DISCONNECT\nreceipt:78\n\n", receipt(78)],
-  ["0> Decreased pubsub-size", "DIAG\n\npubsub-size", diag("pubsub-size", 0)],
+  ["0> Duplicate subscription id", "SUBSCRIBE\ndestination:/b_topic\nid:1\nreceipt:dup\n\n", error("Subscription id is already in use!", "dup")],
+  closed("ERROR"),
+  RECONNECT,
+  ["0> ERROR removed the subscriptions", "DIAG\n\npubsub-size", diag("pubsub-size", 0)],
 
   ["1> Connect", "STOMP\naccept-version:1.2\nhost:localhost\n\n", connected("1.2")],
   ["1> Wildcard subscription", "SUBSCRIBE\ndestination:/queue/*\nid:sub-1\nreceipt:m-queue/a\n\n", receipt("m-queue/a")],
@@ -88,14 +116,26 @@ const STEPS = [
   ["1> Body starting with HTTP is still NUL terminated",
     "SEND\ndestination:/queue/http\n\nHTTP/1.1 200 OK",
     "MESSAGE\ndestination:/queue/http\nmessage-id:0\nsubscription:sub-1\ncontent-type:text/plain\ncontent-length:15\n\nHTTP/1.1 200 OK"],
-  ["1> Disconnect", "DISCONNECT\nreceipt:77\n\n", receipt(77)],
+  ["1> Disconnect (removes subscription)", "DISCONNECT\nreceipt:78\n\n", receipt(78)],
+  closed("DISCONNECT"),
+  RECONNECT,
+  ["1> Decreased pubsub-size", "DIAG\n\npubsub-size", diag("pubsub-size", 0)],
 
   ["2> Not connected: SEND", "SEND\ndestination:/i_am_not_connected\ncontent-type:text/plain\n\nhello there\n", error("Not connected!")],
+  closed("ERROR"),
+  RECONNECT,
   ["2> Not connected: DISCONNECT", "DISCONNECT\n\n", error("Can not disconnect, client is not connected yet!")],
-  ["2> Not connected: SUBSCRIBE", "SUBSCRIBE\ndestination:/queue/*\nid:1\nreceipt:m-queue/a\n\n", error("Not connected!")],
-  ["2> Not connected: UNSUBSCRIBE", "UNSUBSCRIBE\nid:1\nreceipt:m-au\n\n", error("Not connected!")],
+  closed("ERROR"),
+  RECONNECT,
+  ["2> Not connected: SUBSCRIBE", "SUBSCRIBE\ndestination:/queue/*\nid:1\nreceipt:m-queue/a\n\n", error("Not connected!", "m-queue/a")],
+  closed("ERROR"),
+  RECONNECT,
+  ["2> Not connected: UNSUBSCRIBE", "UNSUBSCRIBE\nid:1\nreceipt:m-au\n\n", error("Not connected!", "m-au")],
+  closed("ERROR"),
+  RECONNECT,
 
   ["3> Invalid command", "INVALID\n\n", error("Invalid message!")],
+  closed("ERROR"),
 ];
 
 /* ------------------------------------------------------------------------
@@ -144,6 +184,7 @@ class Connection {
       this.buf = Buffer.concat([this.buf, data]);
       this.flush();
     });
+    this.closedPromise = new Promise(resolve => this.socket.on("close", resolve));
     this.socket.on("close", () => {
       this.closed = true;
       this.flush();
@@ -176,6 +217,14 @@ class Connection {
     });
   }
 
+  /** Resolves when the broker closes the connection; rejects after the timeout. */
+  waitClosed() {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("connection was not closed")), TIMEOUT_MS);
+      this.closedPromise.then(() => { clearTimeout(timer); resolve(); });
+    });
+  }
+
   close() {
     this.socket.destroy();
   }
@@ -204,8 +253,13 @@ async function main() {
     const [name, frame, expectation] = step;
     let problem;
     try {
-      const reply = await conn.request(frame);
-      problem = typeof expectation === "function" ? expectation(reply) : compare(expectation, reply);
+      if (expectation === CLOSED) {
+        if (frame !== null) conn.socket.write(frame + "\0");
+        await conn.waitClosed();
+      } else {
+        const reply = await conn.request(frame);
+        problem = typeof expectation === "function" ? expectation(reply) : compare(expectation, reply);
+      }
     } catch (e) {
       problem = e.message;
     }

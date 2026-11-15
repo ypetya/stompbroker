@@ -4,11 +4,17 @@
 #include <time.h>
 #include <string.h>
 
-message_with_timestamp * message_create_with_timestamp(int fd, char * str, clock_t ts) {
+long long message_timestamp_now(void) {
+    struct timespec now;
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    return (long long) now.tv_sec * 1000000 + now.tv_nsec / 1000;
+}
+
+message_with_timestamp * message_create_with_timestamp(int fd, char * str, long long ts) {
     return message_create_with_timestamp_len(fd, str, strlen(str), ts);
 }
 
-message_with_timestamp * message_create_with_timestamp_len(int fd, const char * bytes, size_t len, clock_t ts) {
+message_with_timestamp * message_create_with_timestamp_len(int fd, const char * bytes, size_t len, long long ts) {
     message_with_timestamp * new_m = emalloc(sizeof (message_with_timestamp));
 
     new_m->content = emalloc(len + 1); // zeroed: content[len] == '\0'

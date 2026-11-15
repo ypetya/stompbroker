@@ -96,7 +96,7 @@ static parsed_message *parse_error(parsed_message *pm, const char *reason) {
     return pm;
 }
 
-parsed_message* parse_frame(const char *frame, size_t len, clock_t ts) {
+parsed_message* parse_frame(const char *frame, size_t len, long long ts) {
     parsed_message* pm = emalloc(sizeof (parsed_message));
     pm->ts = ts;
     pm->headers = aa_create();

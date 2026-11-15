@@ -37,7 +37,7 @@ void close_connection(int epollfd, int conn_sock, ts_queue * input_queue);
 
 stomp_app_config * config;
 
-clock_t now;
+long long now; // receive time of the current epoll round (TTL)
 
 void accept_epoll(stomp_app_config * app_config, int listen_sock) {
     config = app_config;
@@ -78,7 +78,7 @@ void accept_epoll(stomp_app_config * app_config, int listen_sock) {
             continue;
         }
 
-        now = clock();
+        now = message_timestamp_now();
 
         for (int n = 0; n < nfds; ++n) {
             if (events[n].data.fd == listen_sock) {

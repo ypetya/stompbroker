@@ -69,7 +69,7 @@ message_with_frame_len *create_diagnostic_message(message_with_timestamp *input,
     }
     else
     {
-        resp = message_error(input->fd, "Invalid message!");
+        resp = message_error(input->fd, "Invalid message!", pm->receipt_id);
     }
 
     return resp;

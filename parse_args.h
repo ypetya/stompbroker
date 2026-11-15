@@ -13,6 +13,8 @@
 #define DEFAULT_BACKLOG 10
 // maximum input/stale queue size
 #define DEFAULT_INPUT_QUEUE_LIMIT 1000000
+// memory bound of the stale (TTL) queue: message bodies + destinations + bookkeeping
+#define DEFAULT_STALE_QUEUE_BYTES 64000000
 // maximum size of a single message
 #define DEFAULT_INPUT_BUFFER_SIZE 16000
 // maximum size of a single STOMP frame (a frame may span several reads)
@@ -29,6 +31,7 @@ struct CONFIG_STRUCTURE {
     unsigned int max_input_queue_size;
     unsigned int ttl;
     unsigned int max_stale_queue_size;
+    unsigned long max_stale_queue_bytes;
 
     int input_buffer_size; // bytes read from a socket at once
     unsigned int max_frame_size; // larger frames get ERROR and the connection is closed

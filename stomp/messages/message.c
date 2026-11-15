@@ -6,8 +6,11 @@
 #include "../../lib/clone_str.h"
 
 char * ERROR_TEMPLATE = "ERROR\n"
+        "%s%s%s" // receipt-id
+        "%s%s%s" // version
         "content-type:text/plain\n"
-        "content-length:%d\n\n%s";
+        "content-length:%zu\n"
+        "message:%s\n\n%s";
 
 int len_of_int(unsigned int len) {
     if (len == 0) return 1;
@@ -17,32 +20,45 @@ int len_of_int(unsigned int len) {
     return digits;
 }
 
-message_with_frame_len * message_error(int fd, char *reason) {
+/** ERROR frames always end the connection (STOMP 1.2): close_after is set. */
+static message_with_frame_len * error_frame(int fd, const char *reason, const char *receipt_id,
+        const char *versions) {
+    const char *r1 = receipt_id ? "receipt-id:" : "", *r2 = receipt_id ? receipt_id : "", *r3 = receipt_id ? "\n" : "";
+    const char *v1 = versions ? "version:" : "", *v2 = versions ? versions : "", *v3 = versions ? "\n" : "";
+    size_t content_length = strlen(reason);
+    int len = snprintf(NULL, 0, ERROR_TEMPLATE, r1, r2, r3, v1, v2, v3, content_length, reason, reason);
 
-    int content_length = strlen(reason);
-    size_t len = strlen(reason) + strlen(ERROR_TEMPLATE) + 10;
-    char * frame = emalloc(len);
-    sprintf(frame, ERROR_TEMPLATE, content_length, reason);
+    char * frame = emalloc((size_t) len + 1);
+    snprintf(frame, (size_t) len + 1, ERROR_TEMPLATE, r1, r2, r3, v1, v2, v3, content_length, reason, reason);
 
     message_with_frame_len * m = message_create_with_frame_len(fd, frame);
+    m->close_after = 1;
     free(frame);
 
     return m;
 }
 
+message_with_frame_len * message_error(int fd, const char *reason, const char *receipt_id) {
+    return error_frame(fd, reason, receipt_id, NULL);
+}
+
+message_with_frame_len * message_error_versions(int fd, const char *reason, const char *receipt_id,
+        const char *supported_versions) {
+    return error_frame(fd, reason, receipt_id, supported_versions);
+}
+
 char * CONNECTED_TEMPLATE = "CONNECTED\n"
-        "version:1.2\n"
+        "version:%s\n"
         "server:kisp-stomp/0.0.1\n"
         "content-type:text/plain\n"
         "session:%d\n"
         "heart-beat:0,0\n\n"; // heart-beat not supported yet
 
-message_with_frame_len * message_connected(int fd, int session_id) {
-    int len = (int) (strlen(CONNECTED_TEMPLATE) - 2);
-    int digits = len_of_int(session_id);
+message_with_frame_len * message_connected(int fd, int session_id, const char *version) {
+    int len = snprintf(NULL, 0, CONNECTED_TEMPLATE, version, session_id);
 
-    char * frame = emalloc(len + digits + 1);
-    sprintf(frame, CONNECTED_TEMPLATE, session_id);
+    char * frame = emalloc((size_t) len + 1);
+    snprintf(frame, (size_t) len + 1, CONNECTED_TEMPLATE, version, session_id);
 
     message_with_frame_len * m = message_create_with_frame_len(fd, frame);
 
@@ -54,6 +70,10 @@ char * DISCONNECT_TEMPLATE = "DISCONNECT\n";
 
 message_with_frame_len * message_disconnect(int fd) {
     return message_create_with_frame_len(fd, DISCONNECT_TEMPLATE);
+}
+
+message_with_frame_len * message_close_request(int fd) {
+    return message_create_raw(fd, "", 0, 1);
 }
 
 char * RECEIPT_TEMPLATE = "RECEIPT\n"

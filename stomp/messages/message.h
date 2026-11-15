@@ -9,8 +9,14 @@ extern "C" {
 #include "../../server/data/message/with_payload_length.h"
 #include "../../server/data/message/with_timestamp.h"
 
-    message_with_frame_len * message_error(int fd, char *reason);
-    message_with_frame_len * message_connected(int fd, int session_id);
+    /** ERROR frame (with receipt-id when not NULL); the connection is closed after it. */
+    message_with_frame_len * message_error(int fd, const char *reason, const char *receipt_id);
+    /** ERROR frame for a failed version negotiation, with a version header. */
+    message_with_frame_len * message_error_versions(int fd, const char *reason, const char *receipt_id,
+            const char *supported_versions);
+    message_with_frame_len * message_connected(int fd, int session_id, const char *version);
+    /** Nothing to send, only close the connection after the messages before it. */
+    message_with_frame_len * message_close_request(int fd);
     message_with_frame_len * message_disconnect(int fd);
     message_with_frame_len * message_receipt(int fd, char* receipt_id);
     message_with_frame_len * message_send(int fd, int subscription_id,

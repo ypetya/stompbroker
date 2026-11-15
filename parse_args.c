@@ -15,6 +15,7 @@ void config_init() {
     config_main.processors = 0;
     config_main.max_input_queue_size = 0;
     config_main.max_stale_queue_size = 0;
+    config_main.max_stale_queue_bytes = 0;
     config_main.ttl = 0;
     config_main.ws_allowed_origins = NULL;
     config_main.ws_allowed_hosts = NULL;
@@ -36,6 +37,9 @@ void config_setup_missing_defaults() {
     if (config_main.max_stale_queue_size == 0)
         config_main.max_stale_queue_size = DEFAULT_INPUT_QUEUE_LIMIT;
 
+    if (config_main.max_stale_queue_bytes == 0)
+        config_main.max_stale_queue_bytes = DEFAULT_STALE_QUEUE_BYTES;
+
     config_main.input_buffer_size = DEFAULT_INPUT_BUFFER_SIZE;
     config_main.output_buffer_size = DEFAULT_OUTPUT_BUFFER_SIZE;
     if (config_main.max_frame_size == 0) config_main.max_frame_size = DEFAULT_MAX_FRAME_SIZE;
@@ -46,8 +50,8 @@ void config_setup_missing_defaults() {
     info("server: port:%s \n", config_main.port);
     info("server: read buffer size: %d\n", config_main.input_buffer_size);
     info("server: Maximum frame size: %u\n", config_main.max_frame_size);
-    info("server: max_input_queue_size: %d max_stale_queue_size: %d\n",
-            config_main.max_input_queue_size, config_main.max_stale_queue_size);
+    info("server: max_input_queue_size: %d max_stale_queue_size: %d max_stale_queue_bytes: %lu\n",
+            config_main.max_input_queue_size, config_main.max_stale_queue_size, config_main.max_stale_queue_bytes);
     info("server: TTL: %d micro-seconds\n", config_main.ttl);
     info("server: write_timeout: %d ms\n", config_main.write_timeout_ms);
     info("server: ws_allowed_origins: %s ws_allowed_hosts: %s\n",
@@ -102,6 +106,9 @@ void config_parse_parse(int argc, char* argv[]) {
         } else if (strncmp("max_input_queue_size", token, 20) == 0) {
             token = strtok(NULL, "=");
             sscanf(token, "%d", &config_main.max_input_queue_size);
+        } else if (strncmp("max_stale_queue_bytes", token, 21) == 0) {
+            token = strtok(NULL, "=");
+            if (token) sscanf(token, "%lu", &config_main.max_stale_queue_bytes);
         } else if (strncmp("max_stale_queue_size", token, 20) == 0) {
             token = strtok(NULL, "=");
             sscanf(token, "%d", &config_main.max_stale_queue_size);

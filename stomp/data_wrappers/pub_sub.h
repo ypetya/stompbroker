@@ -34,6 +34,12 @@ extern "C" {
 #include "../../lib/general_list.h"
     int pubsub_find_matching(char* topic_mask, general_list * matches);
 
+    /**
+     * Does a destination match a subscription pattern? A '*' in the pattern
+     * matches any rest of the destination (including nothing).
+     */
+    int pubsub_topic_matches(const char* pattern, const char* destination);
+
     int pubsub_size();
 
     // For diagnostic only

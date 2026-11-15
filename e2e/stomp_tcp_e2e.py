@@ -152,6 +152,7 @@ def scenario_malformed_frame_gets_error(port):
     c.send("SEND\ndestination:/x\n")  # headers end without the blank line (used to crash the broker)
     reply = c.recv()
     expect(reply.startswith("ERROR\n"), f"expected ERROR, got {reply[:60]!r}")
+    c.expect_eof()
     c.close()
     connected_client(port).close()  # still alive
 
@@ -301,6 +302,68 @@ def scenario_fd_reuse_gets_no_old_bytes(port):
         new.close()
 
 
+def scenario_disconnect_receipt_then_close(port):
+    c = connected_client(port)
+    subscribe(c, "/topic/disconnect-unique", 1)
+    c.send("DISCONNECT\nreceipt:bye\n\n")
+    reply = c.recv()
+    expect(reply == "RECEIPT\nreceipt-id:bye\n\n", f"expected RECEIPT, got {reply!r}")
+    c.expect_eof()  # recv returns 0
+    c.close()
+    probe = Client(port)
+    probe.send("DIAG\n\nsubs")
+    expect("/topic/disconnect-unique" not in probe.recv(), "subscription of the disconnected client is gone")
+    probe.close()
+
+
+def scenario_disconnect_without_receipt_closes(port):
+    c = connected_client(port)
+    c.send("DISCONNECT\n\n")
+    c.expect_eof()
+    c.close()
+
+
+def scenario_error_has_receipt_id_and_closes(port):
+    c = connected_client(port)
+    c.send("SUBSCRIBE\ndestination:/topic/e\nreceipt:r-err\n\n")  # no id
+    reply = c.recv()
+    expect(reply.startswith("ERROR\n") and headers_of(reply).get("receipt-id") == "r-err", f"ERROR {reply!r}")
+    expect(headers_of(reply).get("message") == "No id defined!", f"message header {reply!r}")
+    c.expect_eof()
+    c.close()
+
+
+def scenario_version_negotiation(port):
+    for header, version in (("accept-version:1.2\n", "1.2"), ("accept-version:1.0,1.1\n", "1.1"), ("", "1.0")):
+        c = Client(port)
+        c.send(f"CONNECT\n{header}host:localhost\n\n")
+        reply = c.recv()
+        expect(reply.startswith("CONNECTED\n") and headers_of(reply).get("version") == version, f"{header!r}: {reply!r}")
+        c.close()
+    c = Client(port)
+    c.send("CONNECT\naccept-version:2.0\nhost:localhost\n\n")
+    reply = c.recv()
+    expect(reply.startswith("ERROR\n") and headers_of(reply).get("version") == "1.0,1.1,1.2", f"2.0: {reply!r}")
+    c.expect_eof()
+    c.close()
+
+
+def scenario_ttl_replay(port):
+    """The broker runs with TTL=5000: a message without subscribers waits for the next one."""
+    pub = connected_client(port)
+    pub.send("SEND\ndestination:/topic/ttl-replay\nreceipt:stored\n\nkept for later")
+    expect(headers_of(pub.recv()).get("receipt-id") == "stored", "SEND receipt")
+    pub.close()
+    time.sleep(0.2)
+    sub = connected_client(port)
+    sub.send("SUBSCRIBE\nid:late\ndestination:/topic/ttl-*\n\n")
+    msg = sub.recv()
+    h = headers_of(msg)
+    expect(msg.startswith("MESSAGE\n") and body_of(msg) == "kept for later", f"replayed {msg[:80]!r}")
+    expect(h.get("destination") == "/topic/ttl-replay" and h.get("subscription") == "late", f"headers {h}")
+    sub.close()
+
+
 SCENARIOS = [
     scenario_pubsub_round_trip,
     scenario_two_frames_in_one_write,
@@ -317,6 +380,11 @@ SCENARIOS = [
     scenario_duplicate_subscription_id,
     scenario_http_body_keeps_nul,
     scenario_fd_reuse_gets_no_old_bytes,
+    scenario_disconnect_receipt_then_close,
+    scenario_disconnect_without_receipt_closes,
+    scenario_error_has_receipt_id_and_closes,
+    scenario_version_negotiation,
+    scenario_ttl_replay,
 ]
 
 
