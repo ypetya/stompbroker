@@ -155,18 +155,21 @@ def scenario_malformed_frame_gets_error(port):
 
 
 def scenario_truncated_frames_loop(port):
-    """Every prefix of valid frames, each on a fresh connection: the broker must survive."""
+    """Every prefix of valid frames, each on its own connection: the broker must survive."""
     frames = [
         "SUBSCRIBE\nid:1\ndestination:/t/*\nreceipt:r\n\n",
         "SEND\ndestination:/t/a\ncontent-length:5\n\nhello",
         "CONNECT\naccept-version:1.2\n\n",
     ]
-    c = connected_client(port)
     for frame in frames:
         for cut in range(len(frame) + 1):
+            c = connected_client(port)
             c.send(frame[:cut])
-    drain_until_receipt(c, "end-of-loop")
-    c.close()
+            try:
+                drain_until_receipt(c, "end-of-loop")
+            except (EOFError, ConnectionResetError):
+                pass  # ERROR closed the connection: everything was sent before the close
+            c.close()
     connected_client(port).close()
 
 
@@ -188,12 +191,51 @@ def scenario_strict_command_and_header_names(port):
         c.close()
 
 
+def scenario_frame_split_at_every_offset(port):
+    sub = connected_client(port)
+    subscribe(sub, "/topic/split", 1)
+    pub = connected_client(port)
+    frame = b"SEND\ndestination:/topic/split\n\nsplit body\0"
+    for cut in range(1, len(frame)):
+        pub.send_raw(frame[:cut])
+        time.sleep(0.003)  # separate TCP segments / reads
+        pub.send_raw(frame[cut:])
+        msg = sub.recv()
+        expect(body_of(msg) == "split body", f"cut {cut}: {msg[:80]!r}")
+    sub.close()
+    pub.close()
+
+
+def scenario_large_frame_spans_reads(port):
+    """20 KB SEND: larger than the 16000 byte read buffer."""
+    c = connected_client(port)
+    subscribe(c, "/topic/large", 1)
+    body = "".join(chr(ord("a") + i % 26) for i in range(20000))
+    c.send(f"SEND\ndestination:/topic/large\n\n{body}")
+    msg = c.recv()
+    expect(body_of(msg) == body, f"large body mangled (len {len(body_of(msg))})")
+    c.close()
+
+
+def scenario_too_large_frame_gets_error_and_close(port):
+    c = connected_client(port)
+    c.send_raw(b"SEND\ndestination:/topic/huge\n\n" + b"h" * 1_100_000)  # over max_frame_size, no NUL yet
+    reply = c.recv()
+    expect(reply.startswith("ERROR\n") and "too large" in reply, f"expected ERROR, got {reply[:80]!r}")
+    c.expect_eof()
+    c.close()
+    connected_client(port).close()
+
+
 SCENARIOS = [
     scenario_pubsub_round_trip,
     scenario_two_frames_in_one_write,
     scenario_malformed_frame_gets_error,
     scenario_truncated_frames_loop,
     scenario_strict_command_and_header_names,
+    scenario_frame_split_at_every_offset,
+    scenario_large_frame_spans_reads,
+    scenario_too_large_frame_gets_error_and_close,
 ]
 
 

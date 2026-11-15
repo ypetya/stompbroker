@@ -13,11 +13,16 @@ extern "C" {
     */
     typedef struct msg_with_timestamp_st {
         int fd;
-        char * content;
+        char * content; // one STOMP frame, '\0' terminated (at content_len)
+        size_t content_len;
         clock_t ts;
+        // framing error of the connection (static string): the reader answers
+        // with ERROR and closes, in order with the replies to earlier frames
+        const char * error;
     } message_with_timestamp;
 
     message_with_timestamp * message_create_with_timestamp(int fd, char * str, clock_t ts);
+    message_with_timestamp * message_create_with_timestamp_len(int fd, const char * bytes, size_t len, clock_t ts);
     
     void message_destroy_with_timestamp(message_with_timestamp * m);
 

@@ -115,7 +115,7 @@ parsed_message* parse_frame(const char *frame, size_t len, clock_t ts) {
 }
 
 parsed_message* parse_message(message_with_timestamp* message) {
-    return parse_frame(message->content, strlen(message->content), message->ts);
+    return parse_frame(message->content, message->content_len, message->ts);
 }
 
 void free_parsed_message(parsed_message* pm) {

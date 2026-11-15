@@ -20,6 +20,7 @@
 #include "../websocket/filter/handshake.h"
 #include "../websocket/buffer.h"
 #include "../stomp/data_wrappers/pub_sub.h"
+#include "../stomp/framing.h"
 #include "data/message/with_timestamp.h"
 #include "data/cleanup.h"
 
@@ -91,6 +92,7 @@ void accept_epoll(stomp_app_config * app_config, int listen_sock) {
                 info("server: got connection from %s, fd %d\n", clientAddressStr, conn_sock);
                 setnonblocking(conn_sock);
                 ws_conn_reset(conn_sock); // fd numbers are reused: drop stale transport state
+                stomp_input_reset(stomp_input_of(conn_sock));
                 ev.events = EPOLLIN | EPOLLET;
                 ev.data.fd = conn_sock;
                 if (epoll_ctl(epollfd, EPOLL_CTL_ADD, conn_sock,
@@ -109,29 +111,48 @@ void setnonblocking(int conn_sock) {
     fcntl(conn_sock, F_SETFL, O_NONBLOCK | O_NDELAY);
 }
 
-void put_stomp_messages_on_queue(int conn_sock, char* read_buffer, ts_queue * input_queue, int received_length) {
-    if (received_length == 0) return;
+static void enqueue_input(ts_queue * input_queue, message_with_timestamp * incoming_message) {
+    if (ts_enqueue_limited(input_queue,
+            incoming_message,
+            config->max_input_queue_size
+            ) < 0) {
 
-    read_buffer[received_length] = '\0';
-    char * token = read_buffer;
-    for (int i = 0; i < received_length; i++) {
-        message_with_timestamp * incoming_message = message_create_with_timestamp(
-                conn_sock,
-                &token[i],
-                now);
+        warn("server: Dropping message, input_queue limit reached! (%d)\n",
+                config->max_input_queue_size);
 
-        if (ts_enqueue_limited(input_queue,
-                incoming_message,
-                config->max_input_queue_size
-                ) < 0) {
+        message_destroy_with_timestamp(incoming_message);
+    }
+}
 
-            warn("server: Dropping message, input_queue limit reached! (%d)\n",
-                    config->max_input_queue_size);
+typedef struct frame_target_st {
+    int fd_with_flags;
+    ts_queue * input_queue;
+} frame_target;
 
-            message_destroy_with_timestamp(incoming_message);
-        }
+static void enqueue_frame(void * ctx, const char * frame, size_t len) {
+    frame_target * target = ctx;
+    enqueue_input(target->input_queue,
+            message_create_with_timestamp_len(target->fd_with_flags, frame, len, now));
+}
 
-        while (token[i] != '\0') i++;
+/**
+ * Cuts received bytes into STOMP frames (they may span reads, several may
+ * arrive in one read) and queues every complete frame for the reader thread.
+ * On a framing error the reader sends ERROR and the connection is closed;
+ * further input is ignored until then.
+ */
+void put_stomp_messages_on_queue(int fd_with_flags, const char* data, ts_queue * input_queue, size_t received_length) {
+    int conn_sock = session_without_flags(fd_with_flags);
+    frame_target target = {fd_with_flags, input_queue};
+    const char * error = NULL;
+
+    if (stomp_input_feed(stomp_input_of(conn_sock), data, received_length, config->max_frame_size,
+            enqueue_frame, &target, &error) < 0) {
+        warn("server: STOMP framing error (%s), closing fd:%d\n", error, conn_sock);
+        ws_conn_set_state(conn_sock, CONN_WS_CLOSING); // ignore input until the connection is closed
+        message_with_timestamp * failure = message_create_with_timestamp(fd_with_flags, "", now);
+        failure->error = error;
+        ts_enqueue(input_queue, failure); // not dropped: the client must learn why it is closed
     }
 }
 
@@ -139,17 +160,13 @@ void close_connection(int conn_sock, ts_queue * input_queue) {
     int fd_with_flags = session_storage_get(conn_sock);
     if (fd_with_flags != 0) {
         fd_with_flags = session_set_cmd_purge(fd_with_flags);
-        char * CMD = clone_str("CMD");
-
-        put_stomp_messages_on_queue(fd_with_flags,
-                CMD,
-                input_queue,
-                strlen(CMD));
-        free(CMD);
+        // never dropped: the purge removes the subscriptions of the connection
+        ts_enqueue(input_queue, message_create_with_timestamp(fd_with_flags, "CMD", now));
     }
 
     clean_by_fd(conn_sock);
     ws_conn_reset(conn_sock);
+    stomp_input_reset(stomp_input_of(conn_sock));
 }
 
 /** Sends pre-encoded bytes through the writer threads (keeps output single-pathed). */
@@ -171,7 +188,7 @@ void handle_websocket_data(int conn_sock, const char *data, int received_length,
         put_stomp_messages_on_queue(session_set_encoded(conn_sock),
             result.messages,
             input_queue,
-            (int) result.messages_len - 1); // the last '\0' terminates the buffer
+            result.messages_len); // every message is '\0' terminated
 
     if (result.replies_len > 0)
         queue_raw_output(conn_sock, result.replies, result.replies_len, result.close);
@@ -245,13 +262,14 @@ int process_received(int conn_sock, char * read_buffer, int received_length, ts_
         session_storage_unlock();
         close(conn_sock);
         ws_conn_reset(conn_sock);
+        stomp_input_reset(stomp_input_of(conn_sock));
         return 0;
     }
     session_storage_unlock();
 
     switch (ws_conn_route(conn_sock, read_buffer, (size_t) received_length)) {
         case CONN_RAW_STOMP:
-            put_stomp_messages_on_queue(conn_sock, read_buffer, input_queue, received_length);
+            put_stomp_messages_on_queue(conn_sock, read_buffer, input_queue, (size_t) received_length);
             break;
         case CONN_HTTP_PENDING:
             handle_handshake_data(conn_sock, read_buffer, received_length, input_queue);

@@ -286,6 +286,164 @@ static void test_prefixed_command_and_header_get_error(void) {
     ST_CHECK(expect_output("ERROR\n"));
 }
 
+/* ---------------------------------------------------------------------------
+ * Frame reassembly (gap 2)
+ * ------------------------------------------------------------------------- */
+#define MAX_COLLECTED 16
+
+typedef struct collected_frames_st {
+    int count;
+    char *frames[MAX_COLLECTED];
+    size_t lens[MAX_COLLECTED];
+} collected_frames;
+
+static void collect_frame(void *ctx, const char *frame, size_t len) {
+    collected_frames *c = ctx;
+    if (c->count >= MAX_COLLECTED) return;
+    c->frames[c->count] = emalloc(len + 1);
+    memcpy(c->frames[c->count], frame, len);
+    c->lens[c->count++] = len;
+}
+
+static void collected_free(collected_frames *c) {
+    for (int i = 0; i < c->count; i++) free(c->frames[i]);
+    memset(c, 0, sizeof (*c));
+}
+
+static int collected_is(const collected_frames *c, int i, const char *frame, size_t len) {
+    return i < c->count && c->lens[i] == len && memcmp(c->frames[i], frame, len) == 0;
+}
+
+static const char TWO_FRAMES[] = "\n\r\nSEND\ndestination:/a\n\nfirst\0\nSUBSCRIBE\nid:1\ndestination:/b\n\n\0";
+#define TWO_FRAMES_LEN (sizeof (TWO_FRAMES) - 1)
+#define FIRST_FRAME "SEND\ndestination:/a\n\nfirst"
+#define SECOND_FRAME "SUBSCRIBE\nid:1\ndestination:/b\n\n"
+
+static void check_two_frames(const collected_frames *c) {
+    ST_CHECK(c->count == 2);
+    ST_CHECK(collected_is(c, 0, FIRST_FRAME, strlen(FIRST_FRAME)));
+    ST_CHECK(collected_is(c, 1, SECOND_FRAME, strlen(SECOND_FRAME)));
+}
+
+static void test_framing_two_frames_in_one_read(void) {
+    stomp_input_buffer in = {0};
+    collected_frames c = {0};
+    const char *error = NULL;
+    ST_CHECK(stomp_input_feed(&in, TWO_FRAMES, TWO_FRAMES_LEN, 1000, collect_frame, &c, &error) == 0);
+    check_two_frames(&c);
+    ST_CHECK(in.len == 0);
+    collected_free(&c);
+    stomp_input_reset(&in);
+}
+
+static void test_framing_split_at_every_offset(void) {
+    for (size_t cut = 0; cut <= TWO_FRAMES_LEN; cut++) {
+        stomp_input_buffer in = {0};
+        collected_frames c = {0};
+        const char *error = NULL;
+        ST_CHECK(stomp_input_feed(&in, TWO_FRAMES, cut, 1000, collect_frame, &c, &error) == 0);
+        ST_CHECK(stomp_input_feed(&in, TWO_FRAMES + cut, TWO_FRAMES_LEN - cut, 1000, collect_frame, &c, &error) == 0);
+        check_two_frames(&c);
+        ST_CHECK(in.len == 0);
+        collected_free(&c);
+        stomp_input_reset(&in);
+    }
+}
+
+static void test_framing_byte_by_byte(void) {
+    stomp_input_buffer in = {0};
+    collected_frames c = {0};
+    const char *error = NULL;
+    for (size_t i = 0; i < TWO_FRAMES_LEN; i++)
+        ST_CHECK(stomp_input_feed(&in, TWO_FRAMES + i, 1, 1000, collect_frame, &c, &error) == 0);
+    check_two_frames(&c);
+    collected_free(&c);
+    stomp_input_reset(&in);
+}
+
+static void test_framing_heartbeats_only(void) {
+    stomp_input_buffer in = {0};
+    collected_frames c = {0};
+    const char *error = NULL;
+    ST_CHECK(stomp_input_feed(&in, "\n\r\n\n", 4, 1000, collect_frame, &c, &error) == 0);
+    ST_CHECK(c.count == 0 && in.len == 0);
+    stomp_input_reset(&in);
+}
+
+static void test_framing_content_length_split_at_every_offset(void) {
+    const char frame[] = "SEND\ndestination:/a\ncontent-length:3\n\nabc\0";
+    size_t len = sizeof (frame) - 1;
+    for (size_t cut = 0; cut <= len; cut++) {
+        stomp_input_buffer in = {0};
+        collected_frames c = {0};
+        const char *error = NULL;
+        stomp_input_feed(&in, frame, cut, 1000, collect_frame, &c, &error);
+        stomp_input_feed(&in, frame + cut, len - cut, 1000, collect_frame, &c, &error);
+        ST_CHECK(c.count == 1 && collected_is(&c, 0, frame, len - 1));
+        collected_free(&c);
+        stomp_input_reset(&in);
+    }
+}
+
+static void test_framing_large_frame_in_read_sized_chunks(void) {
+    size_t body_len = 20000, chunk = 16000; /* 20 KB SEND, input_buffer_size=16000 */
+    const char *head = "SEND\ndestination:/big\n\n";
+    size_t len = strlen(head) + body_len + 1;
+    char *data = emalloc(len);
+    memcpy(data, head, strlen(head));
+    memset(data + strlen(head), 'B', body_len);
+    stomp_input_buffer in = {0};
+    collected_frames c = {0};
+    const char *error = NULL;
+    for (size_t off = 0; off < len; off += chunk)
+        ST_CHECK(stomp_input_feed(&in, data + off, off + chunk > len ? len - off : chunk,
+            DEFAULT_MAX_FRAME_SIZE, collect_frame, &c, &error) == 0);
+    ST_CHECK(c.count == 1 && collected_is(&c, 0, data, len - 1));
+    collected_free(&c);
+    stomp_input_reset(&in);
+    free(data);
+}
+
+static void test_framing_too_large_is_an_error(void) {
+    stomp_input_buffer in = {0};
+    collected_frames c = {0};
+    const char *error = NULL;
+    char data[64];
+    memset(data, 'x', sizeof (data));
+    memcpy(data, "SEND\n\n", 6);
+    ST_CHECK(stomp_input_feed(&in, data, 20, 32, collect_frame, &c, &error) == 0); /* not yet */
+    ST_CHECK(stomp_input_feed(&in, data + 20, 20, 32, collect_frame, &c, &error) == -1);
+    ST_CHECK(error != NULL && c.count == 0 && in.len == 0 && in.data == NULL);
+    /* a declared content-length above the cap fails at once */
+    error = NULL;
+    const char *declared = "SEND\ncontent-length:100\n\n";
+    ST_CHECK(stomp_input_feed(&in, declared, strlen(declared), 32, collect_frame, &c, &error) == -1);
+    ST_CHECK(error != NULL);
+    stomp_input_reset(&in);
+}
+
+static void test_framing_unterminated_headers_reach_the_parser(void) {
+    stomp_input_buffer in = {0};
+    collected_frames c = {0};
+    const char *error = NULL;
+    const char data[] = "SEND\ndestination:/x\n\0"; /* gap 1 frame: complete, parser rejects it */
+    ST_CHECK(stomp_input_feed(&in, data, sizeof (data) - 1, 1000, collect_frame, &c, &error) == 0);
+    ST_CHECK(c.count == 1 && collected_is(&c, 0, data, sizeof (data) - 2));
+    collected_free(&c);
+    stomp_input_reset(&in);
+}
+
+static void test_framing_error_becomes_error_frame(void) {
+    message_with_timestamp *m = message_create_with_timestamp(5, "", 0);
+    m->error = "Frame too large!";
+    stomp_process(&st_input_queue, &st_stale_queue, &st_output_queue, m);
+    message_destroy_with_timestamp(m);
+    message_with_frame_len *out = next_output();
+    ST_CHECK(out != NULL && starts_with(out->content, "ERROR\n") && strstr(out->content, "Frame too large!"));
+    ST_CHECK(out != NULL && out->close_after);
+    if (out) message_destroy_with_frame_len(out);
+}
+
 int run_stomp_tests(void) {
     printf("STOMP tests\n");
     session_storage_init();
@@ -302,6 +460,15 @@ int run_stomp_tests(void) {
     ST_RUN(test_header_names_must_match_whole_token);
     ST_RUN(test_repeated_header_first_wins);
     ST_RUN(test_prefixed_command_and_header_get_error);
+    ST_RUN(test_framing_two_frames_in_one_read);
+    ST_RUN(test_framing_split_at_every_offset);
+    ST_RUN(test_framing_byte_by_byte);
+    ST_RUN(test_framing_heartbeats_only);
+    ST_RUN(test_framing_content_length_split_at_every_offset);
+    ST_RUN(test_framing_large_frame_in_read_sized_chunks);
+    ST_RUN(test_framing_too_large_is_an_error);
+    ST_RUN(test_framing_unterminated_headers_reach_the_parser);
+    ST_RUN(test_framing_error_becomes_error_frame);
 
     session_storage_dispose();
     printf("STOMP tests: %d run, %d failed\n", st_tests_run, st_tests_failed);

@@ -19,6 +19,7 @@ void config_init() {
     config_main.ws_allowed_origins = NULL;
     config_main.ws_allowed_hosts = NULL;
     config_main.write_timeout_ms = 0;
+    config_main.max_frame_size = 0;
 }
 
 void config_setup_missing_defaults() {
@@ -37,12 +38,14 @@ void config_setup_missing_defaults() {
 
     config_main.input_buffer_size = DEFAULT_INPUT_BUFFER_SIZE;
     config_main.output_buffer_size = DEFAULT_OUTPUT_BUFFER_SIZE;
+    if (config_main.max_frame_size == 0) config_main.max_frame_size = DEFAULT_MAX_FRAME_SIZE;
     if (config_main.processors == 0) config_main.processors = get_nprocs();
     if (config_main.write_timeout_ms <= 0) config_main.write_timeout_ms = DEFAULT_WRITE_TIMEOUT_MS;
 
     info("server: processors:%d\n", config_main.processors);
     info("server: port:%s \n", config_main.port);
-    info("server: Maximum message size: %d\n", config_main.input_buffer_size);
+    info("server: read buffer size: %d\n", config_main.input_buffer_size);
+    info("server: Maximum frame size: %u\n", config_main.max_frame_size);
     info("server: max_input_queue_size: %d max_stale_queue_size: %d\n",
             config_main.max_input_queue_size, config_main.max_stale_queue_size);
     info("server: TTL: %d micro-seconds\n", config_main.ttl);
@@ -106,6 +109,9 @@ void config_parse_parse(int argc, char* argv[]) {
             config_main.ws_allowed_origins = strtok(NULL, "");
         } else if (strncmp("ws_allowed_hosts", token, 16) == 0) {
             config_main.ws_allowed_hosts = strtok(NULL, "");
+        } else if (strncmp("max_frame_size", token, 14) == 0) {
+            token = strtok(NULL, "=");
+            if (token) sscanf(token, "%u", &config_main.max_frame_size);
         } else if (strncmp("write_timeout", token, 13) == 0) {
             token = strtok(NULL, "=");
             if (token) sscanf(token, "%d", &config_main.write_timeout_ms);

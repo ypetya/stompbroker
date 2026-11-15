@@ -43,6 +43,13 @@ int stomp_process(ts_queue* input_queue,
             return client_id_wo_flags;
         }
     }
+    if (input->error != NULL) { // the connection's byte stream could not be cut into frames
+        message_with_frame_len * error = message_error(input->fd, (char *) input->error);
+        error->close_after = 1;
+        ts_enqueue(output_queue, error);
+        return 0;
+    }
+
     int client_connected = stomp_session_is_connected(client_id_wo_flags);
     parsed_message * pm = parse_message(input);
     message_with_frame_len * resp = NULL;

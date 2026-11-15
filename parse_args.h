@@ -15,6 +15,8 @@
 #define DEFAULT_INPUT_QUEUE_LIMIT 1000000
 // maximum size of a single message
 #define DEFAULT_INPUT_BUFFER_SIZE 16000
+// maximum size of a single STOMP frame (a frame may span several reads)
+#define DEFAULT_MAX_FRAME_SIZE 1000000
 
 #define DEFAULT_OUTPUT_BUFFER_SIZE 10000
 // a writer gives up on a connection that accepts no data for this long
@@ -28,7 +30,8 @@ struct CONFIG_STRUCTURE {
     unsigned int ttl;
     unsigned int max_stale_queue_size;
 
-    int input_buffer_size;
+    int input_buffer_size; // bytes read from a socket at once
+    unsigned int max_frame_size; // larger frames get ERROR and the connection is closed
     int output_buffer_size; // per thread
     int processors; // (writers_count := max(processors-2,1)
     int write_timeout_ms; // slow consumer timeout of the writer threads
