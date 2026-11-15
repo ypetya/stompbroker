@@ -4,6 +4,7 @@
 #include "../../../lib/clone_str.h"
 #include "../../../lib/emalloc.h"
 #include "../session_storage.h"
+#include "../../../websocket/filter/dataframe.h"
 
 /**
  * Precalculates the frame length to support output stream buffering.
@@ -23,11 +24,7 @@ message_with_frame_len * message_create_with_frame_len_n(int fd, const char * by
     size_t len = str_len;
     if(fd>0){ 
         len+=1; // stomp message ends with \0
-        if(session_is_encoded(fd)) { // websocket frame header for a payload of len bytes
-            if (len < 126) len += 2;
-            else if (len < 65536) len += 4;
-            else len += 10;
-        } 
+        if(session_is_encoded(fd)) len += ws_frame_header_len(len); // websocket frame header for a payload of len bytes
     }
     new_m->content = emalloc(str_len + 1); // zeroed: the STOMP NUL is in place
     if (str_len > 0) memcpy(new_m->content, bytes, str_len);

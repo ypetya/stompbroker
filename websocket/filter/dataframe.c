@@ -204,6 +204,11 @@ static ws_filter_dataframe_status protocol_error(ws_input_result *result) {
     return WS_INVALID_HEADER;
 }
 
+static ws_filter_dataframe_status budget_exceeded(ws_input_result *result) {
+    reply_close(result, WS_CLOSE_INTERNAL_ERROR);
+    return WS_BUFFER_EXCEEDED_MAX;
+}
+
 /** First frame of a message (text or binary). */
 static ws_filter_dataframe_status ws_start_message(int fd, ws_frame *frame, ws_input_result *result) {
     buffer_item *slot = ws_buffer_find(fd);
@@ -214,6 +219,7 @@ static ws_filter_dataframe_status ws_start_message(int fd, ws_frame *frame, ws_i
         return WS_INCOMPLETE_DATAFRAME;
     }
 
+    if (ws_buffer_size_left(frame->payload_len) < 0) return budget_exceeded(result); // fragments are kept
     slot = ws_buffer_get_or_add(fd);
     if (slot == NULL) {
         reply_close(result, WS_CLOSE_INTERNAL_ERROR);
@@ -233,6 +239,7 @@ static ws_filter_dataframe_status ws_continue_message(int fd, ws_frame *frame,
         reply_close(result, WS_CLOSE_MESSAGE_TOO_BIG);
         return WS_TOO_LARGE_DATAFRAME;
     }
+    if (ws_buffer_size_left(frame->payload_len) < 0) return budget_exceeded(result);
     ws_fragment_append(slot, frame->payload, frame->payload_len);
 
     if (frame->fin) {
@@ -309,12 +316,7 @@ ws_filter_dataframe_status ws_input_filter_dataframe(int fd, const char *data, s
 
     buffer_item *slot = ws_buffer_find(fd);
     int buffered = slot != NULL && slot->received_len > 0;
-
-    if (ws_buffer_size_left(len) < 0) {
-        ws_buffer_free(slot);
-        reply_close(result, WS_CLOSE_INTERNAL_ERROR);
-        return WS_BUFFER_EXCEEDED_MAX;
-    }
+    size_t held_before = buffered ? slot->received_len : 0;
 
     // Decode straight from the read buffer unless earlier bytes are pending.
     if (buffered) {
@@ -336,6 +338,11 @@ ws_filter_dataframe_status ws_input_filter_dataframe(int fd, const char *data, s
         if (consumed > 0 && left > 0) memmove(slot->received, slot->received + consumed, left);
         ws_buffer_resize(slot, slot->received_len, left);
     } else if (consumed < len) { // keep the partial frame for the next read
+        if (ws_buffer_size_left(len - consumed) < 0) {
+            status = budget_exceeded(result);
+            ws_buffer_free(slot);
+            return status;
+        }
         slot = ws_buffer_get_or_add(fd);
         if (slot == NULL) {
             reply_close(result, WS_CLOSE_INTERNAL_ERROR);
@@ -343,6 +350,12 @@ ws_filter_dataframe_status ws_input_filter_dataframe(int fd, const char *data, s
         }
         ws_buffer_resize(slot, 0, len - consumed);
         memcpy(slot->received, data + consumed, len - consumed);
+    }
+
+    // The global budget limits what stays buffered: only a connection that holds more than before is closed.
+    if (!result->close && slot != NULL && slot->received_len > held_before && ws_buffer_size_left(0) < 0) {
+        ws_buffer_free(slot);
+        return budget_exceeded(result);
     }
 
     if (slot != NULL && !result->close && ws_buffer_is_idle(slot)) ws_buffer_free(slot);

@@ -244,6 +244,11 @@ static ws_handshake_status respond_error(ws_handshake_result *result, ws_handsha
                     "Connection: close\r\n"
                     "Content-Length: 0\r\n\r\n");
             break;
+        case WS_HANDSHAKE_SERVICE_UNAVAILABLE:
+            set_response(result, "HTTP/1.1 503 Service Unavailable\r\n"
+                    "Connection: close\r\n"
+                    "Content-Length: 0\r\n\r\n");
+            break;
         case WS_HANDSHAKE_FORBIDDEN:
             set_response(result, "HTTP/1.1 403 Forbidden\r\n"
                     "Connection: close\r\n"
@@ -340,7 +345,7 @@ ws_handshake_status ws_input_filter_handshake(int fd, const char *data, size_t l
     if (status == WS_HANDSHAKE_INCOMPLETE) {
         if (!buffered) {
             slot = ws_buffer_get_or_add(fd);
-            if (slot == NULL) return respond_error(result, WS_HANDSHAKE_BAD_REQUEST); // out of slots
+            if (slot == NULL) return respond_error(result, WS_HANDSHAKE_SERVICE_UNAVAILABLE); // out of slots
             ws_buffer_resize(slot, 0, len);
             memcpy(slot->received, data, len);
         }
@@ -354,10 +359,12 @@ ws_handshake_status ws_input_filter_handshake(int fd, const char *data, size_t l
         ws_buffer_resize(slot, slot->received_len, left);
     } else if (left > 0) {
         slot = ws_buffer_get_or_add(fd);
-        if (slot != NULL) {
-            ws_buffer_resize(slot, 0, left);
-            memcpy(slot->received, data + result->consumed, left);
+        if (slot == NULL) { // frames sent right after the request can not be kept: fail, do not drop them
+            free(result->response);
+            return respond_error(result, WS_HANDSHAKE_SERVICE_UNAVAILABLE);
         }
+        ws_buffer_resize(slot, 0, left);
+        memcpy(slot->received, data + result->consumed, left);
     }
     slot = ws_buffer_find(fd);
     if (slot != NULL && ws_buffer_is_idle(slot)) ws_buffer_free(slot);

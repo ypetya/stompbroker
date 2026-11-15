@@ -1105,6 +1105,96 @@ static void test_output_queue_one_writer_per_fd(void) {
 /* ---------------------------------------------------------------------------
  * Suite
  * ------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------
+ * F2 review follow-ups (F1 task 11)
+ * ------------------------------------------------------------------------- */
+/** Occupies every free WebSocket buffer slot with fake fds; returns how many. */
+static int fill_all_slots(int first_fd) {
+    int taken = 0;
+    while (ws_buffer_add(first_fd + taken, NULL, 0) != NULL) taken++;
+    return taken;
+}
+
+static void release_slots(int first_fd, int count) {
+    for (int i = 0; i < count; i++) ws_buffer_free(ws_buffer_find(first_fd + i));
+}
+
+static void test_handshake_pipelined_bytes_without_slot_fail(void) {
+    unsigned char connect[64];
+    size_t connect_len = make_frame(connect, 1, WS_OP_TEXT, "CONNECT\n\n", 10, 1);
+    char request[512];
+    size_t request_len = strlen(VALID_REQUEST);
+    memcpy(request, VALID_REQUEST, request_len);
+    memcpy(request + request_len, connect, connect_len);
+
+    int fd = next_fd++;
+    int taken = fill_all_slots(50000);
+    ws_handshake_result result;
+    ws_handshake_status status = ws_input_filter_handshake(fd, request, request_len + connect_len, NULL, &result);
+    WS_CHECK(status == WS_HANDSHAKE_SERVICE_UNAVAILABLE);
+    WS_CHECK(result.response != NULL && starts_with(result.response, "HTTP/1.1 503"));
+    WS_CHECK(ws_buffer_find(fd) == NULL);
+    ws_handshake_result_free(&result);
+
+    /* without pipelined bytes no slot is needed: the handshake still succeeds */
+    status = ws_input_filter_handshake(fd, request, request_len, NULL, &result);
+    WS_CHECK(status == WS_HANDSHAKE_OK);
+    ws_handshake_result_free(&result);
+    release_slots(50000, taken);
+}
+
+static void test_small_complete_frame_under_full_global_budget(void) {
+    int fd = new_test_fd();
+    unsigned char frame[64];
+    size_t n = make_frame(frame, 1, WS_OP_TEXT, SMALL_STOMP, SMALL_STOMP_LEN, 1);
+    struct ws_buffer_stat_t *stats = ws_buffer_get_stats();
+    size_t saved = stats->allocated_size;
+    stats->allocated_size = WS_MAX_BUFFER_SIZE - 2; /* other connections hold almost everything */
+
+    ws_input_result r;
+    WS_CHECK(feed(fd, frame, n, &r) == WS_COMPLETE_DATAFRAME); /* nothing to buffer: fine */
+    WS_CHECK(!r.close && messages_equal(&r, SMALL_STOMP, SMALL_STOMP_LEN));
+    ws_input_result_free(&r);
+
+    /* a partial frame would have to be buffered: that is over the budget */
+    WS_CHECK(feed(fd, frame, n - 1, &r) == WS_BUFFER_EXCEEDED_MAX);
+    WS_CHECK(r.close && pending_bytes(fd) == 0);
+    ws_input_result_free(&r);
+
+    stats->allocated_size = saved;
+}
+
+static void test_completing_buffered_frame_under_full_global_budget(void) {
+    int fd = new_test_fd();
+    unsigned char frame[64];
+    size_t n = make_frame(frame, 1, WS_OP_TEXT, SMALL_STOMP, SMALL_STOMP_LEN, 1);
+    ws_input_result r;
+    WS_CHECK(feed(fd, frame, 3, &r) == WS_INCOMPLETE_DATAFRAME);
+    ws_input_result_free(&r);
+
+    struct ws_buffer_stat_t *stats = ws_buffer_get_stats();
+    size_t saved = stats->allocated_size;
+    stats->allocated_size = WS_MAX_BUFFER_SIZE; /* full, but the rest completes the frame */
+    WS_CHECK(feed(fd, frame + 3, n - 3, &r) == WS_COMPLETE_DATAFRAME);
+    WS_CHECK(!r.close && messages_equal(&r, SMALL_STOMP, SMALL_STOMP_LEN) && pending_bytes(fd) == 0);
+    ws_input_result_free(&r);
+    stats->allocated_size = saved - 3;
+}
+
+static void test_fragments_count_against_global_budget(void) {
+    int fd = new_test_fd();
+    unsigned char frame[64];
+    size_t n = make_frame(frame, 0, WS_OP_TEXT, "SEND\n", 5, 1); /* FIN=0: payload must be kept */
+    struct ws_buffer_stat_t *stats = ws_buffer_get_stats();
+    size_t saved = stats->allocated_size;
+    stats->allocated_size = WS_MAX_BUFFER_SIZE - 1;
+    ws_input_result r;
+    WS_CHECK(feed(fd, frame, n, &r) == WS_BUFFER_EXCEEDED_MAX);
+    WS_CHECK(r.close && ws_buffer_find(fd) == NULL);
+    ws_input_result_free(&r);
+    stats->allocated_size = saved;
+}
+
 int run_websocket_tests(void) {
     session_storage_init();
     ws_init_buffer();
@@ -1171,6 +1261,10 @@ int run_websocket_tests(void) {
     WS_RUN(test_codec_frame_too_large);
     WS_RUN(test_codec_encode_length_boundaries);
     WS_RUN(test_codec_encode_control);
+    WS_RUN(test_handshake_pipelined_bytes_without_slot_fail);
+    WS_RUN(test_small_complete_frame_under_full_global_budget);
+    WS_RUN(test_completing_buffered_frame_under_full_global_budget);
+    WS_RUN(test_fragments_count_against_global_budget);
 
     printf("WebSocket handshake:\n");
     WS_RUN(test_accept_key_rfc_sample);

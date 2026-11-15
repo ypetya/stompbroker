@@ -25,7 +25,8 @@ extern "C" {
         WS_HANDSHAKE_OK = 101, // response is "101 Switching Protocols"
         WS_HANDSHAKE_BAD_REQUEST = 400, // malformed / not a WebSocket upgrade
         WS_HANDSHAKE_FORBIDDEN = 403, // Origin or Host not allowed by the policy
-        WS_HANDSHAKE_UPGRADE_REQUIRED = 426 // unsupported Sec-WebSocket-Version
+        WS_HANDSHAKE_UPGRADE_REQUIRED = 426, // unsupported Sec-WebSocket-Version
+        WS_HANDSHAKE_SERVICE_UNAVAILABLE = 503 // no buffer for bytes sent right after the request
     } ws_handshake_status;
 
     /**
