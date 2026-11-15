@@ -961,6 +961,63 @@ static void test_output_gives_up_after_timeout(void) {
     close(sv[1]);
 }
 
+typedef struct trickle_reader_t {
+    int fd;
+    size_t chunk;
+    useconds_t pause_us;
+} trickle_reader;
+
+/* keeps reading a little at a time until the writer end is closed */
+static void *trickle_reader_thread(void *arg) {
+    trickle_reader *r = arg;
+    char buf[4096];
+    while (read(r->fd, buf, r->chunk) > 0) usleep(r->pause_us);
+    return NULL;
+}
+
+/*
+ * Sends one small batch per round (as writer_thread does) to a reader that
+ * takes ~100 KB/s, with a 150 ms wait budget. Every single batch completes
+ * well inside 150 ms, so only the per-connection budget can catch it.
+ * @return elapsed ms until the connection was dropped, or -1 if it never was
+ */
+static long long batches_to_trickling_reader(size_t min_bytes, long long run_ms) {
+    int sv[2];
+    WS_CHECK(nonblocking_pair(sv) == 0);
+    trickle_reader reader = {.fd = sv[1], .chunk = 1024, .pause_us = 10000};
+    pthread_t tid;
+    pthread_create(&tid, NULL, trickle_reader_thread, &reader);
+
+    char write_buffer[256], payload[200];
+    memset(payload, 'p', sizeof (payload));
+    output_stall stall = {0};
+    int failed = 0;
+    long long start = monotonic_ms();
+    while (!failed && monotonic_ms() - start < run_ms) {
+        output_batch batch = {.fd = sv[0], .buffer = write_buffer, .capacity = sizeof (write_buffer), .used = 0,
+            .timeout_ms = 150, .min_bytes = min_bytes, .stall = &stall};
+        failed = output_batch_add(&batch, payload, sizeof (payload)) < 0 || output_batch_flush(&batch) < 0;
+    }
+    long long elapsed = monotonic_ms() - start;
+
+    close(sv[0]);
+    pthread_join(tid, NULL);
+    close(sv[1]);
+    return failed ? elapsed : -1;
+}
+
+static void test_output_drops_trickling_reader(void) {
+    /* required: 1 MB per 150 ms of waiting; the reader is far slower */
+    long long dropped_after = batches_to_trickling_reader(1 << 20, 3000);
+    WS_CHECK(dropped_after >= 0);
+    WS_CHECK(dropped_after < 1500);
+}
+
+static void test_output_keeps_reader_above_min_rate(void) {
+    /* required: 1 KB per 150 ms of waiting; the reader is much faster */
+    WS_CHECK(batches_to_trickling_reader(1024, 1000) == -1);
+}
+
 static void test_output_peer_closed_fails(void) {
     int sv[2];
     WS_CHECK(nonblocking_pair(sv) == 0);
@@ -1096,6 +1153,8 @@ int run_websocket_tests(void) {
     signal(SIGPIPE, SIG_IGN); /* as the server does */
     WS_RUN(test_output_larger_than_buffer_to_slow_reader);
     WS_RUN(test_output_gives_up_after_timeout);
+    WS_RUN(test_output_drops_trickling_reader);
+    WS_RUN(test_output_keeps_reader_above_min_rate);
     WS_RUN(test_output_peer_closed_fails);
 
     printf("Output queue:\n");

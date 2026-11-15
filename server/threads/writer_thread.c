@@ -17,21 +17,15 @@
 void w_close_connection(int conn_sock, int fd_with_session, ts_queue * input_queue, const char * reason);
 
 /*
- * Several writer threads may hold batches for the same fd. Writing a batch
- * can now take a while (partial writes + waiting for writability), so a
- * striped per-fd lock keeps two batches from interleaving on one socket.
+ * Per-connection slow consumer budget (see output_batch.h). No lock needed:
+ * output_queue lets only one writer own an fd at a time, and taking or
+ * releasing ownership goes through the queue mutex.
+ *
+ * That ownership also replaces the former striped write locks: two batches
+ * of one connection can no longer be written concurrently, and a slow peer
+ * keeps only its own writer waiting instead of every fd sharing its stripe.
  */
-#define WRITE_LOCK_STRIPES 256
-static pthread_mutex_t write_locks[WRITE_LOCK_STRIPES];
-static pthread_once_t write_locks_once = PTHREAD_ONCE_INIT;
-
-static void init_write_locks(void) {
-    for (int i = 0; i < WRITE_LOCK_STRIPES; i++) pthread_mutex_init(&write_locks[i], NULL);
-}
-
-static pthread_mutex_t * write_lock_of(int fd) {
-    return &write_locks[(unsigned int) fd % WRITE_LOCK_STRIPES];
-}
+static output_stall connection_stalls[FD_MASK + 1];
 
 void *writer_thread(void *vargp) {
     worker_thread_data_struct * queues = vargp;
@@ -41,7 +35,6 @@ void *writer_thread(void *vargp) {
     //queue * stale_queue = queues->stale_queue;
 
     stomp_app_config * config = config_get_config();
-    pthread_once(&write_locks_once, init_write_locks);
 
     char write_buffer[config->output_buffer_size];
     message_with_frame_len* msg = NULL;
@@ -62,9 +55,11 @@ void *writer_thread(void *vargp) {
             .buffer = write_buffer,
             .capacity = (size_t) config->output_buffer_size,
             .used = 0,
-            .timeout_ms = config->write_timeout_ms
+            .timeout_ms = config->write_timeout_ms,
+            // a stalled peer must take at least one buffer per write_timeout of waiting
+            .min_bytes = (size_t) config->output_buffer_size,
+            .stall = owned_fd > 0 ? &connection_stalls[owned_fd] : NULL
         };
-        pthread_mutex_t * lock = NULL;
 
         for (i = 0; i < MESSAGES_BATCH_SIZE; i++) {
             msg = messages[i];
@@ -82,11 +77,7 @@ void *writer_thread(void *vargp) {
                 message_destroy_with_frame_len(msg);
                 continue; 
             }
-            if (lock == NULL) {
-                lock = write_lock_of(fd);
-                pthread_mutex_lock(lock);
-                batch.fd = fd;
-            }
+            batch.fd = fd;
             debug(">>>\n%s\n", msg->content);
             close_after |= msg->close_after;
             size_t len = ws_output_filter(msg);
@@ -95,7 +86,6 @@ void *writer_thread(void *vargp) {
         }
 
         if (!failed) failed = output_batch_flush(&batch) < 0;
-        if (lock != NULL) pthread_mutex_unlock(lock);
 
         if (failed) // slow consumer (timeout) or broken connection
             w_close_connection(fd, fd_with_session, input_queue, "drop blocked connection");
@@ -110,6 +100,7 @@ void *writer_thread(void *vargp) {
 
 void w_close_connection(int conn_sock, int fd_with_session, ts_queue * input_queue, const char * reason) {
     info("server: %s. fd:%d\n", reason, conn_sock);
+    connection_stalls[session_without_flags(conn_sock)] = (output_stall) {0};
 
     int fd_with_flags = session_set_cmd_purge(conn_sock);
     char * CMD = clone_str("CMD");

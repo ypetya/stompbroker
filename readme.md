@@ -82,7 +82,7 @@ port=<num>                  : port to listen to
 max_input_queue_size=<num>  : input queue limit
 max_stale_queue_size=<num>  : stale queue limit
 TTL=<num>                   : Time to live limit in <milli seconds>
-write_timeout=<num>         : drop a connection that accepts no data for <milli seconds> (default 5000)
+write_timeout=<num>         : drop a slow consumer after <milli seconds> of waiting for it in total (default 5000); waiting restarts once it has taken one output buffer (10000 bytes)
 ws_allowed_origins=<a,b>    : WebSocket Origin allowlist, comma separated (default: any)
 ws_allowed_hosts=<a,b>      : WebSocket Host allowlist, comma separated, with or without port (default: any)
 ```
