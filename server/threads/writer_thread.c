@@ -10,10 +10,22 @@
 #include "worker_thread_data.h"
 #include "../data/cleanup.h"
 #include "../data/message/with_timestamp.h"
+#include "output_batch.h"
+#include "output_queue.h"
+#include <pthread.h>
 
-#define MESSAGES_BATCH_SIZE 1000
-void ts_dequeue_multiple_messages_for_same_fd(message_with_frame_len* (*ret)[MESSAGES_BATCH_SIZE], ts_queue * q, int buffer_size);
-void w_close_connection(int conn_sock, int fd_with_session, ts_queue * input_queue);
+void w_close_connection(int conn_sock, int fd_with_session, ts_queue * input_queue, const char * reason);
+
+/*
+ * Per-connection slow consumer budget (see output_batch.h). No lock needed:
+ * output_queue lets only one writer own an fd at a time, and taking or
+ * releasing ownership goes through the queue mutex.
+ *
+ * That ownership also replaces the former striped write locks: two batches
+ * of one connection can no longer be written concurrently, and a slow peer
+ * keeps only its own writer waiting instead of every fd sharing its stripe.
+ */
+static output_stall connection_stalls[FD_MASK + 1];
 
 void *writer_thread(void *vargp) {
     worker_thread_data_struct * queues = vargp;
@@ -28,16 +40,28 @@ void *writer_thread(void *vargp) {
     message_with_frame_len* msg = NULL;
     message_with_frame_len * messages[MESSAGES_BATCH_SIZE] = {NULL};
 
-    int res = 0, i, buffer_ptr, fd, fd_with_session;
+    int i, fd, fd_with_session, close_after, failed;
     while (YES) {
-        res = -1;
         fd = 0;
         fd_with_session = 0;
+        close_after = 0;
+        failed = 0;
 
         for (int i = 0; i < MESSAGES_BATCH_SIZE; i++)messages[i] = NULL;
-        ts_dequeue_multiple_messages_for_same_fd(&messages, output_queue, config->output_buffer_size);
+        int owned_fd = output_queue_take_batch(&messages, output_queue, config->output_buffer_size);
 
-        for (i = 0, buffer_ptr = 0; i < MESSAGES_BATCH_SIZE; i++) {
+        output_batch batch = {
+            .fd = 0,
+            .buffer = write_buffer,
+            .capacity = (size_t) config->output_buffer_size,
+            .used = 0,
+            .timeout_ms = config->write_timeout_ms,
+            // a stalled peer must take at least one buffer per write_timeout of waiting
+            .min_bytes = (size_t) config->output_buffer_size,
+            .stall = owned_fd > 0 ? &connection_stalls[owned_fd] : NULL
+        };
+
+        for (i = 0; i < MESSAGES_BATCH_SIZE; i++) {
             msg = messages[i];
             if (msg == NULL) break; //Last item reached, end of messages
             fd_with_session = msg->fd;
@@ -48,92 +72,35 @@ void *writer_thread(void *vargp) {
                 debug(" * Writer thread: Poison pill detected.\n");
                 message_destroy_with_frame_len(msg);
                 return NULL; // exit thread
-            } else if(!session_storage_get(fd)){ 
+            } else if(failed || !session_storage_get(fd)){ 
                 // disconnected client 
                 message_destroy_with_frame_len(msg);
                 continue; 
             }
+            batch.fd = fd;
             debug(">>>\n%s\n", msg->content);
+            close_after |= msg->close_after;
             size_t len = ws_output_filter(msg);
-            memcpy(&write_buffer[buffer_ptr], msg->content, len);
-            buffer_ptr += len;
+            failed = output_batch_add(&batch, msg->content, len) < 0;
             message_destroy_with_frame_len(msg);
         }
 
-        if (buffer_ptr > 0) {
-            int offset=0;
-            do{
-                { 
-                    int retry_count = 200;
-                    // non blocking write attempt
-                    do{
-                        res = write(fd, &write_buffer[offset], buffer_ptr);
-                        if(res<0 && (errno == EAGAIN || errno == EWOULDBLOCK )) {
-                            usleep(10);
-                        }
-                    } while(res<0 && --retry_count>0);
+        if (!failed) failed = output_batch_flush(&batch) < 0;
 
-                    if(retry_count<=0) {
-                        // we have tried to recover, but failed.
-                        w_close_connection(fd, fd_with_session, input_queue);
-                        break;
-                    }
-                }
-                offset+=res;
-                buffer_ptr -=res;              
-            } while(buffer_ptr>0);   
-        }
+        if (failed) // slow consumer (timeout) or broken connection
+            w_close_connection(fd, fd_with_session, input_queue, "drop blocked connection");
+        else if (close_after) // e.g. WebSocket close frame sent: now close TCP
+            w_close_connection(fd, fd_with_session, input_queue, "closing connection after close frame");
+
+        output_queue_release_fd(output_queue, owned_fd); // next batch of this connection may go now
     }
 
     return NULL;
 }
 
-void ts_dequeue_multiple_messages_for_same_fd(message_with_frame_len* (*ret)[MESSAGES_BATCH_SIZE], ts_queue * q, int buffer_size) {
-
-    message_with_frame_len * msg = NULL;
-    general_list_item * parent = NULL;
-    general_list_item * current = NULL;
-    general_list_item * peek_cursor = NULL;
-    int first_fd = 0;
-    int index = 0;
-    int remaining_len = buffer_size;
-
-    pthread_mutex_lock(&q->lock);
-    
-    while(q->q.size==0)
-        pthread_cond_wait(&q->has_new_elements,&q->lock);
-    
-    if ((peek_cursor = q->q.first)) {
-        while(index < MESSAGES_BATCH_SIZE && peek_cursor != NULL && remaining_len > 0) {
-            current = peek_cursor;
-            msg = (message_with_frame_len *) peek_cursor->data;
-            if (msg->fd == -1) {
-                (*ret)[index++] = msg;
-                unchain_child(&q->q, parent, peek_cursor);
-                free(peek_cursor);
-                break;
-            } else if (first_fd == 0)
-                first_fd = msg->fd; // first item, always pick-up
-            else if (msg->fd != first_fd) {
-                parent = peek_cursor;
-                peek_cursor = peek_cursor->next;
-                continue; // skip different fd
-            } else if (msg->frame_len > remaining_len) break; // too large msg to fit in
-            // pick-up msg
-            (*ret)[index++] = msg;
-            remaining_len -= msg->frame_len;
-            // unchain
-            unchain_child(&q->q, parent, peek_cursor);
-            peek_cursor = peek_cursor->next;
-            free(current);
-        }
-    }
-
-    pthread_mutex_unlock(&q->lock);
-}
-
-void w_close_connection(int conn_sock, int fd_with_session, ts_queue * input_queue) {
-    info("server: drop blocked connection. fd:%d\n", conn_sock);
+void w_close_connection(int conn_sock, int fd_with_session, ts_queue * input_queue, const char * reason) {
+    info("server: %s. fd:%d\n", reason, conn_sock);
+    connection_stalls[session_without_flags(conn_sock)] = (output_stall) {0};
 
     int fd_with_flags = session_set_cmd_purge(conn_sock);
     char * CMD = clone_str("CMD");

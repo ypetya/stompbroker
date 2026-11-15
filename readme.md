@@ -19,9 +19,36 @@ Limitations
 
 Some features are under implementation, especially in the following area
 
-- Lack of security (WS/STOMP)
-- No fragmented messages (WS)
+- Lack of security (WS/STOMP): no TLS, no authentication
 - Taking only limited size messages: (WS/STOMP). See config on startup.
+  A WebSocket message (single frame or reassembled fragments) may be at most
+  1 000 000 bytes (`WS_DATA_FRAME_MAX_LENGTH`), larger ones are closed with 1009.
+- No WebSocket extensions (e.g. permessage-deflate); UTF-8 of text frames is not validated.
+
+WebSocket
+---------
+
+- Handshake (RFC 6455 4.2): request is buffered until the empty line (max 8 KiB),
+  headers are case-insensitive. Requires `Host`, `Upgrade: websocket`,
+  `Connection: Upgrade`, a valid `Sec-WebSocket-Key` and
+  `Sec-WebSocket-Version: 13`. Errors: `400` malformed, `426` wrong version,
+  `403` rejected by an allowlist.
+- Subprotocol: `Sec-WebSocket-Protocol` is echoed when the client offers
+  `v12.stomp`, `v11.stomp` or `v10.stomp` (the highest offered version wins).
+- Origin / Host checks are opt-in (default: allow all), see
+  `ws_allowed_origins` / `ws_allowed_hosts` below. Requests without an
+  `Origin` header (non-browser clients) are not subject to the Origin list.
+- Frames: any frame size, fragmentation (continuation frames, control frames
+  between fragments), ping is answered with pong, close is echoed and the TCP
+  connection is closed afterwards. Unmasked client frames, reserved bits,
+  unknown opcodes or invalid control frames close the connection with 1002.
+- **Binary frames policy:** binary data frames are accepted and treated exactly
+  like text frames, i.e. the payload is a STOMP frame. (STOMP bodies are handled
+  as NUL terminated strings inside the broker, so a body must not contain NUL.)
+  The broker always answers with text frames.
+- Transport detection: a new connection whose first bytes are `GET ` is an
+  HTTP upgrade, anything else is raw STOMP over TCP. Once decided, the
+  connection never switches.
 - Messaging patterns
 
 Messaging
@@ -55,6 +82,19 @@ port=<num>                  : port to listen to
 max_input_queue_size=<num>  : input queue limit
 max_stale_queue_size=<num>  : stale queue limit
 TTL=<num>                   : Time to live limit in <milli seconds>
+write_timeout=<num>         : drop a slow consumer after <milli seconds> of waiting for it in total (default 5000); waiting restarts once it has taken one output buffer (10000 bytes)
+ws_allowed_origins=<a,b>    : WebSocket Origin allowlist, comma separated (default: any)
+ws_allowed_hosts=<a,b>      : WebSocket Host allowlist, comma separated, with or without port (default: any)
+```
+
+Build and test
+--------------
+
+```
+make build        # Linux only (epoll)
+make test test-ws # unit tests; test-ws runs the WebSocket tests under ASan/UBSan (Linux and macOS)
+make test-e2e     # end-to-end WebSocket + raw STOMP test (Linux)
+make docker-test  # everything in a Linux container, uses podman or docker
 ```
 
 Performance
@@ -126,7 +166,7 @@ The first character of the line can contain the following status codes:
 + examples/js/websocket/* performance, TTL, diagnostic messages
 - Create one functional test in javascript that tests all the test-cases. STOMP protocol, connection, load scenarios.
 + Websocket handshake filter
-~ Websocket data frames encoding-decoding (Limited: opcode=1,8 text-content,fin=1 no fragments)
++ Websocket data frames encoding-decoding (all opcodes, fragmentation, any frame size)
 + WS: Buffer underrun, Buffer overflow
 + Make session threadsafe : use it only upfront!
 - STOMP: Buffer overflow, multiple messages
@@ -138,7 +178,7 @@ The first character of the line can contain the following status codes:
 ? ( dropped ws data-frames, fixed underruns, cache size )
 + WS frame maximum: WS_DATA_FRAME_MAX_LENGTH
 + WS buffering stats DIAG messages
-- WS ping-pong
++ WS ping-pong, close handshake
 - STOMP heartbeat
 + peek messages: pick multiple messages for same FD (output queue only)
 + output buffering: every writer thread has an own 10k buffer for sending out multiple messages in a batch

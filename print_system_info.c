@@ -1,5 +1,5 @@
 
-#include <sys/sysinfo.h>
+#include "lib/sysinfo_compat.h"
 #include <sys/resource.h>
 #include "logger.h"
 #include <inttypes.h>

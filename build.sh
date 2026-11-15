@@ -1,6 +1,6 @@
 #!/bin/bash
 
-rm -v *.out
+rm -fv *.out
 DEBUG_OPTS=""
 if [ "debug" == "$1" ]; then
     DEBUG_OPTS="-g"
@@ -14,6 +14,7 @@ then
     echo 'Build done!'
 else
     echo 'Build failed! :('
+    exit 1
 fi
 if [ "valgrind" == "$1" ]; then
  valgrind --leak-check=full --show-leak-kinds=all ./stompbroker.out TTL=1000000

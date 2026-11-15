@@ -59,6 +59,10 @@ ts_queue * process_start_threads() {
     return &input_queue;
 }
 
+ts_queue * process_output_queue() {
+    return &output_queue;
+}
+
 void process_kill_threads() {
     // kill reader thread
     ts_enqueue(&input_queue, message_poison_pill_with_timestamp());

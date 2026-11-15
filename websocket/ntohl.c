@@ -1,5 +1,7 @@
 
+#include "ntohl.h"
 #include <inttypes.h>
+#include <arpa/inet.h>
 #include <netinet/in.h>
 
 /** 

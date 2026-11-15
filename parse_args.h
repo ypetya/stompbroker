@@ -17,6 +17,8 @@
 #define DEFAULT_INPUT_BUFFER_SIZE 16000
 
 #define DEFAULT_OUTPUT_BUFFER_SIZE 10000
+// a writer gives up on a connection that accepts no data for this long
+#define DEFAULT_WRITE_TIMEOUT_MS 5000
 
 struct CONFIG_STRUCTURE {
     char * port;
@@ -29,6 +31,11 @@ struct CONFIG_STRUCTURE {
     int input_buffer_size;
     int output_buffer_size; // per thread
     int processors; // (writers_count := max(processors-2,1)
+    int write_timeout_ms; // slow consumer timeout of the writer threads
+
+    // WebSocket handshake allowlists, comma separated. NULL = allow all (default)
+    char * ws_allowed_origins;
+    char * ws_allowed_hosts;
 };
 
 typedef struct CONFIG_STRUCTURE stomp_app_config;
