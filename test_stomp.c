@@ -243,6 +243,49 @@ static void test_fuzz_random_and_truncated_frames(void) {
     ST_CHECK(1); /* reaching this point without a sanitizer report is the test */
 }
 
+/* ---------------------------------------------------------------------------
+ * Strict command and header matching (gap 7)
+ * ------------------------------------------------------------------------- */
+static parsed_message *parse_str(const char *frame) {
+    return parse_frame(frame, strlen(frame), 0);
+}
+
+static void test_command_must_match_whole_token(void) {
+    const char *invalid[] = {"SENDX\ndestination:/a\n\n", "CONNECTED\n\n", "STOMPY\n\n",
+        "DIAGNOSTIC\n\nsession", "SUBSCRIBEX\nid:1\ndestination:/a\n\n", "send\n\n", " SEND\n\n"};
+    for (size_t i = 0; i < sizeof (invalid) / sizeof (invalid[0]); i++) {
+        parsed_message *pm = parse_str(invalid[i]);
+        ST_CHECK(pm->command == -1 && pm->error != NULL);
+        free_parsed_message(pm);
+    }
+    parsed_message *pm = parse_str("SEND\r\ndestination:/a\r\n\r\n"); /* CRLF still fine */
+    ST_CHECK(pm->command == FRM_SEND_ID && pm->topic && strcmp(pm->topic, "/a") == 0);
+    free_parsed_message(pm);
+}
+
+static void test_header_names_must_match_whole_token(void) {
+    parsed_message *pm = parse_str("SUBSCRIBE\nidx:1\ndestinationx:/a\nreceipts:r\n\n");
+    ST_CHECK(pm->command == FRM_SUBSCRIBE_ID);
+    ST_CHECK(pm->id == NULL && pm->topic == NULL && pm->receipt_id == NULL);
+    free_parsed_message(pm);
+}
+
+static void test_repeated_header_first_wins(void) {
+    parsed_message *pm = parse_str("SEND\ndestination:/first\ndestination:/second\nx:1\nx:2\n\n");
+    ST_CHECK(pm->topic && strcmp(pm->topic, "/first") == 0);
+    aa_item *x = aa_get(pm->headers->root, "x");
+    ST_CHECK(x && strcmp(x->value, "1") == 0);
+    free_parsed_message(pm);
+}
+
+static void test_prefixed_command_and_header_get_error(void) {
+    connect_client(5);
+    receive(5, "SENDX\ndestination:/a\n\nbody");
+    ST_CHECK(expect_output("ERROR\n"));
+    receive(5, "SEND\ndestinationx:/a\n\nbody");
+    ST_CHECK(expect_output("ERROR\n"));
+}
+
 int run_stomp_tests(void) {
     printf("STOMP tests\n");
     session_storage_init();
@@ -255,6 +298,10 @@ int run_stomp_tests(void) {
     ST_RUN(test_parse_rejects_truncated_frames);
     ST_RUN(test_headers_without_blank_line_get_error);
     ST_RUN(test_fuzz_random_and_truncated_frames);
+    ST_RUN(test_command_must_match_whole_token);
+    ST_RUN(test_header_names_must_match_whole_token);
+    ST_RUN(test_repeated_header_first_wins);
+    ST_RUN(test_prefixed_command_and_header_get_error);
 
     session_storage_dispose();
     printf("STOMP tests: %d run, %d failed\n", st_tests_run, st_tests_failed);

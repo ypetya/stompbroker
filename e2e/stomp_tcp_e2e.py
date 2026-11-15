@@ -179,11 +179,21 @@ def drain_until_receipt(client, receipt):
             return
 
 
+def scenario_strict_command_and_header_names(port):
+    for frame in ("SENDX\ndestination:/t\n\nbody", "SEND\ndestinationx:/t\n\nbody"):
+        c = connected_client(port)
+        c.send(frame)
+        reply = c.recv()
+        expect(reply.startswith("ERROR\n"), f"{frame!r}: expected ERROR, got {reply[:60]!r}")
+        c.close()
+
+
 SCENARIOS = [
     scenario_pubsub_round_trip,
     scenario_two_frames_in_one_write,
     scenario_malformed_frame_gets_error,
     scenario_truncated_frames_loop,
+    scenario_strict_command_and_header_names,
 ]
 
 

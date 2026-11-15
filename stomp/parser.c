@@ -42,9 +42,9 @@ static char *span_dup(const char *p, size_t len) {
     return s;
 }
 
+/** Whole token comparison: "SENDX" is not "SEND", "destinationx" is not "destination". */
 static int token_is(const char *p, size_t len, const char *expected) {
-    size_t expected_len = strlen(expected);
-    return len >= expected_len && memcmp(p, expected, expected_len) == 0;
+    return len == strlen(expected) && memcmp(p, expected, len) == 0;
 }
 
 static int command_of(const char *p, size_t len) {
@@ -65,6 +65,10 @@ static void replace_str(char **field, const char *value) {
 static void put_header(parsed_message *pm, const char *name, size_t name_len,
         const char *value, size_t value_len) {
     char *key = span_dup(name, name_len);
+    if (aa_has(pm->headers->root, key)) { // STOMP 1.2: only the first of repeated headers counts
+        free(key);
+        return;
+    }
     char *val = span_dup(value, value_len);
 
     if (token_is(name, name_len, "receipt")) replace_str(&pm->receipt_id, val);
