@@ -91,6 +91,8 @@ int stomp_process(ts_queue* input_queue,
                 resp = message_error(input->fd, "No id defined!");
             } else if (pm->topic == NULL)
                 resp = message_error(input->fd, "No destination defined!");
+            else if (client_connected > 0 && pubsub_has_subscription(client_id, pm->id))
+                resp = message_error(input->fd, "Subscription id is already in use!");
             else if (client_connected > 0) {
                 pubsub_subscribe(pm->topic, client_id, pm->id);
                 distribute_messages_from_stale_q(pm->topic, client_id, pm->id, stale_queue,output_queue, ttl);
@@ -102,10 +104,8 @@ int stomp_process(ts_queue* input_queue,
         {
             if (pm->id == NULL) {
                 resp = message_error(input->fd, "No id defined!");
-            } else if (pm->topic == NULL)
-                resp = message_error(input->fd, "No destination defined!");
-            else if (client_connected > 0)
-                pubsub_unsubscribe(pm->topic, client_id, pm->id);
+            } else if (client_connected > 0)
+                pubsub_unsubscribe(client_id, pm->id);
             else
                 resp = message_error(input->fd, "Not connected!");
             break;

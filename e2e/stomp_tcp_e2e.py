@@ -6,9 +6,11 @@ Standard library only. Starts the broker on an ephemeral port (when --broker
 is given), runs TCP probes against it and exits 0 when every scenario passes.
 
     python3 e2e/stomp_tcp_e2e.py --broker ./stompbroker.out
+    python3 e2e/stomp_tcp_e2e.py --broker ./stompbroker.out --js examples/js/raw/stomp.protocol.test.js
     make test-e2e            # Linux (epoll); or inside `make docker-test`
 """
 import argparse
+import shutil
 import socket
 import subprocess
 import sys
@@ -248,6 +250,44 @@ def scenario_content_length_mismatch_gets_error(port):
     c.close()
 
 
+def scenario_receipt_bytes(port):
+    c = connected_client(port)
+    c.send("SUBSCRIBE\nid:1\ndestination:/topic/r\nreceipt:x\n\n")
+    while b"\0" not in c.buf:
+        c._fill()
+    expect(c.buf == b"RECEIPT\nreceipt-id:x\n\n\0", f"RECEIPT bytes {c.buf!r}")
+    c.close()
+
+
+def scenario_unsubscribe_by_id_only(port):
+    c = connected_client(port)
+    subscribe(c, "/topic/unsub", 7)
+    c.send("UNSUBSCRIBE\nid:7\nreceipt:u\n\n")
+    expect(headers_of(c.recv()).get("receipt-id") == "u", "UNSUBSCRIBE receipt")
+    c.send("SEND\ndestination:/topic/unsub\n\nnot delivered")
+    subscribe(c, "/topic/after", 8)  # the next frame must be this receipt, not a MESSAGE
+    c.close()
+
+
+def scenario_duplicate_subscription_id(port):
+    c = connected_client(port)
+    subscribe(c, "/topic/dup", 1)
+    c.send("SUBSCRIBE\nid:1\ndestination:/topic/dup\nreceipt:d\n\n")
+    reply = c.recv()
+    expect(reply.startswith("ERROR\n"), f"expected ERROR, got {reply[:60]!r}")
+    c.close()
+
+
+def scenario_http_body_keeps_nul(port):
+    c = connected_client(port)
+    subscribe(c, "/topic/http", 1)
+    c.send("SEND\ndestination:/topic/http\n\nHTTP/1.1 200 OK")
+    c.send("SEND\ndestination:/topic/http\n\nsecond")
+    expect(body_of(c.recv()) == "HTTP/1.1 200 OK", "HTTP-like body")
+    expect(body_of(c.recv()) == "second", "frame after the HTTP-like body")
+    c.close()
+
+
 SCENARIOS = [
     scenario_pubsub_round_trip,
     scenario_two_frames_in_one_write,
@@ -259,6 +299,10 @@ SCENARIOS = [
     scenario_too_large_frame_gets_error_and_close,
     scenario_body_with_nul_round_trips,
     scenario_content_length_mismatch_gets_error,
+    scenario_receipt_bytes,
+    scenario_unsubscribe_by_id_only,
+    scenario_duplicate_subscription_id,
+    scenario_http_body_keeps_nul,
 ]
 
 
@@ -283,6 +327,7 @@ def main():
     parser.add_argument("--port", type=int, default=0, help="0: pick a free port (default)")
     parser.add_argument("--broker", help="broker binary to start (otherwise one must be running on --port)")
     parser.add_argument("--log", default="e2e_stomp_broker.log")
+    parser.add_argument("--js", help="JS protocol test to run first, against the fresh broker (needs node)")
     args = parser.parse_args()
     port = args.port or free_port()
 
@@ -295,6 +340,14 @@ def main():
     failures = 0
     try:
         wait_for_port(port, broker)
+        if args.js:
+            if shutil.which("node") is None:
+                print(f"SKIP {args.js}: node is not installed")
+            elif subprocess.run(["node", args.js, str(port)]).returncode != 0:
+                failures += 1
+                print(f"FAIL {args.js}")
+            else:
+                print(f"PASS {args.js}")
         for scenario in SCENARIOS:
             try:
                 scenario(port)

@@ -41,79 +41,56 @@ void pubsub_subscribe(char* topic_str, int client_session_id, char* subscription
     list_add(topics, new_sub);
 }
 
-void pubsub_unsubscribe(char* topic_str, int client_session_id, char* subscription_id) {
-    if (topics->size == 0) return;
+typedef int (*subscription_filter)(const subscription * sub, int client_session_id, const char * id);
 
+static int of_client(const subscription * sub, int client_session_id, const char * id) {
+    return sub->session_id == client_session_id;
+}
+
+static int of_client_with_id(const subscription * sub, int client_session_id, const char * id) {
+    return sub->session_id == client_session_id && strcmp(sub->id, id) == 0;
+}
+
+/** Unchains and frees every subscription matching the filter. @return number removed */
+static int remove_subscriptions(subscription_filter matches, int client_session_id, const char * id) {
+    int removed = 0;
     general_list_item * p = NULL;
     general_list_item * c = topics->first;
 
     while (c != NULL) {
         subscription * sub = c->data;
+        general_list_item * next = c->next;
 
-        if (sub->session_id == client_session_id &&
-                strcmp(sub->topic_pattern, topic_str) == 0 &&
-                strcmp(sub->id, subscription_id) == 0
-                ) {
+        if (matches(sub, client_session_id, id)) {
             free(sub->topic_pattern);
             free(sub->id);
-            free(sub); // = c->data
-            //unchain
-            if (p == NULL) // first item!
-                topics->first = c->next;
-            else
-                p->next = c->next;
-            // last item!
+            free(sub);
+            if (p == NULL) topics->first = next;
+            else p->next = next;
             if (topics->last == c) topics->last = p;
-
             free(c);
-
-            if (p == NULL)
-                c = topics->first;
-            else
-                c = p->next;
-
-            topics->size = topics->size - 1;
+            topics->size--;
+            removed++;
         } else {
             p = c;
-            c = c->next;
         }
+        c = next;
     }
+    return removed;
+}
+
+int pubsub_unsubscribe(int client_session_id, const char* subscription_id) {
+    return remove_subscriptions(of_client_with_id, client_session_id, subscription_id);
 }
 
 void pubsub_remove_client(int client_session_id) {
-    if (topics->size == 0) return;
+    remove_subscriptions(of_client, client_session_id, NULL);
+}
 
-    general_list_item * p = NULL;
-    general_list_item * c = topics->first;
-
-    while (c != NULL) {
-        subscription * sub = c->data;
-
-        if (sub->session_id == client_session_id) {
-            free(sub->topic_pattern);
-            free(sub->id);
-            free(sub); // = c->data
-            //unchain
-            if (p == NULL) // first item!
-                topics->first = c->next;
-            else
-                p->next = c->next;
-            // last item!
-            if (topics->last == c) topics->last = p;
-
-            free(c);
-
-            if (p == NULL)
-                c = topics->first;
-            else
-                c = p->next;
-
-            topics->size = topics->size - 1;
-        } else {
-            p = c;
-            c = c->next;
-        }
-    }
+int pubsub_has_subscription(int client_session_id, const char* subscription_id) {
+    for (general_list_item * c = topics->first; c != NULL; c = c->next)
+        if (of_client_with_id(c->data, client_session_id, subscription_id)) return 1;
+    return 0;
 }
 
 /**

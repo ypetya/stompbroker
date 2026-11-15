@@ -57,8 +57,7 @@ message_with_frame_len * message_disconnect(int fd) {
 }
 
 char * RECEIPT_TEMPLATE = "RECEIPT\n"
-        "content-type:text/plain\n"
-        "receipt-id:%s\n";
+        "receipt-id:%s\n\n";
 
 message_with_frame_len * message_receipt(int fd, char* receipt_id) {
     int len = (int) (strlen(RECEIPT_TEMPLATE) - 2);
@@ -98,10 +97,10 @@ message_with_frame_len * message_send_with_headers(int fd, associative_array * a
 
 char * MESSAGE_DIAGNOSTIC_TEMPLATE = "DIAG\n"
         "content-type:text/plain\n"
-        "%s:%s\n";
+        "%s:%s\n\n";
 
 message_with_frame_len * message_diagnostic(int fd, char * key, char * value) {
-    int len = (int) (strlen(MESSAGE_DIAGNOSTIC_TEMPLATE) - 4);
+    int len = (int) (strlen(MESSAGE_DIAGNOSTIC_TEMPLATE) - 4); // without the two "%s"
     int total_len = len + strlen(key) + strlen(value);
 
     char * frame = emalloc(total_len + 1);

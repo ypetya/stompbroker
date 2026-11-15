@@ -144,7 +144,9 @@ size_t ws_output_filter(message_with_frame_len *m) {
         len = ws_encode_frame(WS_OP_TEXT, m->content, m->content_len + 1, &encoded_message);
         free(m->content);
         m->content = encoded_message;
-    } else if (strncasecmp(m->content, "HTTP", 4) != 0) len++; // STOMP needs a closing '\0' HTTP handshake must not!
+    } else {
+        len++; // raw TCP: the closing '\0' of the STOMP frame (HTTP responses are raw messages)
+    }
     return len;
 }
 

@@ -511,6 +511,77 @@ static void test_body_with_nul_over_websocket(void) {
     message_destroy_with_frame_len(m);
 }
 
+/* ---------------------------------------------------------------------------
+ * Protocol fixes (gaps 5, 6, 8, 13)
+ * ------------------------------------------------------------------------- */
+static void test_receipt_frame_bytes(void) {
+    connect_client(5);
+    receive(5, "SUBSCRIBE\nid:1\ndestination:/a\nreceipt:x\n\n");
+    message_with_frame_len *m = next_output();
+    ST_CHECK(m != NULL);
+    if (m == NULL) return;
+    size_t wire = ws_output_filter(m);
+    const char expected[] = "RECEIPT\nreceipt-id:x\n\n"; /* + its NUL */
+    ST_CHECK(wire == sizeof (expected) && memcmp(m->content, expected, sizeof (expected)) == 0);
+    if (wire != sizeof (expected)) printf("    got %s\n", m->content);
+    message_destroy_with_frame_len(m);
+}
+
+static void test_unsubscribe_needs_only_id(void) {
+    connect_client(5);
+    receive(5, "SUBSCRIBE\nid:1\ndestination:/a\n\n");
+    receive(5, "SUBSCRIBE\nid:2\ndestination:/b\n\n");
+    ST_CHECK(pubsub_size() == 2);
+    receive(5, "UNSUBSCRIBE\nid:1\nreceipt:u1\n\n");
+    ST_CHECK(expect_output("RECEIPT\nreceipt-id:u1\n"));
+    ST_CHECK(pubsub_size() == 1);
+    receive(6, "CONNECT\naccept-version:1.2\n\n");
+    drop_output();
+    receive(6, "SEND\ndestination:/a\n\nnobody listens");
+    ST_CHECK(output_count() == 0);
+    receive(5, "UNSUBSCRIBE\nreceipt:u2\n\n");
+    ST_CHECK(expect_output("ERROR\n")); /* id is still required */
+}
+
+static void test_duplicate_subscription_id_rejected(void) {
+    connect_client(5);
+    receive(5, "SUBSCRIBE\nid:1\ndestination:/a\n\n");
+    receive(5, "SUBSCRIBE\nid:1\ndestination:/a\nreceipt:dup\n\n");
+    message_with_frame_len *m = next_output();
+    ST_CHECK(m != NULL && starts_with(m->content, "ERROR\n"));
+    if (m) message_destroy_with_frame_len(m);
+    ST_CHECK(pubsub_size() == 1);
+    /* the same id on another connection is fine */
+    connect_client(6);
+    receive(6, "SUBSCRIBE\nid:1\ndestination:/a\n\n");
+    ST_CHECK(output_count() == 0 && pubsub_size() == 2);
+}
+
+static void test_duplicate_subscription_id_no_double_delivery(void) {
+    connect_client(5);
+    receive(5, "SUBSCRIBE\nid:1\ndestination:/a\n\n");
+    receive(5, "SUBSCRIBE\nid:1\ndestination:/a/*\n\n");
+    drop_output();
+    connect_client(6);
+    receive(6, "SEND\ndestination:/a\n\nonce");
+    ST_CHECK(output_count() == 1);
+}
+
+static void test_http_prefixed_output_keeps_nul(void) {
+    const char frame[] = "MESSAGE\ndestination:/a\n\nHTTP/1.1 200 OK";
+    message_with_frame_len *m = message_create_with_frame_len(7, (char *) frame + 24); /* body only: "HTTP..." */
+    ST_CHECK(ws_output_filter(m) == strlen(frame + 24) + 1);
+    message_destroy_with_frame_len(m);
+    m = message_create_with_frame_len(7, "http lowercase too");
+    ST_CHECK(ws_output_filter(m) == strlen("http lowercase too") + 1);
+    message_destroy_with_frame_len(m);
+}
+
+static void test_diag_frame_has_blank_line(void) {
+    receive(5, "DIAG\n\npubsub-size");
+    ST_CHECK(expect_output("DIAG\ncontent-type:text/plain\npubsub-size:0\n\n"));
+}
+
 int run_stomp_tests(void) {
     printf("STOMP tests\n");
     session_storage_init();
@@ -540,6 +611,12 @@ int run_stomp_tests(void) {
     ST_RUN(test_parse_rejects_content_length_mismatch);
     ST_RUN(test_body_with_nul_round_trips);
     ST_RUN(test_body_with_nul_over_websocket);
+    ST_RUN(test_receipt_frame_bytes);
+    ST_RUN(test_unsubscribe_needs_only_id);
+    ST_RUN(test_duplicate_subscription_id_rejected);
+    ST_RUN(test_duplicate_subscription_id_no_double_delivery);
+    ST_RUN(test_http_prefixed_output_keeps_nul);
+    ST_RUN(test_diag_frame_has_blank_line);
 
     session_storage_dispose();
     printf("STOMP tests: %d run, %d failed\n", st_tests_run, st_tests_failed);

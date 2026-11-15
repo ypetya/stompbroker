@@ -3,6 +3,9 @@
 # or simply: make docker-test
 FROM docker.io/library/gcc:13
 
+# node runs the raw STOMP protocol test (examples/js/raw/stomp.protocol.test.js)
+RUN apt-get update && apt-get install -y --no-install-recommends nodejs && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /src
 COPY . /src
 

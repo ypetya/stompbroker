@@ -5,7 +5,8 @@
 #   make test-ws        - portable WebSocket unit tests under ASan/UBSan    -> test_websocket.out
 #   make test-stomp     - portable STOMP unit tests under ASan/UBSan        -> test_stomp.out
 #                         (both run on Linux and macOS)
-#   make test-e2e       - end-to-end WebSocket + raw TCP STOMP tests, broker started on a free port (Linux only)
+#   make test-e2e       - end-to-end WebSocket + raw TCP STOMP tests, broker started on a free port (Linux only);
+#                         includes examples/js/raw/stomp.protocol.test.js when node is installed
 #   make test-e2e-asan  - raw TCP STOMP end-to-end test against an ASan/UBSan broker (Linux only)
 #   make docker-test    - run all of the above inside a Linux container (podman or docker)
 
@@ -51,7 +52,7 @@ test_stomp.out: FORCE
 
 test-e2e: build
 	python3 e2e/websocket_e2e.py --broker ./stompbroker.out --port $(E2E_PORT)
-	python3 e2e/stomp_tcp_e2e.py --broker ./stompbroker.out
+	python3 e2e/stomp_tcp_e2e.py --broker ./stompbroker.out --js examples/js/raw/stomp.protocol.test.js
 
 # Leaks are checked by the unit tests; here ASan/UBSan catch memory errors under real traffic.
 test-e2e-asan: build-asan

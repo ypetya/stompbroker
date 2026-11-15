@@ -1,254 +1,223 @@
 #!/usr/bin/env node
+/*
+ * Raw STOMP 1.2 protocol test over TCP. Runs the steps once and exits with
+ * 0 (all passed) or 1. Expects a freshly started broker (the DIAG counters
+ * at the start assume no other clients):
+ *
+ *   node examples/js/raw/stomp.protocol.test.js [port]    (default 3490)
+ *   make test-e2e     # starts a broker on a free port and runs this test
+ *
+ * A step is [description, frame to send (without NUL), expectation]:
+ * - a frame string: compared by command, header set and body
+ *   (the value of message-id is not compared, it is a running counter),
+ * - a function(frame): returns an error text, or nothing if the frame is fine.
+ * RECONNECT as a step opens a fresh connection.
+ */
+const net = require("net");
 
-console.log("Run stompbroker with DEBUG_MESSAGE_ID!");
+const PORT = Number(process.argv[2] || 3490);
+const TIMEOUT_MS = 2000;
+const RECONNECT = "RECONNECT";
 
-const TEST_DATA = [
-  "Initial session-connected-size",
-  "DIAG\n\nsession-connected-size",
-  "DIAG\ncontent-type:text/plain\nsession-connected-size:0\n",
+const connected = version => frame =>
+  frame.command !== "CONNECTED"
+    ? `expected CONNECTED, got ${frame.raw}`
+    : version && frame.headers.version !== version
+      ? `expected version ${version}, got ${frame.headers.version}`
+      : undefined;
 
-  "Initial session-size",
-  "DIAG\n\nsession-size",
-  "DIAG\ncontent-type:text/plain\nsession-size:1\n",
+const error = (reason, receiptId) => frame =>
+  frame.command !== "ERROR"
+    ? `expected ERROR, got ${frame.raw}`
+    : !frame.body.includes(reason)
+      ? `expected ERROR "${reason}", got "${frame.body}"`
+      : receiptId !== undefined && frame.headers["receipt-id"] !== receiptId
+        ? `expected receipt-id ${receiptId}, got ${frame.headers["receipt-id"]}`
+        : undefined;
 
-  "session-encoded-size",
-  "DIAG\n\nsession-encoded-size",
-  "DIAG\ncontent-type:text/plain\nsession-encoded-size:0\n",
+const receipt = id => `RECEIPT\nreceipt-id:${id}\n\n`;
+const diag = (key, value) => `DIAG\ncontent-type:text/plain\n${key}:${value}\n\n`;
 
-  "Stomp ver. 1.2 connect frame",
-  "STOMP\naccept-version:1.2\nhost:localhost\n\n",
-  check_connected,
+const STEPS = [
+  ["Initial session-connected-size", "DIAG\n\nsession-connected-size", diag("session-connected-size", 0)],
+  ["Initial session-size", "DIAG\n\nsession-size", diag("session-size", 1)],
+  ["Initial session-encoded-size", "DIAG\n\nsession-encoded-size", diag("session-encoded-size", 0)],
 
-  "Session size increment",
-  "DIAG\n\nsession-connected-size",
-  "DIAG\ncontent-type:text/plain\nsession-connected-size:1\n",
+  ["STOMP 1.2 STOMP frame", "STOMP\naccept-version:1.2\nhost:localhost\n\n", connected("1.2")],
+  ["Session size increment", "DIAG\n\nsession-connected-size", diag("session-connected-size", 1)],
+  ["Disconnect with receipt", "DISCONNECT\nreceipt:77\n\n", receipt(77)],
 
-  "1 client connected session-size",
-  "DIAG\n\nsession-size",
-  "DIAG\ncontent-type:text/plain\nsession-size:1\n",
+  ["STOMP 1.2 CONNECT frame", "CONNECT\naccept-version:1.2\nhost:localhost\n\n", connected("1.2")],
+  ["Disconnect with receipt", "DISCONNECT\nreceipt:77\n\n", receipt(77)],
 
-  "Disconnect with receipt",
-  "DISCONNECT\nreceipt:77\n",
-  "RECEIPT\ncontent-type:text/plain\nreceipt-id:77\n",
+  ["STOMP 1.1 CONNECT frame", "CONNECT\naccept-version:1.1\nhost:localhost\n\n", connected()],
+  ["Disconnect with receipt", "DISCONNECT\nreceipt:77\n\n", receipt(77)],
 
-  "Stomp ver. 1.2 legacy connect frame",
-  "CONNECT\naccept-version:1.2\nhost:localhost\n\n",
-  check_connected,
-  "Disconnect with receipt",
-  "DISCONNECT\nreceipt:77\n",
-  "RECEIPT\ncontent-type:text/plain\nreceipt-id:77\n",
+  ["CONNECT frame with CRLF", "CONNECT\r\naccept-version:1.1\r\nhost:localhost\r\n\r\n", connected()],
+  ["SUBSCRIBE with missing destination", "SUBSCRIBE\nid:1\nreceipt:m-a\n\n", error("No destination defined!")],
+  ["SUBSCRIBE with missing id", "SUBSCRIBE\ndestination:/*\nreceipt:m-a\n\n", error("No id defined!")],
+  ["UNSUBSCRIBE needs only an id", "UNSUBSCRIBE\nid:1\nreceipt:m-u\n\n", receipt("m-u")],
+  ["UNSUBSCRIBE with missing id", "UNSUBSCRIBE\ndestination:/*\nreceipt:m-a\n\n", error("No id defined!")],
+  ["Disconnect with receipt", "DISCONNECT\nreceipt:77\n\n", receipt(77)],
 
-  "Stomp ver. 1.1. connect frame",
-  "CONNECT\naccept-version:1.1\nhost:localhost\n\n",
-  check_connected,
+  ["Header line without ':' is an error", "CONNECT\naccept-version:1.1\nhost:localhost\nbody\n\n", error("header line without ':'")],
 
-  "Disconnect with receipt",
-  "DISCONNECT\nreceipt:77\n",
-  "RECEIPT\ncontent-type:text/plain\nreceipt-id:77\n",
+  ["0> Connect", "CONNECT\naccept-version:1.2\nhost:localhost\n\n", connected("1.2")],
+  ["0> Subscribe * frame with receipt", "SUBSCRIBE\ndestination:/*\nid:1\nreceipt:m-99\n\n", receipt("m-99")],
+  ["0> increases pubsub-size", "DIAG\n\npubsub-size", diag("pubsub-size", 1)],
+  ["0> Subscribe to topic", "SUBSCRIBE\ndestination:/a_topic\nid:2\nreceipt:m-a\n\n", receipt("m-a")],
+  ["0> Duplicate subscription id", "SUBSCRIBE\ndestination:/a_topic\nid:2\n\n", error("Subscription id is already in use!")],
+  ["0> Increased pubsub-size", "DIAG\n\npubsub-size", diag("pubsub-size", 2)],
+  ["0> Diag message for listing subscriptions", "DIAG\n\nsubs", diag("subs", "/*,/a_topic")],
+  ["0> Unsubscribe frame", "UNSUBSCRIBE\nid:2\nreceipt:m-au\n\n", receipt("m-au")],
+  ["0> Decreases pubsub-size", "DIAG\n\npubsub-size", diag("pubsub-size", 1)],
+  ["0> Disconnect with receipt (removes subscription)", "DISCONNECT\nreceipt:78\n\n", receipt(78)],
+  ["0> Decreased pubsub-size", "DIAG\n\npubsub-size", diag("pubsub-size", 0)],
 
-  "Connect frame with CRLF",
-  "CONNECT\r\naccept-version:1.1\nhost:localhost\n\n",
-  check_connected,
+  ["1> Connect", "STOMP\naccept-version:1.2\nhost:localhost\n\n", connected("1.2")],
+  ["1> Wildcard subscription", "SUBSCRIBE\ndestination:/queue/*\nid:sub-1\nreceipt:m-queue/a\n\n", receipt("m-queue/a")],
+  ["1> MESSAGE frame arrives with a specific destination",
+    "SEND\ndestination:/queue/a\ncontent-type:text/plain\n\nhello queue a\n",
+    "MESSAGE\ndestination:/queue/a\nmessage-id:0\nsubscription:sub-1\ncontent-type:text/plain\ncontent-length:14\n\nhello queue a\n"],
+  ["1> SEND frame arrives with a wildcard destination",
+    "SEND\ndestination:/queue/\ncontent-type:text/plain\n\nhello queue *\n",
+    "MESSAGE\ndestination:/queue/\nmessage-id:0\nsubscription:sub-1\ncontent-type:text/plain\ncontent-length:14\n\nhello queue *\n"],
+  ["1> Custom header is sent with message",
+    "SEND\ndestination:/queue/abc\ncontent-type:text/plain\ncustom-header:test\n\nhello queue *\n",
+    "MESSAGE\ndestination:/queue/abc\nmessage-id:0\nsubscription:sub-1\ncontent-type:text/plain\ncustom-header:test\ncontent-length:14\n\nhello queue *\n"],
+  ["1> Body starting with HTTP is still NUL terminated",
+    "SEND\ndestination:/queue/http\n\nHTTP/1.1 200 OK",
+    "MESSAGE\ndestination:/queue/http\nmessage-id:0\nsubscription:sub-1\ncontent-type:text/plain\ncontent-length:15\n\nHTTP/1.1 200 OK"],
+  ["1> Disconnect", "DISCONNECT\nreceipt:77\n\n", receipt(77)],
 
-  "SUBSCRIBE with missing destination",
-  "SUBSCRIBE\nid:1\nreceipt:m-a\n",
-  "ERROR\ncontent-type:text/plain\ncontent-length:23\n\nNo destination defined!\n",
+  ["2> Not connected: SEND", "SEND\ndestination:/i_am_not_connected\ncontent-type:text/plain\n\nhello there\n", error("Not connected!")],
+  ["2> Not connected: DISCONNECT", "DISCONNECT\n\n", error("Can not disconnect, client is not connected yet!")],
+  ["2> Not connected: SUBSCRIBE", "SUBSCRIBE\ndestination:/queue/*\nid:1\nreceipt:m-queue/a\n\n", error("Not connected!")],
+  ["2> Not connected: UNSUBSCRIBE", "UNSUBSCRIBE\nid:1\nreceipt:m-au\n\n", error("Not connected!")],
 
-  "SUBSCRIBE with missing id",
-  "SUBSCRIBE\ndestination:/*\nreceipt:m-a\n",
-  "ERROR\ncontent-type:text/plain\ncontent-length:14\n\nNo id defined!\n",
-
-
-  "UNSUBSCRIBE with missing destination",
-  "UNSUBSCRIBE\nid:1\nreceipt:m-a\n",
-  "ERROR\ncontent-type:text/plain\ncontent-length:23\n\nNo destination defined!\n",
-
-  "UNSUBSCRIBE with missing id",
-  "UNSUBSCRIBE\ndestination:/*\nreceipt:m-a\n",
-  "ERROR\ncontent-type:text/plain\ncontent-length:14\n\nNo id defined!\n",
-
-  "Disconnect with receipt",
-  "DISCONNECT\nreceipt:77\n",
-  "RECEIPT\ncontent-type:text/plain\nreceipt-id:77\n",
-
-  "0> Connect frame ignore invalid header/body",
-  "CONNECT\naccept-version:1.1\nhost:localhost\nbody\n",
-  check_connected,
-
-  "0> Subscribe * frame with receipt",
-  "SUBSCRIBE\ndestination:/*\nid:1\nreceipt:m-99\n",
-  "RECEIPT\ncontent-type:text/plain\nreceipt-id:m-99\n",
-
-  "0> increases pubsub-size",
-  "DIAG\n\npubsub-size",
-  "DIAG\ncontent-type:text/plain\npubsub-size:1\n",
-
-  "0> Subscribe to topic",
-  "SUBSCRIBE\ndestination:/a_topic\nid:1\nreceipt:m-a\n",
-  "RECEIPT\ncontent-type:text/plain\nreceipt-id:m-a\n",
-
-  "0> Increased pubsub-size",
-  "DIAG\n\npubsub-size",
-  "DIAG\ncontent-type:text/plain\npubsub-size:2\n",
-
-  "0> Diag message for listing subscriptions",
-  "DIAG\n\nsubs",
-  "DIAG\ncontent-type:text/plain\nsubs:/*,/a_topic\n",
-
-  "0> Unsubscribe frame",
-  "UNSUBSCRIBE\ndestination:/a_topic\nid:1\nreceipt:m-au\n",
-  "RECEIPT\ncontent-type:text/plain\nreceipt-id:m-au\n",
-
-  "0> Decreases pubsub-size",
-  "DIAG\n\npubsub-size",
-  "DIAG\ncontent-type:text/plain\npubsub-size:1\n",
-
-  "0> Disconnect with receipt (removes subscription)",
-  "DISCONNECT\nreceipt:78\n",
-  "RECEIPT\ncontent-type:text/plain\nreceipt-id:78\n",
-
-  "0> Decrased pubsub-size",
-  "DIAG\n\npubsub-size",
-  "DIAG\ncontent-type:text/plain\npubsub-size:0\n",
-
-  "1> Connect",
-  "STOMP\naccept-version:1.2\nhost:localhost\n\n",
-  check_connected,
-
-  "1> Wildcard subscription",
-  "SUBSCRIBE\ndestination:/queue/*\nid:sub-1\nreceipt:m-queue/a\n",
-  "RECEIPT\ncontent-type:text/plain\nreceipt-id:m-queue/a\n",
-
-  "1> MESSAGE frame arrives with a specific destination",
-  "SEND\ndestination:/queue/a\ncontent-type:text/plain\n\nhello queue a\n",
-  "MESSAGE\ndestination:/queue/a\nmessage-id:0\nsubscription:sub-1\ncontent-type:text/plain\ncontent-length:14\n\nhello queue a\n",
-
-  "1> SEND frame arrives with a wildcard destination",
-  "SEND\ndestination:/queue/\ncontent-type:text/plain\n\nhello queue *\n",
-  "MESSAGE\ndestination:/queue/\nmessage-id:0\nsubscription:sub-1\ncontent-type:text/plain\ncontent-length:14\n\nhello queue *\n",
-
-  "1> Custom header is sent with message",
-  "SEND\ndestination:/queue/abc\ncontent-type:text/plain\ncustom-header:test\n\nhello queue *\n",
-  "MESSAGE\ndestination:/queue/abc\nmessage-id:0\nsubscription:sub-1\ncontent-type:text/plain\ncustom-header:test\ncontent-length:14\n\nhello queue *\n",
-
-  "1> Disconnect",
-  "DISCONNECT\nreceipt:77\n",
-  "RECEIPT\ncontent-type:text/plain\nreceipt-id:77\n",
-
-  "2> Invalid session should get ERROR frame on SEND",
-  "SEND\ndestination:/i_am_not_connected\ncontent-type:text/plain\n\nhello there\n",
-  'ERROR\ncontent-type:text/plain\ncontent-length:14\n\nNot connected!\n',
-
-  "2> Invalid session should get ERROR frame on DISCONNECT",
-  "DISCONNECT\n",
-  'ERROR\ncontent-type:text/plain\ncontent-length:48\n\nCan not disconnect, client is not connected yet!\n',
-
-  "2> Invalid session should get ERROR frame on SUBSCRIBE",
-  "SUBSCRIBE\ndestination:/queue/*\nid:1\nreceipt:m-queue/a\n",
-  'ERROR\ncontent-type:text/plain\ncontent-length:14\n\nNot connected!\n',
-
-  "2> Invalid session should get ERROR frame on UNSUBSCRIBE",
-  "UNSUBSCRIBE\ndestination:/a_topic\nid:1\nreceipt:m-au\n",
-  'ERROR\ncontent-type:text/plain\ncontent-length:14\n\nNot connected!\n',
-
-  "3> Invalid message should get ERROR frame",
-  "INVALID\n",
-  'ERROR\ncontent-type:text/plain\ncontent-length:16\n\nInvalid message!\n',
-
+  ["3> Invalid command", "INVALID\n\n", error("Invalid message!")],
 ];
 
-function check_connected(resp) {
-  if (!resp.match(/CONNECTED/))
-    return `Could not connect! Response frame was:\n${resp}`;
+/* ------------------------------------------------------------------------
+ * Frame reader: NUL terminated frames, content-length honoured
+ * ---------------------------------------------------------------------- */
+function parseFrame(raw) {
+  const text = raw.toString();
+  const split = text.indexOf("\n\n");
+  const head = (split < 0 ? text : text.slice(0, split)).split("\n");
+  const headers = {};
+  for (const line of head.slice(1)) {
+    const colon = line.indexOf(":");
+    if (colon > 0 && !(line.slice(0, colon) in headers)) headers[line.slice(0, colon)] = line.slice(colon + 1);
+  }
+  return { raw: text, command: head[0], headers, body: split < 0 ? "" : text.slice(split + 2) };
 }
 
-const net = require("net");
-let conn, connStatus;
-
-const connectDurable = port => {
-  console.log("connecting...");
-  const retry = () => setTimeout(() => connectDurable(port), 5000);
-  conn = net.connect(port);
-  conn.once("ready", () => {
-    console.log("connected.");
-    connStatus = "OK";
-  });
-  conn.once("error", e => {
-    console.error(e.toString());
-    connStatus = "ERROR";
-  });
-  conn.once("close", retry);
-};
-
-const request = m =>
-  new Promise((resolve, reject) => {
-    conn.once("data", resolve);
-    conn.write(m);
-    setTimeout(() => reject("timeout"), 100);
-  });
-
-const awaitResponse = async (requestMessage, responseMessage) => {
-  const response = await request(requestMessage);
-
-  if (typeof responseMessage == "function") {
-    const ret = responseMessage(response.toString());
-    if (typeof ret == "string") {
-      throw `Invalid response:\n${ret}\n`;
-    }
-  } else if (
-    response.toString().replace("\0", "") !=
-    responseMessage.toString().replace("\0", "")
-  ) {
-    throw `Invalid response:\nExpected to get:\n${responseMessage}\nGot:\n${response}--\n`;
+/** @return [frame bytes, rest] or null when buf holds no complete frame */
+function nextFrame(buf) {
+  let start = 0;
+  while (start < buf.length && (buf[start] === 0x0a || buf[start] === 0x0d)) start++;
+  buf = buf.subarray(start);
+  const nul = buf.indexOf(0);
+  const headEnd = buf.subarray(0, nul < 0 ? buf.length : nul).indexOf("\n\n");
+  let end = nul;
+  if (headEnd >= 0) {
+    const length = /\ncontent-length:(\d+)/.exec(buf.subarray(0, headEnd).toString());
+    if (length) end = headEnd + 2 + Number(length[1]);
   }
-  return "SUCC";
-};
+  if (end < 0 || buf.length <= end) return null;
+  if (buf[end] !== 0) throw new Error(`frame not NUL terminated: ${buf.subarray(0, end + 1)}`);
+  return [buf.subarray(0, end), buf.subarray(end + 1)];
+}
 
-let cursor = 0;
-
-const delay = async d => new Promise(resolve => setTimeout(resolve, d));
-
-// TODO change it to for await of :)
-const runSingleTest = async () => {
-  let resp = await awaitResponse(TEST_DATA[cursor + 1], TEST_DATA[cursor + 2])
-    .then(ok => {
-      console.log(`${ok}[${TEST_DATA[cursor]}]`);
-      return ok;
-    })
-    .catch(err =>
-      console.log(`================\nERROR: ${TEST_DATA[cursor]}\n${err}\n\n`)
-    );
-  if (resp === "SUCC") {
-    cursor += 3;
-    if (cursor >= TEST_DATA.length) {
-      cursor = 0;
-      console.log("All the tests done. Restarting in 10 seconds...");
-      await delay(10000);
-    }
-  } else {
-    console.log("Test failed. Restarting in 10 seconds...");
-    await delay(10000);
+class Connection {
+  constructor(port) {
+    this.buf = Buffer.alloc(0);
+    this.waiters = [];
+    this.closed = false;
+    this.socket = net.connect(port, "127.0.0.1");
+    this.ready = new Promise((resolve, reject) => {
+      this.socket.once("connect", resolve);
+      this.socket.once("error", reject);
+    });
+    this.socket.on("data", data => {
+      this.buf = Buffer.concat([this.buf, data]);
+      this.flush();
+    });
+    this.socket.on("close", () => {
+      this.closed = true;
+      this.flush();
+    });
+    this.socket.on("error", () => {});
   }
-  return resp;
-};
 
-const error = message => {
-  console.log(message);
-  console.log("Error at test execution, retrying in 5 secs....");
-  setTimeout(run, 5000);
-};
-const run = () => {
-  try {
-    if (connStatus === "OK") {
-      runSingleTest().then(() => {
-        setTimeout(run, 0);
+  flush() {
+    while (this.waiters.length > 0) {
+      const next = nextFrame(this.buf);
+      if (next === null) {
+        if (this.closed) this.waiters.shift().reject(new Error("connection closed"));
+        else return;
+      } else {
+        this.buf = next[1];
+        this.waiters.shift().resolve(parseFrame(next[0]));
+      }
+    }
+  }
+
+  request(frame) {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("timeout")), TIMEOUT_MS);
+      this.waiters.push({
+        resolve: f => { clearTimeout(timer); resolve(f); },
+        reject: e => { clearTimeout(timer); reject(e); },
       });
-    } else error("NOT_CONNECTED");
-  } catch (err) {
-    error(err);
+      this.socket.write(frame + "\0");
+      this.flush();
+    });
   }
-};
 
-console.log("Started");
-connectDurable(3490);
-run();
+  close() {
+    this.socket.destroy();
+  }
+}
+
+function compare(expected, actual) {
+  const exp = parseFrame(expected);
+  const sameHeaders = (a, b) =>
+    Object.keys(a).length === Object.keys(b).length &&
+    Object.keys(a).every(k => k === "message-id" ? k in b : a[k] === b[k]);
+  if (exp.command === actual.command && exp.body === actual.body && sameHeaders(exp.headers, actual.headers)) return undefined;
+  return `expected:\n${expected}\ngot:\n${actual.raw}`;
+}
+
+async function main() {
+  let conn = new Connection(PORT);
+  await conn.ready;
+  let failures = 0;
+  for (const step of STEPS) {
+    if (step === RECONNECT) {
+      conn.close();
+      conn = new Connection(PORT);
+      await conn.ready;
+      continue;
+    }
+    const [name, frame, expectation] = step;
+    let problem;
+    try {
+      const reply = await conn.request(frame);
+      problem = typeof expectation === "function" ? expectation(reply) : compare(expectation, reply);
+    } catch (e) {
+      problem = e.message;
+    }
+    if (problem) failures++;
+    console.log(`${problem ? "FAIL" : "PASS"} ${name}${problem ? `\n  ${problem.replace(/\n/g, "\n  ")}` : ""}`);
+  }
+  conn.close();
+  console.log(`js protocol test: ${STEPS.filter(s => s !== RECONNECT).length} steps, ${failures} failed`);
+  process.exit(failures ? 1 : 0);
+}
+
+main().catch(e => {
+  console.error(e);
+  process.exit(1);
+});
