@@ -12,6 +12,7 @@ extern "C" {
 #include "data/session_storage_simple.c"
 #include "signal_action_handler.c"
 #include "listen.c"
+#include "threads/output_batch.c"
 #include "threads/writer_thread.c"
 #include "threads/reader_thread.c"
 #include "process.c"

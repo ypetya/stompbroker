@@ -20,6 +20,13 @@
 #include "server/data/message/with_timestamp.c"
 #include "server/data/message/with_payload_length.c"
 #include "websocket/main.h"
+#include "server/threads/output_batch.c"
+
+#include <pthread.h>
+#include <signal.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/socket.h>
 
 /* ---------------------------------------------------------------------------
  * Minimal non-aborting test framework: every failed check is reported, so a
@@ -858,6 +865,110 @@ static void test_route_empty_read_keeps_new(void) {
 }
 
 /* ---------------------------------------------------------------------------
+ * Output path (gap 9): bounded batching + partial writes to a slow reader
+ * ------------------------------------------------------------------------- */
+typedef struct slow_reader_t {
+    int fd;
+    size_t expected;
+    char *received;
+    size_t received_len;
+} slow_reader;
+
+static void *slow_reader_thread(void *arg) {
+    slow_reader *r = arg;
+    char chunk[700];
+    while (r->received_len < r->expected) {
+        usleep(300); /* slower than the writer */
+        ssize_t n = read(r->fd, chunk, sizeof (chunk));
+        if (n <= 0) break;
+        memcpy(r->received + r->received_len, chunk, (size_t) n);
+        r->received_len += (size_t) n;
+    }
+    return NULL;
+}
+
+static int nonblocking_pair(int sv[2]) {
+    if (socketpair(AF_UNIX, SOCK_STREAM, 0, sv) != 0) return -1;
+    int small = 2048;
+    setsockopt(sv[0], SOL_SOCKET, SO_SNDBUF, &small, sizeof (small));
+    setsockopt(sv[1], SOL_SOCKET, SO_RCVBUF, &small, sizeof (small));
+    fcntl(sv[0], F_SETFL, fcntl(sv[0], F_GETFL) | O_NONBLOCK);
+    return 0;
+}
+
+static void test_output_larger_than_buffer_to_slow_reader(void) {
+    int sv[2];
+    WS_CHECK(nonblocking_pair(sv) == 0);
+    int fd = new_test_fd();
+
+    /* messages much larger than the 10000 byte writer buffer, mixed with small ones */
+    size_t sizes[] = {50000, 100, 9990, 30000, 1, 70000};
+    size_t count = sizeof (sizes) / sizeof (sizes[0]);
+    char *expected = NULL;
+    size_t expected_len = 0;
+    char write_buffer[10000];
+    output_batch batch = {.fd = sv[0], .buffer = write_buffer, .capacity = sizeof (write_buffer), .used = 0, .timeout_ms = 5000};
+
+    slow_reader reader = {.fd = sv[1], .expected = 0, .received = NULL, .received_len = 0};
+    /* precompute the expected stream so the reader knows when to stop */
+    for (size_t i = 0; i < count; i++) {
+        char *body = repeat_char((char) ('a' + i), sizes[i]);
+        message_with_frame_len *m = message_create_with_frame_len(session_set_encoded(fd), body);
+        size_t len = ws_output_filter(m);
+        append_bytes(&expected, &expected_len, m->content, len);
+        message_destroy_with_frame_len(m);
+        free(body);
+    }
+    reader.expected = expected_len;
+    reader.received = malloc(expected_len);
+    pthread_t tid;
+    pthread_create(&tid, NULL, slow_reader_thread, &reader);
+
+    int failed = 0;
+    for (size_t i = 0; i < count; i++) { /* same flow as writer_thread */
+        char *body = repeat_char((char) ('a' + i), sizes[i]);
+        message_with_frame_len *m = message_create_with_frame_len(session_set_encoded(fd), body);
+        size_t len = ws_output_filter(m);
+        failed |= output_batch_add(&batch, m->content, len) < 0;
+        WS_CHECK(batch.used <= batch.capacity);
+        message_destroy_with_frame_len(m);
+        free(body);
+    }
+    failed |= output_batch_flush(&batch) < 0;
+    pthread_join(tid, NULL);
+
+    WS_CHECK(!failed);
+    WS_CHECK(reader.received_len == expected_len);
+    WS_CHECK(reader.received_len == expected_len && memcmp(reader.received, expected, expected_len) == 0);
+    free(reader.received);
+    free(expected);
+    close(sv[0]);
+    close(sv[1]);
+}
+
+static void test_output_gives_up_after_timeout(void) {
+    int sv[2];
+    WS_CHECK(nonblocking_pair(sv) == 0);
+    size_t len = 1000000;
+    char *bytes = repeat_char('t', len);
+    long long start = monotonic_ms();
+    WS_CHECK(write_fully(sv[0], bytes, len, 150) == -1); /* nobody reads */
+    long long elapsed = monotonic_ms() - start;
+    WS_CHECK(elapsed >= 140 && elapsed < 3000);
+    free(bytes);
+    close(sv[0]);
+    close(sv[1]);
+}
+
+static void test_output_peer_closed_fails(void) {
+    int sv[2];
+    WS_CHECK(nonblocking_pair(sv) == 0);
+    close(sv[1]);
+    WS_CHECK(write_fully(sv[0], "abc", 3, 1000) == -1);
+    close(sv[0]);
+}
+
+/* ---------------------------------------------------------------------------
  * Suite
  * ------------------------------------------------------------------------- */
 int run_websocket_tests(void) {
@@ -903,6 +1014,12 @@ int run_websocket_tests(void) {
     WS_RUN(test_fragmented_message_too_big);
     WS_RUN(test_continuation_without_start_rejected);
     WS_RUN(test_new_message_inside_fragmented_rejected);
+
+    printf("Output path:\n");
+    signal(SIGPIPE, SIG_IGN); /* as the server does */
+    WS_RUN(test_output_larger_than_buffer_to_slow_reader);
+    WS_RUN(test_output_gives_up_after_timeout);
+    WS_RUN(test_output_peer_closed_fails);
 
     printf("Output messages:\n");
     WS_RUN(test_raw_output_message_is_written_verbatim);
