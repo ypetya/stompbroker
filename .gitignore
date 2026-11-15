@@ -13,3 +13,5 @@ build
 e2e_broker.log
 *.dSYM/
 test_websocket.out
+e2e_stomp_broker.log
+e2e_stomp_asan.log

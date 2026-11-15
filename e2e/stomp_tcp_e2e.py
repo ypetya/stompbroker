@@ -1,0 +1,215 @@
+#!/usr/bin/env python3
+"""
+End-to-end test of STOMP 1.2 over raw TCP.
+
+Standard library only. Starts the broker on an ephemeral port (when --broker
+is given), runs TCP probes against it and exits 0 when every scenario passes.
+
+    python3 e2e/stomp_tcp_e2e.py --broker ./stompbroker.out
+    make test-e2e            # Linux (epoll); or inside `make docker-test`
+"""
+import argparse
+import socket
+import subprocess
+import sys
+import time
+
+TIMEOUT = 5.0
+
+
+class TestFailure(Exception):
+    pass
+
+
+def expect(condition, message):
+    if not condition:
+        raise TestFailure(message)
+
+
+def free_port():
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+class Client:
+    """Raw STOMP client. Frames are NUL terminated; content-length is honoured."""
+
+    def __init__(self, port):
+        self.sock = socket.create_connection(("127.0.0.1", port), timeout=TIMEOUT)
+        self.buf = b""
+
+    def send_raw(self, data):
+        self.sock.sendall(data)
+
+    def send(self, frame):
+        self.send_raw((frame.encode() if isinstance(frame, str) else frame) + b"\0")
+
+    def _fill(self):
+        chunk = self.sock.recv(65536)
+        if not chunk:
+            raise EOFError("connection closed")
+        self.buf += chunk
+
+    def recv_frame(self):
+        """Next frame as raw bytes without the terminating NUL (leading EOLs dropped)."""
+        while True:
+            self.buf = self.buf.lstrip(b"\r\n")
+            first_nul = self.buf.find(b"\0")
+            # headers never contain NUL: a blank line after the first NUL belongs to a later frame
+            head_end = self.buf.find(b"\n\n", 0, first_nul if first_nul >= 0 else len(self.buf))
+            if head_end >= 0:
+                length = None
+                for line in self.buf[:head_end].split(b"\n")[1:]:
+                    if line.startswith(b"content-length:"):
+                        length = int(line.split(b":", 1)[1])
+                        break
+                end = head_end + 2 + length if length is not None else self.buf.find(b"\0", head_end)
+                if end >= 0 and len(self.buf) > end:
+                    expect(self.buf[end:end + 1] == b"\0", f"frame not NUL terminated: {self.buf[:80]!r}")
+                    frame, self.buf = self.buf[:end], self.buf[end + 1:]
+                    return frame
+            elif b"\0" in self.buf:  # malformed frame from the broker
+                frame, self.buf = self.buf.split(b"\0", 1)
+                return frame
+            self._fill()
+
+    def recv(self):
+        return self.recv_frame().decode(errors="replace")
+
+    def expect_eof(self):
+        """The broker closed the connection (recv returns 0)."""
+        try:
+            while True:
+                chunk = self.sock.recv(4096)
+                if not chunk:
+                    return
+                self.buf += chunk
+        except ConnectionResetError:
+            return
+        except socket.timeout:
+            raise TestFailure("connection was not closed by the broker")
+
+    def close(self):
+        self.sock.close()
+
+
+def headers_of(frame):
+    head = frame.split("\n\n", 1)[0].split("\n")
+    return dict(line.split(":", 1) for line in head[1:] if ":" in line)
+
+
+def body_of(frame):
+    return frame.split("\n\n", 1)[1]
+
+
+def connected_client(port):
+    c = Client(port)
+    c.send("CONNECT\naccept-version:1.2\nhost:localhost\n\n")
+    reply = c.recv()
+    expect(reply.startswith("CONNECTED\n"), f"expected CONNECTED, got {reply[:60]!r}")
+    return c
+
+
+def subscribe(client, destination, sub_id, receipt=None):
+    receipt = receipt or f"sub-{sub_id}"
+    client.send(f"SUBSCRIBE\nid:{sub_id}\ndestination:{destination}\nreceipt:{receipt}\n\n")
+    reply = client.recv()
+    expect(reply.startswith("RECEIPT\n") and headers_of(reply).get("receipt-id") == receipt,
+           f"expected RECEIPT {receipt}, got {reply[:60]!r}")
+
+
+# --------------------------------------------------------------------------
+# Scenarios
+# --------------------------------------------------------------------------
+def scenario_pubsub_round_trip(port):
+    sub = connected_client(port)
+    subscribe(sub, "/topic/rt", 1)
+    pub = connected_client(port)
+    pub.send("SEND\ndestination:/topic/rt\n\nhello tcp")
+    msg = sub.recv()
+    expect(msg.startswith("MESSAGE\n"), f"expected MESSAGE, got {msg[:60]!r}")
+    h = headers_of(msg)
+    expect(h.get("destination") == "/topic/rt" and h.get("subscription") == "1", f"headers {h}")
+    expect(body_of(msg) == "hello tcp", f"body {body_of(msg)!r}")
+    sub.close()
+    pub.close()
+
+
+def scenario_two_frames_in_one_write(port):
+    c = connected_client(port)
+    c.send_raw(b"SUBSCRIBE\nid:1\ndestination:/topic/two\nreceipt:a\n\n\0"
+               b"SEND\ndestination:/topic/two\n\none write\0")
+    expect(headers_of(c.recv()).get("receipt-id") == "a", "receipt of the first frame")
+    expect(body_of(c.recv()) == "one write", "message of the second frame")
+    c.close()
+
+
+SCENARIOS = [
+    scenario_pubsub_round_trip,
+    scenario_two_frames_in_one_write,
+]
+
+
+# --------------------------------------------------------------------------
+# Runner
+# --------------------------------------------------------------------------
+def wait_for_port(port, broker, deadline=10.0):
+    end = time.time() + deadline
+    while time.time() < end:
+        if broker is not None and broker.poll() is not None:
+            raise TestFailure(f"broker exited with {broker.returncode} before listening")
+        try:
+            socket.create_connection(("127.0.0.1", port), timeout=0.5).close()
+            return
+        except OSError:
+            time.sleep(0.1)
+    raise TestFailure(f"broker did not listen on {port}")
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--port", type=int, default=0, help="0: pick a free port (default)")
+    parser.add_argument("--broker", help="broker binary to start (otherwise one must be running on --port)")
+    parser.add_argument("--log", default="e2e_stomp_broker.log")
+    args = parser.parse_args()
+    port = args.port or free_port()
+
+    broker = None
+    log = None
+    if args.broker:
+        log = open(args.log, "w")
+        broker = subprocess.Popen([args.broker, f"port={port}", "processors=4", "TTL=5000"],
+                                  stdout=log, stderr=subprocess.STDOUT)
+    failures = 0
+    try:
+        wait_for_port(port, broker)
+        for scenario in SCENARIOS:
+            try:
+                scenario(port)
+                print(f"PASS {scenario.__name__}")
+            except Exception as error:  # noqa: BLE001 - report every scenario
+                failures += 1
+                print(f"FAIL {scenario.__name__}: {type(error).__name__}: {error}")
+            if broker is not None and broker.poll() is not None:
+                failures += 1
+                print(f"FAIL broker exited with {broker.returncode} after {scenario.__name__}")
+                break
+    except TestFailure as error:
+        failures += 1
+        print(f"FAIL setup: {error}")
+    finally:
+        if broker is not None:
+            broker.terminate()
+            try:
+                broker.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                broker.kill()
+            log.close()
+
+    print(f"stomp e2e: {len(SCENARIOS)} scenarios, {failures} failed")
+    return 1 if failures else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
