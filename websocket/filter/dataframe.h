@@ -95,19 +95,37 @@ extern "C" {
      * ------------------------------------------------------------------ */
 
     typedef enum ws_filter_dataframe_status_t {
-        WS_NOT_A_DATAFRAME = 0,
-        WS_COMPLETE_DATAFRAME = 1, // out parameter contains at least one full decoded frame
-        WS_INCOMPLETE_DATAFRAME = 2, // out parameter does not contain decoded data
-        WS_TOO_LARGE_DATAFRAME = -1,
-        WS_BUFFER_EXCEEDED_MAX = -2, // when no more allocation is enabled in buffer
-        WS_BUFFER_OUT_OF_SLOTS = -6, // when no more continuation slots available in buffer
-        WS_INVALID_HEADER = -3,
-        WS_OPCODE_CLIENT_DISCONNECT = -4,
-        WS_OPCODE_UNHANDLED = -5
+        WS_COMPLETE_DATAFRAME = 1, // result contains at least one complete message
+        WS_INCOMPLETE_DATAFRAME = 2, // no complete message yet (control frames may have been handled)
+        WS_TOO_LARGE_DATAFRAME = -1, // closing with 1009
+        WS_BUFFER_EXCEEDED_MAX = -2, // global buffer limit reached, closing with 1011
+        WS_BUFFER_OUT_OF_SLOTS = -6, // no more continuation slots, closing with 1011
+        WS_INVALID_HEADER = -3, // protocol error, closing with 1002
+        WS_OPCODE_CLIENT_DISCONNECT = -4 // client sent close, echo queued
     } ws_filter_dataframe_status;
 
+    typedef struct ws_input_result_t {
+        char *messages; // complete application messages, each '\0' terminated
+        size_t messages_len;
+        char *replies; // encoded frames to send back in order (pong, close)
+        size_t replies_len;
+        int close; // the connection must be closed once replies are sent
+        uint16_t close_code; // close code sent (broker initiated) or received (client initiated)
+    } ws_input_result;
 
-    ws_filter_dataframe_status ws_input_filter_dataframe(int fd, char* buffer, size_t read_len, char** out, size_t *decoded_buf_len);
+    /**
+     * Feeds bytes read from a WebSocket connection. Every complete frame is
+     * consumed: data frames become messages, control frames become replies,
+     * protocol violations become a close reply. A partial frame at the end is
+     * kept for the next call. Bytes never get stuck at the buffer head.
+     *
+     * @param max_message_len upper bound for a single message payload
+     * @param result out: free with ws_input_result_free()
+     */
+    ws_filter_dataframe_status ws_input_filter_dataframe(int fd, const char *data, size_t len,
+            size_t max_message_len, ws_input_result *result);
+
+    void ws_input_result_free(ws_input_result *result);
 
     /**
      * In case of an encoded session is present, encodes data into ws frames data

@@ -40,7 +40,7 @@ extern "C" {
     buffer_item* ws_buffer_find(int fd);
     void ws_buffer_free(buffer_item * buffer);
     void ws_buffer_resize(buffer_item * buffer, size_t old_len, size_t new_len);
-    buffer_item* ws_buffer_add(int fd, char*buffer, size_t len);
+    buffer_item* ws_buffer_add(int fd, const char *buffer, size_t len);
 
     struct ws_buffer_stat_t {
         size_t allocated_size;

@@ -30,6 +30,7 @@ void *get_inbound_address(struct sockaddr *sa);
 
 void setnonblocking(int conn_sock);
 void do_use_fd(int epollfd, int fd, char * readbuffer, ts_queue * input_queue);
+void close_connection(int conn_sock, ts_queue * input_queue);
 
 stomp_app_config * config;
 
@@ -147,6 +148,57 @@ void close_connection(int conn_sock, ts_queue * input_queue) {
     clean_by_fd(conn_sock);
 }
 
+/**
+ * Legacy detection: a masked frame marks the session as WebSocket.
+ * Must be called with the session storage locked.
+ */
+int is_websocket_connection(int conn_sock, const char *read_buffer, int received_length) {
+    if (session_storage_is_encoded(conn_sock)) return 1;
+    if (received_length > 1 && (read_buffer[1] & 0x80)) {
+        session_storage_set_encoded(conn_sock);
+        return 1;
+    }
+    return 0;
+}
+
+/**
+ * Runs bytes of a WebSocket connection through the frame filter: complete
+ * messages go to the STOMP input queue, a close (client or protocol error)
+ * closes the connection.
+ */
+void handle_websocket_data(int conn_sock, const char *data, int received_length, ts_queue * input_queue) {
+    ws_input_result result;
+    ws_filter_dataframe_status status = ws_input_filter_dataframe(conn_sock, data,
+            (size_t) received_length, WS_DATA_FRAME_MAX_LENGTH, &result);
+
+    if (result.messages_len > 0)
+        put_stomp_messages_on_queue(session_set_encoded(conn_sock),
+            result.messages,
+            input_queue,
+            (int) result.messages_len - 1); // the last '\0' terminates the buffer
+
+    if (result.close) {
+        switch (status) {
+            case WS_OPCODE_CLIENT_DISCONNECT:
+                info("server: got websocket close (%d) from client. disconnecting fd:%d\n", result.close_code, conn_sock);
+                break;
+            case WS_BUFFER_OUT_OF_SLOTS:
+            case WS_BUFFER_EXCEEDED_MAX:
+                warn("server: websocket buffer exceeded. disconnecting fd:%d\n", conn_sock);
+                break;
+            case WS_TOO_LARGE_DATAFRAME:
+                warn("server: got too large websocket message. disconnecting fd:%d\n", conn_sock);
+                break;
+            default:
+                warn("server: websocket protocol error (%d). disconnecting fd:%d\n", result.close_code, conn_sock);
+                break;
+        }
+        close_connection(conn_sock, input_queue);
+    }
+
+    ws_input_result_free(&result);
+}
+
 void do_use_fd(int epollfd, int conn_sock, char* read_buffer, ts_queue * input_queue) {
     int received_length = recv(conn_sock, read_buffer,
             config->input_buffer_size, 0);
@@ -166,70 +218,21 @@ void do_use_fd(int epollfd, int conn_sock, char* read_buffer, ts_queue * input_q
         if (session_storage_add_new(conn_sock) == MAX_SESSION_NUMBER_EXCEEDED) {
             warn("server: max session size exceeded, dropping connection on fd:%d\n", conn_sock);
             // Sorry-sorry, no bananas left. :)
+            session_storage_unlock();
             close(conn_sock);
             return;
         }
 
-        size_t decoded_buf_len = 0;
-        char * decoded_messages = NULL;
-        int fd_with_flag;
-
-        ws_filter_dataframe_status ws_filter_status = ws_input_filter_dataframe(conn_sock, read_buffer,
-                received_length,
-                &decoded_messages, &decoded_buf_len);
-
+        int is_websocket = is_websocket_connection(conn_sock, read_buffer, received_length);
         session_storage_unlock();
 
-        if (ws_filter_status == WS_NOT_A_DATAFRAME)
+        if (!is_websocket)
             put_stomp_messages_on_queue(conn_sock,
                 read_buffer,
                 input_queue,
                 received_length);
-        else {
-            fd_with_flag = session_set_encoded(conn_sock);
-            put_stomp_messages_on_queue(fd_with_flag,
-                    decoded_messages,
-                    input_queue,
-                    (int) decoded_buf_len);
-
-            switch (ws_filter_status) {
-                case WS_OPCODE_CLIENT_DISCONNECT:
-                    info("server: got websocket disconnect from client. diconnecting fd:%d\n", conn_sock);
-                    close_connection(conn_sock, input_queue);
-                    break;
-                case WS_BUFFER_OUT_OF_SLOTS:
-                case WS_BUFFER_EXCEEDED_MAX:
-                    warn("server: websocket buffer exceeded. disconnecting fd:%d \n", conn_sock);
-                    close_connection(conn_sock, input_queue);
-                    break;
-                case WS_INVALID_HEADER:
-                    warn("server: got invalid websocket header. diconnecting fd:%d\n", conn_sock);
-                    close_connection(conn_sock, input_queue);
-                    break;
-                case WS_TOO_LARGE_DATAFRAME:
-                    // TODO: send purge frame here to stomp, close connection should be done on writer thread to get messages delivered
-                    warn("server: got too large websocket dataframe. disconnecting fd:%d\n", conn_sock);
-                    close_connection(conn_sock, input_queue);
-                    break;
-                case WS_INCOMPLETE_DATAFRAME:
-                    // continue buffering 
-                    info("server: got incomplete websocket dataframe, waiting to continue... on fd:%d\n", conn_sock);
-                    break;
-                case WS_NOT_A_DATAFRAME:
-                    warn("server: got invalid websocket dataframe. disconnecting fd:%d\n", conn_sock);
-                    close_connection(conn_sock, input_queue);
-                    break;
-                case WS_OPCODE_UNHANDLED:
-                    warn("server: got unhandled websocket OP_CODE. disconnecting fd:%d\n", conn_sock);
-                    break;
-                default:
-                    break;
-
-            }
-
-            if (decoded_messages != NULL)
-                free(decoded_messages);
-        }
+        else
+            handle_websocket_data(conn_sock, read_buffer, received_length, input_queue);
     }
 }
 

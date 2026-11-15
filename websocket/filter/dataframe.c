@@ -151,95 +151,171 @@ size_t ws_output_filter(message_with_frame_len *m) {
  * Per connection input filter
  * ====================================================================== */
 
-/**
- * Either buffer contains a mask flag or the session is set to encoded.
- * This method also sets the session to encoded
- * Be aware session_storage should ne set and read from the same thread
- */
-static int ws_channel_is_encoded(int fd, char* buffer, size_t len) {
-    if (session_storage_is_encoded(fd)) return 1;
-    if (len > 1 && (buffer[1] & 0x80)) {
-        session_storage_set_encoded(fd);
-        return 1;
-    }
-    return 0;
+static void append_bytes(char **buf, size_t *len, const char *data, size_t n) {
+    if (n == 0) return;
+    *buf = erealloc(*buf, *len + n);
+    memcpy(*buf + *len, data, n);
+    *len += n;
 }
 
-static void ws_buffer_consume(buffer_item *buf, size_t consumed) {
-    size_t left = buf->received_len - consumed;
-    if (consumed == 0) return;
-    if (left > 0) memmove(buf->received, buf->received + consumed, left);
-    ws_buffer_resize(buf, buf->received_len, left);
+/** STOMP heart-beats are bare EOLs; they carry no frame for the STOMP layer. */
+static int is_heartbeat(const char *payload, size_t len) {
+    for (size_t i = 0; i < len; i++)
+        if (payload[i] != '\n' && payload[i] != '\r') return 0;
+    return 1;
+}
+
+/** Adds one complete application message, always '\0' terminated. */
+static void deliver_message(ws_input_result *result, const char *payload, size_t len) {
+    if (is_heartbeat(payload, len)) return;
+    append_bytes(&result->messages, &result->messages_len, payload, len);
+    if (payload[len - 1] != '\0') append_bytes(&result->messages, &result->messages_len, "", 1);
+}
+
+static void reply_frame(ws_input_result *result, char *frame, size_t len) {
+    append_bytes(&result->replies, &result->replies_len, frame, len);
+    free(frame);
+}
+
+static void reply_close(ws_input_result *result, uint16_t code) {
+    char *frame = NULL;
+    size_t len = ws_encode_close(code, &frame);
+    reply_frame(result, frame, len);
+    result->close = 1;
+    result->close_code = code;
+}
+
+/** Echoes the client's close frame (status code only) and requests closing. */
+static void reply_close_echo(ws_input_result *result, const ws_frame *frame) {
+    char *echo = NULL;
+    size_t echo_len = ws_encode_control(WS_OP_CLOSE, frame->payload, frame->payload_len >= 2 ? 2 : 0, &echo);
+    reply_frame(result, echo, echo_len);
+    result->close = 1;
+    result->close_code = frame->payload_len >= 2
+            ? (uint16_t) (((unsigned char) frame->payload[0] << 8) | (unsigned char) frame->payload[1])
+            : WS_CLOSE_NORMAL;
 }
 
 /**
- * This method concatenates buffer, when needed for specific fd
- *
- * @param fd
- * @param buffer
- * @param out  only complete, decoded data-frames ( can contain multiple stomp messages)
- * @return status
+ * Applies one decoded frame to the connection.
+ * @return status; WS_INCOMPLETE_DATAFRAME means "keep going"
  */
-ws_filter_dataframe_status ws_input_filter_dataframe(int fd, char* buffer, size_t read_len, char** out, size_t* decoded_buf_len) {
-    *out = NULL;
-    if (!ws_channel_is_encoded(fd, buffer, read_len)) return WS_NOT_A_DATAFRAME;
-
-    buffer_item * ws_buff = ws_buffer_find(fd);
-
-    if (ws_buffer_size_left(read_len) < 0) {
-        if (ws_buff) ws_buffer_free(ws_buff);
-        return WS_BUFFER_EXCEEDED_MAX;
+static ws_filter_dataframe_status ws_dispatch_frame(ws_frame *frame, ws_input_result *result) {
+    switch (frame->opcode) {
+        case WS_OP_TEXT:
+        case WS_OP_BINARY: // policy: binary payload is treated as STOMP bytes, same as text
+            if (!frame->fin) {
+                reply_close(result, WS_CLOSE_PROTOCOL_ERROR); // fragmentation: see task 6
+                return WS_INVALID_HEADER;
+            }
+            deliver_message(result, frame->payload, frame->payload_len);
+            return WS_INCOMPLETE_DATAFRAME;
+        case WS_OP_CONTINUATION:
+            reply_close(result, WS_CLOSE_PROTOCOL_ERROR);
+            return WS_INVALID_HEADER;
+        case WS_OP_PING:
+        {
+            char *pong = NULL;
+            size_t pong_len = ws_encode_control(WS_OP_PONG, frame->payload, frame->payload_len, &pong);
+            reply_frame(result, pong, pong_len);
+            return WS_INCOMPLETE_DATAFRAME;
+        }
+        case WS_OP_PONG:
+            return WS_INCOMPLETE_DATAFRAME; // unsolicited pong: ignore
+        case WS_OP_CLOSE:
+            if (frame->payload_len == 1) { // a status code needs 2 bytes
+                reply_close(result, WS_CLOSE_PROTOCOL_ERROR);
+                return WS_INVALID_HEADER;
+            }
+            reply_close_echo(result, frame);
+            return WS_OPCODE_CLIENT_DISCONNECT;
+        default: // ws_decode_frame rejects unknown opcodes already
+            reply_close(result, WS_CLOSE_PROTOCOL_ERROR);
+            return WS_INVALID_HEADER;
     }
+}
 
-    if (ws_buff != NULL) {
-        size_t old_len = ws_buff->received_len;
-        ws_buffer_resize(ws_buff, old_len, old_len + read_len);
-        memcpy(&ws_buff->received[old_len], buffer, read_len);
-    } else {
-        ws_buff = ws_buffer_add(fd, buffer, read_len);
-        if (!ws_buff) return WS_BUFFER_OUT_OF_SLOTS;
-    }
-
-    size_t ag_decoded_data_len = 0;
-    char * ag_decoded_data = NULL;
+/**
+ * Decodes and dispatches every complete frame in src.
+ * @param consumed out: bytes used from src
+ */
+static ws_filter_dataframe_status ws_process_frames(const char *src, size_t len,
+        size_t max_message_len, ws_input_result *result, size_t *consumed) {
     ws_filter_dataframe_status status = WS_INCOMPLETE_DATAFRAME;
     size_t offset = 0;
 
     while (status == WS_INCOMPLETE_DATAFRAME) {
         ws_frame frame;
-        ws_decode_status decoded = ws_decode_frame((unsigned char *) ws_buff->received + offset,
-                ws_buff->received_len - offset, WS_DATA_FRAME_MAX_LENGTH, &frame);
+        ws_decode_status decoded = ws_decode_frame((const unsigned char *) src + offset,
+                len - offset, max_message_len, &frame);
         if (decoded == WS_DECODE_NEED_MORE) break;
         if (decoded == WS_DECODE_ERROR) {
             ws_dropped_frames++;
+            reply_close(result, frame.close_code);
             status = frame.close_code == WS_CLOSE_MESSAGE_TOO_BIG ? WS_TOO_LARGE_DATAFRAME : WS_INVALID_HEADER;
             break;
         }
         offset += frame.consumed;
         ws_processed_incoming_frames++;
-
-        if (frame.opcode == WS_OP_TEXT) {
-            ag_decoded_data = erealloc(ag_decoded_data, ag_decoded_data_len + frame.payload_len);
-            memcpy(&ag_decoded_data[ag_decoded_data_len], frame.payload, frame.payload_len);
-            ag_decoded_data_len += frame.payload_len;
-        } else if (frame.opcode == WS_OP_CLOSE) {
-            status = WS_OPCODE_CLIENT_DISCONNECT;
-        } else {
-            ws_dropped_frames++;
-            status = WS_OPCODE_UNHANDLED;
-        }
+        status = ws_dispatch_frame(&frame, result);
         free(frame.payload);
     }
 
-    ws_buffer_consume(ws_buff, offset);
-    if (ws_buff->received == NULL) ws_buffer_free(ws_buff);
-
-    if (ag_decoded_data_len == 0) {
-        free(ag_decoded_data);
-    } else {
-        *out = ag_decoded_data;
-        *decoded_buf_len = ag_decoded_data_len - 1;
-        if (status == WS_INCOMPLETE_DATAFRAME) status = WS_COMPLETE_DATAFRAME;
-    }
+    *consumed = offset;
     return status;
+}
+
+ws_filter_dataframe_status ws_input_filter_dataframe(int fd, const char *data, size_t len,
+        size_t max_message_len, ws_input_result *result) {
+    memset(result, 0, sizeof (ws_input_result));
+
+    buffer_item *slot = ws_buffer_find(fd);
+    int buffered = slot != NULL && slot->received_len > 0;
+
+    if (ws_buffer_size_left(len) < 0) {
+        ws_buffer_free(slot);
+        reply_close(result, WS_CLOSE_INTERNAL_ERROR);
+        return WS_BUFFER_EXCEEDED_MAX;
+    }
+
+    // Decode straight from the read buffer unless earlier bytes are pending.
+    if (buffered) {
+        size_t old_len = slot->received_len;
+        ws_buffer_resize(slot, old_len, old_len + len);
+        memcpy(slot->received + old_len, data, len);
+        data = slot->received;
+        len = slot->received_len;
+    }
+
+    size_t consumed = 0;
+    ws_filter_dataframe_status status = ws_process_frames(data, len, max_message_len, result, &consumed);
+
+    if (result->close) {
+        ws_buffer_free(slot); // nothing more will be read from this connection
+    } else if (buffered) {
+        size_t left = slot->received_len - consumed;
+        if (consumed > 0 && left > 0) memmove(slot->received, slot->received + consumed, left);
+        ws_buffer_resize(slot, slot->received_len, left);
+    } else if (consumed < len) { // keep the partial frame for the next read
+        if (slot == NULL) slot = ws_buffer_add(fd, data + consumed, len - consumed);
+        else {
+            ws_buffer_resize(slot, 0, len - consumed);
+            memcpy(slot->received, data + consumed, len - consumed);
+        }
+        if (slot == NULL) {
+            reply_close(result, WS_CLOSE_INTERNAL_ERROR);
+            return WS_BUFFER_OUT_OF_SLOTS;
+        }
+    }
+
+    if (slot != NULL && !result->close && slot->received_len == 0) ws_buffer_free(slot);
+
+    if (status == WS_INCOMPLETE_DATAFRAME && result->messages_len > 0) status = WS_COMPLETE_DATAFRAME;
+    return status;
+}
+
+void ws_input_result_free(ws_input_result *result) {
+    free(result->messages);
+    free(result->replies);
+    memset(result, 0, sizeof (ws_input_result));
 }

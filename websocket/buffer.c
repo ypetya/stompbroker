@@ -61,7 +61,7 @@ int ws_buffer_size_left(size_t size_left) {
     return WS_MAX_BUFFER_SIZE - (ws_buffer_stat.allocated_size + size_left);
 }
 
-buffer_item* ws_buffer_add(int fd, char*buffer,size_t read_len) {
+buffer_item* ws_buffer_add(int fd, const char *buffer, size_t read_len) {
     buffer_item* ws_buff = NULL;
     for (int i = 0; i < WS_CONTINUATION_BUFFER; i++) {
         if (ws_buffer[i].fd == 0){

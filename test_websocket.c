@@ -97,20 +97,33 @@ static int new_test_fd(void) {
 }
 
 /* ---------------------------------------------------------------------------
- * Decoder tests (gaps 1-4), written against the current decoder contract.
+ * Connection input filter (gaps 1-4)
  * ------------------------------------------------------------------------- */
+static int feed(int fd, const void *data, size_t len, ws_input_result *r) {
+    return ws_input_filter_dataframe(fd, (const char *) data, len, WS_DATA_FRAME_MAX_LENGTH, r);
+}
+
+/** Bytes of the connection's slot still waiting for more input. */
+static size_t pending_bytes(int fd) {
+    buffer_item *slot = ws_buffer_find(fd);
+    return slot ? slot->received_len : 0;
+}
+
+static int messages_equal(const ws_input_result *r, const char *expected, size_t expected_len) {
+    return r->messages != NULL && r->messages_len == expected_len && memcmp(r->messages, expected, expected_len) == 0;
+}
+
 static void test_decode_small_frame(void) {
     unsigned char frame[64];
     size_t n = make_frame(frame, 1, 1, SMALL_STOMP, SMALL_STOMP_LEN, 1);
     WS_CHECK(n == 13);
 
     int fd = new_test_fd();
-    char *out = NULL;
-    size_t out_len = 0;
-    int status = ws_input_filter_dataframe(fd, (char *) frame, n, &out, &out_len);
-    WS_CHECK(status == WS_COMPLETE_DATAFRAME);
-    WS_CHECK(out != NULL && out_len == 6 && memcmp(out, "SEND\n\n", 6) == 0);
-    free(out);
+    ws_input_result r;
+    WS_CHECK(feed(fd, frame, n, &r) == WS_COMPLETE_DATAFRAME);
+    WS_CHECK(messages_equal(&r, "SEND\n\n", 7));
+    WS_CHECK(r.replies_len == 0 && !r.close && pending_bytes(fd) == 0);
+    ws_input_result_free(&r);
 }
 
 static void test_decode_byte_by_byte(void) {
@@ -121,17 +134,16 @@ static void test_decode_byte_by_byte(void) {
     int fd = new_test_fd();
     int completes = 0;
     for (size_t i = 0; i < n; i++) {
-        char *out = NULL;
-        size_t out_len = 0;
-        int status = ws_input_filter_dataframe(fd, (char *) &frame[i], 1, &out, &out_len);
-        if (status == WS_COMPLETE_DATAFRAME) {
+        ws_input_result r;
+        if (feed(fd, &frame[i], 1, &r) == WS_COMPLETE_DATAFRAME) {
             completes++;
             WS_CHECK(i == n - 1);
-            WS_CHECK(out_len == 200 && memcmp(out, body, 200) == 0);
+            WS_CHECK(messages_equal(&r, body, 201));
         }
-        free(out);
+        WS_CHECK(!r.close);
+        ws_input_result_free(&r);
     }
-    WS_CHECK(completes == 1);
+    WS_CHECK(completes == 1 && pending_bytes(fd) == 0);
     free(body);
 }
 
@@ -140,16 +152,14 @@ static void test_decode_small_frame_split_at_every_boundary(void) {
     size_t n = make_frame(frame, 1, 1, SMALL_STOMP, SMALL_STOMP_LEN, 1);
     for (size_t k = 1; k < n; k++) {
         int fd = new_test_fd();
-        char *out = NULL;
-        size_t out_len = 0;
-        int first = ws_input_filter_dataframe(fd, (char *) frame, k, &out, &out_len);
-        WS_CHECK(first == WS_INCOMPLETE_DATAFRAME && out == NULL);
-        free(out);
-        out = NULL;
-        int second = ws_input_filter_dataframe(fd, (char *) frame + k, n - k, &out, &out_len);
-        WS_CHECK(second == WS_COMPLETE_DATAFRAME);
-        WS_CHECK(out != NULL && out_len == 6 && memcmp(out, "SEND\n\n", 6) == 0);
-        free(out);
+        ws_input_result r;
+        WS_CHECK(feed(fd, frame, k, &r) == WS_INCOMPLETE_DATAFRAME && r.messages == NULL);
+        WS_CHECK(pending_bytes(fd) == k);
+        ws_input_result_free(&r);
+        WS_CHECK(feed(fd, frame + k, n - k, &r) == WS_COMPLETE_DATAFRAME);
+        WS_CHECK(messages_equal(&r, "SEND\n\n", 7));
+        WS_CHECK(pending_bytes(fd) == 0);
+        ws_input_result_free(&r);
     }
 }
 
@@ -159,12 +169,25 @@ static void test_decode_two_small_frames_in_one_read(void) {
     n += make_frame(buf + n, 1, 1, SMALL_STOMP, SMALL_STOMP_LEN, 1);
 
     int fd = new_test_fd();
-    char *out = NULL;
-    size_t out_len = 0;
-    ws_input_filter_dataframe(fd, (char *) buf, n, &out, &out_len);
-    /* Both frames: "SEND\n\n\0SEND\n\n" (last NUL is excluded from the length). */
-    WS_CHECK(out != NULL && out_len == 13 && memcmp(out, "SEND\n\n\0SEND\n\n", 13) == 0);
-    free(out);
+    ws_input_result r;
+    feed(fd, buf, n, &r);
+    WS_CHECK(messages_equal(&r, "SEND\n\n\0SEND\n\n", 14));
+    ws_input_result_free(&r);
+}
+
+static void test_decode_frames_and_partial_tail(void) {
+    unsigned char buf[64];
+    size_t one = make_frame(buf, 1, 1, SMALL_STOMP, SMALL_STOMP_LEN, 1);
+    size_t n = one + make_frame(buf + one, 1, 1, SMALL_STOMP, SMALL_STOMP_LEN, 1);
+
+    int fd = new_test_fd();
+    ws_input_result r;
+    WS_CHECK(feed(fd, buf, one + 3, &r) == WS_COMPLETE_DATAFRAME); /* one frame + 3 bytes of the next */
+    WS_CHECK(messages_equal(&r, "SEND\n\n", 7) && pending_bytes(fd) == 3);
+    ws_input_result_free(&r);
+    WS_CHECK(feed(fd, buf + one + 3, n - one - 3, &r) == WS_COMPLETE_DATAFRAME);
+    WS_CHECK(messages_equal(&r, "SEND\n\n", 7) && pending_bytes(fd) == 0);
+    ws_input_result_free(&r);
 }
 
 static void test_decode_16bit_length(void) {
@@ -173,12 +196,10 @@ static void test_decode_16bit_length(void) {
     size_t n = make_frame(frame, 1, 1, body, 301, 1);
 
     int fd = new_test_fd();
-    char *out = NULL;
-    size_t out_len = 0;
-    int status = ws_input_filter_dataframe(fd, (char *) frame, n, &out, &out_len);
-    WS_CHECK(status == WS_COMPLETE_DATAFRAME);
-    WS_CHECK(out_len == 300 && memcmp(out, body, 300) == 0);
-    free(out);
+    ws_input_result r;
+    WS_CHECK(feed(fd, frame, n, &r) == WS_COMPLETE_DATAFRAME);
+    WS_CHECK(messages_equal(&r, body, 301));
+    ws_input_result_free(&r);
     free(body);
 }
 
@@ -189,14 +210,43 @@ static void test_decode_64bit_length(void) {
     size_t n = make_frame(frame, 1, 1, body, len + 1, 1);
 
     int fd = new_test_fd();
-    char *out = NULL;
-    size_t out_len = 0;
-    int status = ws_input_filter_dataframe(fd, (char *) frame, n, &out, &out_len);
-    WS_CHECK(status == WS_COMPLETE_DATAFRAME);
-    WS_CHECK(out_len == len && memcmp(out, body, len) == 0);
-    free(out);
+    ws_input_result r;
+    WS_CHECK(feed(fd, frame, n, &r) == WS_COMPLETE_DATAFRAME);
+    WS_CHECK(messages_equal(&r, body, len + 1));
+    ws_input_result_free(&r);
     free(frame);
     free(body);
+}
+
+static void test_message_without_nul_is_terminated(void) {
+    unsigned char frame[64];
+    size_t n = make_frame(frame, 1, 1, "SEND\n\n", 6, 1);
+    int fd = new_test_fd();
+    ws_input_result r;
+    feed(fd, frame, n, &r);
+    WS_CHECK(messages_equal(&r, "SEND\n\n", 7));
+    ws_input_result_free(&r);
+}
+
+static void test_heartbeat_is_not_a_message(void) {
+    unsigned char frame[64];
+    size_t n = make_frame(frame, 1, 1, "\n", 1, 1);
+    int fd = new_test_fd();
+    ws_input_result r;
+    WS_CHECK(feed(fd, frame, n, &r) == WS_INCOMPLETE_DATAFRAME);
+    WS_CHECK(r.messages == NULL && !r.close && pending_bytes(fd) == 0);
+    ws_input_result_free(&r);
+}
+
+static void test_binary_frame_policy(void) {
+    /* Policy: binary frames are accepted and treated as STOMP bytes. */
+    unsigned char frame[64];
+    size_t n = make_frame(frame, 1, WS_OP_BINARY, SMALL_STOMP, SMALL_STOMP_LEN, 1);
+    int fd = new_test_fd();
+    ws_input_result r;
+    WS_CHECK(feed(fd, frame, n, &r) == WS_COMPLETE_DATAFRAME);
+    WS_CHECK(messages_equal(&r, "SEND\n\n", 7) && !r.close);
+    ws_input_result_free(&r);
 }
 
 static void test_ping_does_not_wedge_connection(void) {
@@ -205,24 +255,104 @@ static void test_ping_does_not_wedge_connection(void) {
     n += make_frame(buf + n, 1, 1, "SEND\ndestination:/a\n\n", 22, 1);
 
     int fd = new_test_fd();
-    char *out = NULL;
-    size_t out_len = 0;
-    ws_input_filter_dataframe(fd, (char *) buf, n, &out, &out_len);
-    WS_CHECK(out != NULL && out_len == 21 && memcmp(out, "SEND\ndestination:/a\n\n", 21) == 0);
-    free(out);
+    ws_input_result r;
+    feed(fd, buf, n, &r);
+    WS_CHECK(messages_equal(&r, "SEND\ndestination:/a\n\n", 22));
+    WS_CHECK(pending_bytes(fd) == 0 && !r.close);
+    ws_input_result_free(&r);
+}
+
+/** Expects a broker initiated close with the given code and nothing left buffered. */
+static void check_rejected(const unsigned char *buf, size_t n, uint16_t code) {
+    int fd = new_test_fd();
+    ws_input_result r;
+    WS_CHECK(feed(fd, buf, n, &r) < 0);
+    WS_CHECK(r.close == 1 && r.close_code == code);
+    WS_CHECK(r.replies_len == 4 && (unsigned char) r.replies[0] == 0x88);
+    WS_CHECK(r.replies_len == 4 && (((unsigned char) r.replies[2] << 8) | (unsigned char) r.replies[3]) == code);
+    WS_CHECK(r.messages == NULL);
+    WS_CHECK(ws_buffer_find(fd) == NULL);
+    ws_input_result_free(&r);
 }
 
 static void test_unknown_opcode_is_consumed(void) {
     unsigned char buf[64];
     size_t n = make_frame(buf, 1, 3, "abcdefghijklmnop", 16, 1);
+    check_rejected(buf, n, WS_CLOSE_PROTOCOL_ERROR);
+}
 
+static void test_reject_unmasked_frame(void) {
+    unsigned char buf[64];
+    size_t n = make_frame(buf, 1, 1, SMALL_STOMP, SMALL_STOMP_LEN, 0);
+    check_rejected(buf, n, WS_CLOSE_PROTOCOL_ERROR);
+}
+
+static void test_reject_reserved_bits(void) {
+    unsigned char buf[64];
+    size_t n = make_frame(buf, 1, 1, SMALL_STOMP, SMALL_STOMP_LEN, 1);
+    buf[0] |= 0x40; /* RSV1 without a negotiated extension */
+    check_rejected(buf, n, WS_CLOSE_PROTOCOL_ERROR);
+}
+
+static void test_reject_bad_control_frames(void) {
+    unsigned char buf[256];
+    char *big = repeat_char('p', 126);
+    size_t n = make_frame(buf, 1, WS_OP_PING, big, 126, 1); /* control payload > 125 */
+    check_rejected(buf, n, WS_CLOSE_PROTOCOL_ERROR);
+    n = make_frame(buf, 0, WS_OP_PING, "x", 1, 1); /* fragmented control frame */
+    check_rejected(buf, n, WS_CLOSE_PROTOCOL_ERROR);
+    n = make_frame(buf, 1, WS_OP_CLOSE, "x", 1, 1); /* 1 byte close payload */
+    check_rejected(buf, n, WS_CLOSE_PROTOCOL_ERROR);
+    free(big);
+}
+
+static void test_reject_too_large_frame(void) {
+    unsigned char buf[64];
+    size_t n = make_frame(buf, 1, 1, SMALL_STOMP, SMALL_STOMP_LEN, 1);
     int fd = new_test_fd();
-    char *out = NULL;
-    size_t out_len = 0;
-    ws_input_filter_dataframe(fd, (char *) buf, n, &out, &out_len);
-    buffer_item *left = ws_buffer_find(fd);
-    WS_CHECK(left == NULL || left->received_len == 0);
-    free(out);
+    ws_input_result r;
+    WS_CHECK(ws_input_filter_dataframe(fd, (char *) buf, n, 4, &r) == WS_TOO_LARGE_DATAFRAME);
+    WS_CHECK(r.close && r.close_code == WS_CLOSE_MESSAGE_TOO_BIG && ws_buffer_find(fd) == NULL);
+    ws_input_result_free(&r);
+}
+
+/**
+ * Fuzz: random bytes (fixed seed). The filter must always either consume
+ * everything it can, keep only a partial frame, or close - never leave a
+ * decodable/invalid frame stuck at the buffer head.
+ */
+static void test_fuzz_random_bytes_always_progress(void) {
+    srand(6455);
+    for (int round = 0; round < 3000; round++) {
+        int fd = new_test_fd();
+        unsigned char buf[64];
+        size_t total = 1 + (size_t) (rand() % (int) sizeof (buf));
+        for (size_t i = 0; i < total; i++) buf[i] = (unsigned char) rand();
+        if (round % 2) buf[1] |= 0x80; /* mostly-valid masked headers half the time */
+
+        size_t fed = 0;
+        int closed = 0;
+        while (fed < total && !closed) {
+            size_t chunk = 1 + (size_t) (rand() % 8);
+            if (chunk > total - fed) chunk = total - fed;
+            ws_input_result r;
+            ws_input_filter_dataframe(fd, (char *) buf + fed, chunk, 1024, &r);
+            fed += chunk;
+            closed = r.close;
+            ws_input_result_free(&r);
+
+            /* whatever is still pending must be an incomplete frame */
+            buffer_item *slot = ws_buffer_find(fd);
+            if (!closed && slot && slot->received_len > 0) {
+                ws_frame f;
+                WS_CHECK(ws_decode_frame((unsigned char *) slot->received, slot->received_len, 1024, &f)
+                        == WS_DECODE_NEED_MORE);
+            }
+        }
+        if (closed) WS_CHECK(ws_buffer_find(fd) == NULL);
+        ws_buffer_free(ws_buffer_find(fd));
+        session_storage_remove(fd);
+    }
 }
 
 static void test_fragmented_message(void) {
@@ -232,11 +362,11 @@ static void test_fragmented_message(void) {
     n += make_frame(buf + n, 1, 0, "\nbody", 6, 1); /* incl. NUL */
 
     int fd = new_test_fd();
-    char *out = NULL;
-    size_t out_len = 0;
-    ws_input_filter_dataframe(fd, (char *) buf, n, &out, &out_len);
-    WS_CHECK(out != NULL && out_len == 25 && memcmp(out, "SEND\ndestination:/a\n\nbody", 25) == 0);
-    free(out);
+    ws_input_result r;
+    feed(fd, buf, n, &r);
+    WS_CHECK(messages_equal(&r, "SEND\ndestination:/a\n\nbody", 26));
+    WS_CHECK(!r.close);
+    ws_input_result_free(&r);
 }
 
 /* ---------------------------------------------------------------------------
@@ -412,10 +542,19 @@ int run_websocket_tests(void) {
     WS_RUN(test_decode_byte_by_byte);
     WS_RUN(test_decode_small_frame_split_at_every_boundary);
     WS_RUN(test_decode_two_small_frames_in_one_read);
+    WS_RUN(test_decode_frames_and_partial_tail);
     WS_RUN(test_decode_16bit_length);
     WS_RUN(test_decode_64bit_length);
+    WS_RUN(test_message_without_nul_is_terminated);
+    WS_RUN(test_heartbeat_is_not_a_message);
+    WS_RUN(test_binary_frame_policy);
     WS_RUN(test_ping_does_not_wedge_connection);
     WS_RUN(test_unknown_opcode_is_consumed);
+    WS_RUN(test_reject_unmasked_frame);
+    WS_RUN(test_reject_reserved_bits);
+    WS_RUN(test_reject_bad_control_frames);
+    WS_RUN(test_reject_too_large_frame);
+    WS_RUN(test_fuzz_random_bytes_always_progress);
     WS_RUN(test_fragmented_message);
 
     printf("WebSocket frame codec:\n");
