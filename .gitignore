@@ -11,3 +11,5 @@ doxy
 Doxyfile
 build
 e2e_broker.log
+*.dSYM/
+test_websocket.out
