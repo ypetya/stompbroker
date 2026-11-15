@@ -5,20 +5,23 @@
 #   make test-ws        - portable WebSocket unit tests under ASan/UBSan    -> test_websocket.out
 #   make test-stomp     - portable STOMP unit tests under ASan/UBSan        -> test_stomp.out
 #                         (both run on Linux and macOS)
+#   make test-tsan      - STOMP unit tests (incl. the cross-thread close test) under ThreadSanitizer
 #   make test-e2e       - end-to-end WebSocket + raw TCP STOMP tests, broker started on a free port (Linux only);
 #                         includes examples/js/raw/stomp.protocol.test.js when node is installed
 #   make test-e2e-asan  - raw TCP STOMP end-to-end test against an ASan/UBSan broker (Linux only)
-#   make docker-test    - run all of the above inside a Linux container (podman or docker)
+#   make docker-test    - run all of the above (except test-tsan) inside a Linux container (podman or docker)
+#   make docker-test-tsan - test-tsan inside the container (needs seccomp=unconfined)
 
 CC       = gcc
 CFLAGS   = -std=gnu11 -Wall -pthread
 SANFLAGS = -g -O1 -fno-omit-frame-pointer -fsanitize=address,undefined -fno-sanitize-recover=undefined
+TSANFLAGS = -g -O1 -fno-omit-frame-pointer -fsanitize=thread
 LDLIBS   = -lpthread
 
 CONTAINER_ENGINE ?= $(shell command -v podman 2>/dev/null || command -v docker 2>/dev/null)
 CONTAINER_IMAGE  ?= stompbroker-test
 
-.PHONY: all build build-asan test test-ws test-stomp test-e2e test-e2e-asan docker-test docker-image clean
+.PHONY: all build build-asan test test-ws test-stomp test-tsan test-e2e test-e2e-asan docker-test docker-test-tsan docker-image clean
 
 all: build test
 
@@ -50,6 +53,12 @@ test-stomp: test_stomp.out
 test_stomp.out: FORCE
 	$(CC) $(CFLAGS) $(SANFLAGS) test_stomp_main.c -o $@ $(LDLIBS)
 
+test-tsan: test_stomp_tsan.out
+	./test_stomp_tsan.out
+
+test_stomp_tsan.out: FORCE
+	$(CC) $(CFLAGS) $(TSANFLAGS) test_stomp_main.c -o $@ $(LDLIBS)
+
 test-e2e: build
 	python3 e2e/websocket_e2e.py --broker ./stompbroker.out --port $(E2E_PORT)
 	python3 e2e/stomp_tcp_e2e.py --broker ./stompbroker.out --js examples/js/raw/stomp.protocol.test.js
@@ -69,5 +78,9 @@ docker-image:
 
 docker-test: docker-image
 	$(CONTAINER_ENGINE) run --rm $(CONTAINER_IMAGE)
+
+# ThreadSanitizer must turn off ASLR (personality()), which the default seccomp profile forbids.
+docker-test-tsan: docker-image
+	$(CONTAINER_ENGINE) run --rm --security-opt seccomp=unconfined $(CONTAINER_IMAGE) make test-tsan
 
 FORCE:

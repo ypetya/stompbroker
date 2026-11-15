@@ -33,7 +33,7 @@ void *get_inbound_address(struct sockaddr *sa);
 
 void setnonblocking(int conn_sock);
 void do_use_fd(int epollfd, int fd, char * readbuffer, ts_queue * input_queue);
-void close_connection(int conn_sock, ts_queue * input_queue);
+void close_connection(int epollfd, int conn_sock, ts_queue * input_queue);
 
 stomp_app_config * config;
 
@@ -129,10 +129,16 @@ typedef struct frame_target_st {
     ts_queue * input_queue;
 } frame_target;
 
+/** Input of the current session of fd: replies inherit its generation. */
+static message_with_timestamp * received(int fd_with_flags, const char * frame, size_t len) {
+    message_with_timestamp * m = message_create_with_timestamp_len(fd_with_flags, frame, len, now);
+    m->generation = session_storage_generation(fd_with_flags);
+    return m;
+}
+
 static void enqueue_frame(void * ctx, const char * frame, size_t len) {
     frame_target * target = ctx;
-    enqueue_input(target->input_queue,
-            message_create_with_timestamp_len(target->fd_with_flags, frame, len, now));
+    enqueue_input(target->input_queue, received(target->fd_with_flags, frame, len));
 }
 
 /**
@@ -150,28 +156,22 @@ void put_stomp_messages_on_queue(int fd_with_flags, const char* data, ts_queue *
             enqueue_frame, &target, &error) < 0) {
         warn("server: STOMP framing error (%s), closing fd:%d\n", error, conn_sock);
         ws_conn_set_state(conn_sock, CONN_WS_CLOSING); // ignore input until the connection is closed
-        message_with_timestamp * failure = message_create_with_timestamp(fd_with_flags, "", now);
+        message_with_timestamp * failure = received(fd_with_flags, "", 0);
         failure->error = error;
         ts_enqueue(input_queue, failure); // not dropped: the client must learn why it is closed
     }
 }
 
-void close_connection(int conn_sock, ts_queue * input_queue) {
-    int fd_with_flags = session_storage_get(conn_sock);
-    if (fd_with_flags != 0) {
-        fd_with_flags = session_set_cmd_purge(fd_with_flags);
-        // never dropped: the purge removes the subscriptions of the connection
-        ts_enqueue(input_queue, message_create_with_timestamp(fd_with_flags, "CMD", now));
-    }
-
-    clean_by_fd(conn_sock);
-    ws_conn_reset(conn_sock);
-    stomp_input_reset(stomp_input_of(conn_sock));
+void close_connection(int epollfd, int conn_sock, ts_queue * input_queue) {
+    epoll_ctl(epollfd, EPOLL_CTL_DEL, conn_sock, NULL);
+    connection_close(conn_sock, input_queue, process_output_queue());
 }
 
 /** Sends pre-encoded bytes through the writer threads (keeps output single-pathed). */
 void queue_raw_output(int conn_sock, const char *bytes, size_t len, int close_after) {
-    ts_enqueue(process_output_queue(), message_create_raw(conn_sock, bytes, len, close_after));
+    message_with_frame_len * m = message_create_raw(conn_sock, bytes, len, close_after);
+    m->generation = session_storage_generation(conn_sock);
+    ts_enqueue(process_output_queue(), m);
 }
 
 /**
@@ -298,9 +298,7 @@ void do_use_fd(int epollfd, int conn_sock, char* read_buffer, ts_queue * input_q
                 info("server: socked closed with error: %s\n", strerror(errno))
             }
 
-            close_connection(conn_sock, input_queue);
-
-            epoll_ctl(epollfd, EPOLL_CTL_DEL, conn_sock, NULL);
+            close_connection(epollfd, conn_sock, input_queue);
             return;
         }
 

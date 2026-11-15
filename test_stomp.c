@@ -23,6 +23,15 @@
 #include "server/data/message/with_timestamp.c"
 #include "server/data/message/with_payload_length.c"
 #include "server/data/session_storage_simple.c"
+#include "server/data/cleanup.c"
+#include "server/threads/output_batch.c"
+#include "server/threads/output_queue.c"
+#include "server/threads/writer_thread.c"
+
+#include <pthread.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/socket.h>
 
 /* ---------------------------------------------------------------------------
  * Minimal non-aborting test framework (same style as test_websocket.c)
@@ -582,6 +591,178 @@ static void test_diag_frame_has_blank_line(void) {
     ST_CHECK(expect_output("DIAG\ncontent-type:text/plain\npubsub-size:0\n\n"));
 }
 
+/* ---------------------------------------------------------------------------
+ * Safe connection close across threads (gap 12)
+ * ------------------------------------------------------------------------- */
+static int socket_pair(int sv[2]) {
+    if (socketpair(AF_UNIX, SOCK_STREAM, 0, sv) != 0) return -1;
+    fcntl(sv[0], F_SETFL, O_NONBLOCK);
+    return 0;
+}
+
+static void enqueue_for_session(ts_queue *q, int fd, const char *text, unsigned int generation) {
+    message_with_frame_len *m = message_create_with_frame_len(fd, (char *) text);
+    m->generation = generation;
+    ts_enqueue(q, m);
+}
+
+static output_batch test_batch(int fd, char *buffer, size_t capacity) {
+    output_batch b = {.fd = 0, .buffer = buffer, .capacity = capacity, .used = 0,
+        .timeout_ms = 200, .min_bytes = capacity, .stall = output_queue_stall_of(fd)};
+    return b;
+}
+
+/** One writer round: take a batch, write it, hand the fd back. */
+static void writer_round(ts_queue *q) {
+    char buffer[1000];
+    message_with_frame_len *batch[MESSAGES_BATCH_SIZE] = {NULL};
+    int fd = output_queue_take_batch(&batch, q, sizeof (buffer));
+    output_batch b = test_batch(fd, buffer, sizeof (buffer));
+    writer_send_batch(&batch, &b);
+    output_queue_release_fd(q, fd);
+}
+
+/** Reads what is available within ~200 ms. */
+static size_t read_some(int fd, char *buf, size_t cap) {
+    size_t got = 0;
+    for (int i = 0; i < 20 && got < cap; i++) {
+        ssize_t n = recv(fd, buf + got, cap - got, MSG_DONTWAIT);
+        if (n > 0) got += (size_t) n;
+        else if (n == 0) break;
+        else usleep(10000);
+    }
+    return got;
+}
+
+typedef struct closer_st {
+    int fd;
+    ts_queue *input_queue;
+    ts_queue *output_queue;
+    volatile int done;
+} closer;
+
+static void *closer_thread(void *arg) {
+    closer *c = arg;
+    connection_close(c->fd, c->input_queue, c->output_queue);
+    c->done = 1;
+    return NULL;
+}
+
+static void test_close_waits_for_writer_and_new_session_gets_no_old_bytes(void) {
+    ts_queue in, out;
+    ts_queue_init(&in);
+    ts_queue_init(&out);
+    int old_pair[2], new_pair[2];
+    ST_CHECK(socket_pair(old_pair) == 0 && socket_pair(new_pair) == 0);
+    int fd = old_pair[0];
+    session_storage_add_new(fd);
+    unsigned int old_generation = session_storage_generation(fd);
+
+    /* per-fd state of the old session */
+    ws_buffer_add(fd, "abc", 3);
+    output_queue_stall_of(fd)->waited_ms = 1234;
+    stomp_input_feed(stomp_input_of(fd), "SEND\n", 5, 100, collect_frame, NULL, &(const char *){NULL});
+
+    /* a writer holds a batch of the old session */
+    enqueue_for_session(&out, fd, "OLD", old_generation);
+    char buffer[1000];
+    message_with_frame_len *batch[MESSAGES_BATCH_SIZE] = {NULL};
+    ST_CHECK(output_queue_take_batch(&batch, &out, sizeof (buffer)) == fd);
+
+    closer c = {fd, &in, &out, 0};
+    pthread_t t;
+    pthread_create(&t, NULL, closer_thread, &c);
+    usleep(100000);
+    ST_CHECK(c.done == 0); /* close waits while the writer owns the fd */
+
+    output_batch b = test_batch(fd, buffer, sizeof (buffer));
+    writer_send_batch(&batch, &b); /* fails or succeeds: the old peer is being shut down */
+    output_queue_release_fd(&out, fd);
+    pthread_join(t, NULL);
+    ST_CHECK(c.done == 1);
+    ST_CHECK(session_storage_get(fd) == 0);
+    ST_CHECK(session_storage_generation(fd) != old_generation);
+
+    /* the purge for the old session is queued for the reader */
+    message_with_timestamp *purge = dequeue(&in.q);
+    ST_CHECK(purge != NULL && session_is_cmd_purge(purge->fd) && session_without_flags(purge->fd) == fd);
+    if (purge) message_destroy_with_timestamp(purge);
+
+    /* output the reader produced late for the old session */
+    enqueue_for_session(&out, fd, "STALE", old_generation);
+
+    /* a new client gets the same fd number */
+    ST_CHECK(dup2(new_pair[0], fd) == fd);
+    close(new_pair[0]);
+    fcntl(fd, F_SETFL, O_NONBLOCK);
+    session_storage_add_new(fd);
+    enqueue_for_session(&out, fd, "NEW", session_storage_generation(fd));
+
+    ST_CHECK(ws_buffer_find(fd) == NULL); /* fresh WebSocket buffers */
+    ST_CHECK(output_queue_stall_of(fd)->waited_ms == 0 && output_queue_stall_of(fd)->bytes == 0); /* fresh budget */
+    ST_CHECK(stomp_input_of(fd)->len == 0);
+
+    writer_round(&out);
+    char got[64] = {0};
+    size_t n = read_some(new_pair[1], got, sizeof (got));
+    ST_CHECK(n == 4 && memcmp(got, "NEW\0", 4) == 0);
+    if (n != 4) printf("    new client got %zu bytes: %.*s\n", n, (int) n, got);
+
+    connection_close(fd, &in, &out);
+    while ((purge = dequeue(&in.q)) != NULL) message_destroy_with_timestamp(purge);
+    close(old_pair[1]);
+    close(new_pair[1]);
+    ts_queue_free(&in);
+    ts_queue_free(&out);
+}
+
+static void test_writer_requests_close_with_shutdown(void) {
+    ts_queue out;
+    ts_queue_init(&out);
+    int sv[2];
+    ST_CHECK(socket_pair(sv) == 0);
+    session_storage_add_new(sv[0]);
+    message_with_frame_len *m = message_create_with_frame_len(sv[0], "ERROR\n\nbye");
+    m->generation = session_storage_generation(sv[0]);
+    m->close_after = 1;
+    ts_enqueue(&out, m);
+    writer_round(&out);
+
+    ST_CHECK(fcntl(sv[0], F_GETFD) != -1); /* the fd number stays reserved for the epoll thread */
+    ST_CHECK(session_storage_get(sv[0]) != 0);
+    char got[64];
+    size_t n = read_some(sv[1], got, sizeof (got));
+    ST_CHECK(n == strlen("ERROR\n\nbye") + 1);
+    ST_CHECK(recv(sv[1], got, sizeof (got), MSG_DONTWAIT) == 0); /* then EOF */
+
+    session_storage_lock();
+    session_storage_remove(sv[0]);
+    session_storage_unlock();
+    close(sv[0]);
+    close(sv[1]);
+    ts_queue_free(&out);
+}
+
+static void test_replies_carry_the_session_generation(void) {
+    message_with_timestamp *m = message_create_with_timestamp(5, "CONNECT\naccept-version:1.2\n\n", 0);
+    m->generation = 42;
+    stomp_process(&st_input_queue, &st_stale_queue, &st_output_queue, m);
+    message_destroy_with_timestamp(m);
+    message_with_frame_len *out = next_output();
+    ST_CHECK(out != NULL && out->generation == 42);
+    if (out) message_destroy_with_frame_len(out);
+
+    m = message_create_with_timestamp(5, "SUBSCRIBE\nid:1\ndestination:/g\n\n", 0);
+    m->generation = 42;
+    stomp_process(&st_input_queue, &st_stale_queue, &st_output_queue, m);
+    message_destroy_with_timestamp(m);
+    connect_client(6);
+    receive(6, "SEND\ndestination:/g\n\nx");
+    out = next_output();
+    ST_CHECK(out != NULL && out->fd == 5 && out->generation == 42); /* MESSAGE: generation of the subscriber */
+    if (out) message_destroy_with_frame_len(out);
+}
+
 int run_stomp_tests(void) {
     printf("STOMP tests\n");
     session_storage_init();
@@ -617,6 +798,9 @@ int run_stomp_tests(void) {
     ST_RUN(test_duplicate_subscription_id_no_double_delivery);
     ST_RUN(test_http_prefixed_output_keeps_nul);
     ST_RUN(test_diag_frame_has_blank_line);
+    ST_RUN(test_close_waits_for_writer_and_new_session_gets_no_old_bytes);
+    ST_RUN(test_writer_requests_close_with_shutdown);
+    ST_RUN(test_replies_carry_the_session_generation);
 
     session_storage_dispose();
     printf("STOMP tests: %d run, %d failed\n", st_tests_run, st_tests_failed);

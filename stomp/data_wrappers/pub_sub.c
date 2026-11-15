@@ -31,12 +31,13 @@ void pubsub_dispose() {
     topics = NULL;
 }
 
-void pubsub_subscribe(char* topic_str, int client_session_id, char* subscription_id) {
+void pubsub_subscribe(char* topic_str, int client_session_id, char* subscription_id, unsigned int generation) {
     if (topics == NULL) return;
     subscription * new_sub = emalloc(sizeof (subscription));
     new_sub->session_id = client_session_id;
     new_sub->topic_pattern = clone_str(topic_str);
     new_sub->id = clone_str(subscription_id);
+    new_sub->generation = generation;
 
     list_add(topics, new_sub);
 }

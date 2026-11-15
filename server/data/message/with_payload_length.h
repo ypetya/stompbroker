@@ -15,6 +15,7 @@ extern "C" {
         size_t frame_len; // bytes on the wire (raw: exact content length)
         int raw; // content is already encoded: write frame_len bytes as they are
         int close_after; // close the connection once this message is written
+        unsigned int generation; // session generation of fd the message is for (see session_storage_generation)
     } message_with_frame_len;
 
     message_with_frame_len * message_create_with_frame_len(int fd, char * str);

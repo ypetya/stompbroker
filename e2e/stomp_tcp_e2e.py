@@ -288,6 +288,19 @@ def scenario_http_body_keeps_nul(port):
     c.close()
 
 
+def scenario_fd_reuse_gets_no_old_bytes(port):
+    """Close with replies still queued; the next client (same fd number) must see only its own frames."""
+    for i in range(200):
+        old = Client(port)
+        old.send_raw(b"CONNECT\naccept-version:1.2\n\n\0" + b"DIAG\n\nsession\0" * 20)
+        old.close()
+        new = Client(port)
+        new.send("CONNECT\naccept-version:1.2\n\n")
+        reply = new.recv()
+        expect(reply.startswith("CONNECTED\n"), f"round {i}: new client got {reply[:60]!r}")
+        new.close()
+
+
 SCENARIOS = [
     scenario_pubsub_round_trip,
     scenario_two_frames_in_one_write,
@@ -303,6 +316,7 @@ SCENARIOS = [
     scenario_unsubscribe_by_id_only,
     scenario_duplicate_subscription_id,
     scenario_http_body_keeps_nul,
+    scenario_fd_reuse_gets_no_old_bytes,
 ]
 
 

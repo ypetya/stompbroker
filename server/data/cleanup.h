@@ -18,7 +18,19 @@
 extern "C" {
 #endif
 
-void clean_by_fd(int fd);
+#include "../../lib/thread_safe_queue.h"
+
+/**
+ * Closes a connection. The epoll thread is the only caller: writers request a
+ * close with shutdown(), which makes the epoll thread read EOF and call this.
+ *
+ * Steps: shut the socket down (a writer blocked on the peer gives up), wait
+ * until no writer holds a batch of the fd, queue the purge of the STOMP
+ * session for the reader, end the session (its generation increases, so
+ * output still queued for it is dropped), close the fd and reset all per-fd
+ * state: slow consumer budget, WebSocket buffers and STOMP input buffer.
+ */
+void connection_close(int fd, ts_queue * input_queue, ts_queue * output_queue);
 
 
 #ifdef __cplusplus

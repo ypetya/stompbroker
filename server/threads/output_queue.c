@@ -17,6 +17,11 @@
  * fd_owned is guarded by the queue lock.
  */
 static unsigned char fd_owned[FD_MASK + 1];
+static output_stall stalls[FD_MASK + 1];
+
+output_stall *output_queue_stall_of(int fd) {
+    return &stalls[session_without_flags(fd)];
+}
 
 static int is_poison_pill(const message_with_frame_len *msg) {
     return msg->fd == -1;
@@ -73,6 +78,14 @@ int output_queue_take_batch(message_with_frame_len *(*ret)[MESSAGES_BATCH_SIZE],
         pthread_cond_wait(&q->has_new_elements, &q->lock);
     pthread_mutex_unlock(&q->lock);
     return fd;
+}
+
+void output_queue_claim_fd(ts_queue *q, int fd) {
+    int real_fd = session_without_flags(fd);
+    pthread_mutex_lock(&q->lock);
+    while (fd_owned[real_fd]) pthread_cond_wait(&q->has_new_elements, &q->lock);
+    fd_owned[real_fd] = 1;
+    pthread_mutex_unlock(&q->lock);
 }
 
 void output_queue_release_fd(ts_queue *q, int fd) {

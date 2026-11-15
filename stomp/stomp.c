@@ -19,6 +19,12 @@ unsigned int ttl;
 unsigned int stale_queue_max_size;
 
 int check_stomp_version(parsed_message * pm);
+
+/** Queues a reply to input, for the session that sent it. */
+static void reply_to(ts_queue * output_queue, message_with_timestamp * input, message_with_frame_len * m) {
+    m->generation = input->generation;
+    ts_enqueue(output_queue, m);
+}
 /**
  * Processing incoming STOMP message
  * 
@@ -46,7 +52,7 @@ int stomp_process(ts_queue* input_queue,
     if (input->error != NULL) { // the connection's byte stream could not be cut into frames
         message_with_frame_len * error = message_error(input->fd, (char *) input->error);
         error->close_after = 1;
-        ts_enqueue(output_queue, error);
+        reply_to(output_queue, input, error);
         return 0;
     }
 
@@ -94,8 +100,9 @@ int stomp_process(ts_queue* input_queue,
             else if (client_connected > 0 && pubsub_has_subscription(client_id, pm->id))
                 resp = message_error(input->fd, "Subscription id is already in use!");
             else if (client_connected > 0) {
-                pubsub_subscribe(pm->topic, client_id, pm->id);
-                distribute_messages_from_stale_q(pm->topic, client_id, pm->id, stale_queue,output_queue, ttl);
+                pubsub_subscribe(pm->topic, client_id, pm->id, input->generation);
+                distribute_messages_from_stale_q(pm->topic, client_id, pm->id, input->generation,
+                    stale_queue, output_queue, ttl);
             } else
                 resp = message_error(input->fd, "Not connected!");
             break;
@@ -145,9 +152,9 @@ int stomp_process(ts_queue* input_queue,
     }
 
     if (resp != NULL) {
-        ts_enqueue(output_queue, resp);
+        reply_to(output_queue, input, resp);
     } else if (pm->receipt_id != NULL) {
-        ts_enqueue(output_queue, message_receipt(input->fd, pm->receipt_id));
+        reply_to(output_queue, input, message_receipt(input->fd, pm->receipt_id));
     }
 
     if(message_consumed) free_parsed_message(pm);

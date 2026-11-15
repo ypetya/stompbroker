@@ -8,6 +8,8 @@
 
 int* clients;
 int number_of_clients;
+// written by the epoll thread only, under session_storage_lock (see session_storage_generation)
+static unsigned int generations[MAX_NUMBER_OF_CONNECTIONS + 1];
 
 pthread_mutex_t session_storage_mutex;
 
@@ -50,6 +52,11 @@ int session_storage_add_new(int fd) {
 void session_storage_remove(int client_id) {
     number_of_clients--;
     clients[client_id] = EMPTY_SESSION;
+    generations[client_id]++;
+}
+
+unsigned int session_storage_generation(int fd) {
+    return generations[session_without_flags(fd)];
 }
 
 int session_storage_get(int client_id) {

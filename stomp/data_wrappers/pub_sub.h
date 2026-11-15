@@ -17,12 +17,13 @@ extern "C" {
         int session_id;
         char * topic_pattern;
         char * id;
+        unsigned int generation; // session generation of the subscriber (see session_storage_generation)
     } subscription;
 
     void pubsub_init();
     void pubsub_dispose();
 
-    void pubsub_subscribe(char* topic_str, int client_session_id, char* subscription);
+    void pubsub_subscribe(char* topic_str, int client_session_id, char* subscription, unsigned int generation);
     /** Removes the subscription of the client with the given id (STOMP 1.2: id only). @return number removed */
     int pubsub_unsubscribe(int client_session_id, const char* subscription);
     /** @return 1 if the client already has a subscription with this id */

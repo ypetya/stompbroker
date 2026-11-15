@@ -64,6 +64,13 @@ extern "C" {
     int session_storage_get(int client_id);
 
     /**
+     * Generation of the session on fd: increased by session_storage_remove(),
+     * so output stamped for a closed session is never written to the next
+     * connection that gets the same fd number.
+     */
+    unsigned int session_storage_generation(int fd);
+
+    /**
      * Does not modify session_storage
      * @param fd
      * @return fd with encoded flag

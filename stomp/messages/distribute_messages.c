@@ -72,6 +72,7 @@ int distribute_messages(
             message_with_frame_len * o = message_send_with_headers(sub->session_id,
                     message_headers,
                     pm->message_body, pm->body_len);
+            o->generation = sub->generation;
 
             list_add(messages_out, o);
 
@@ -105,7 +106,7 @@ int distribute_messages(
  * - collect matching topics
  */
 void distribute_messages_from_stale_q(
-        char * topic, int client_session_id, char* subscription_id,
+        char * topic, int client_session_id, char* subscription_id, unsigned int generation,
         queue * stale_queue,
         ts_queue* output_queue,
         unsigned int configured_ttl
@@ -160,6 +161,7 @@ void distribute_messages_from_stale_q(
             message_with_frame_len * o = message_send_with_headers(client_session_id,
                     message_headers,
                     pm->message_body, pm->body_len);
+            o->generation = generation;
 
             list_add(messages_out, o);
 

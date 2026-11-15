@@ -16,6 +16,7 @@ extern "C" {
         char * content; // one STOMP frame, '\0' terminated (at content_len)
         size_t content_len;
         clock_t ts;
+        unsigned int generation; // session generation of fd when the frame was received
         // framing error of the connection (static string): the reader answers
         // with ERROR and closes, in order with the replies to earlier frames
         const char * error;
