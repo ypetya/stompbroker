@@ -6,11 +6,19 @@
 #include "lib/emalloc.c"
 #include "lib/clone_str.c"
 #include "lib/associative_array_test.c"
+#include "test_websocket.c"
+
+static char * test_websocket_suite() {
+    mu_assert("WebSocket unit tests failed (see output above)", run_websocket_tests() == 0);
+    return 0;
+}
 
 static char * all_tests() {
     mu_run_test(test_print_system_info);
     
     mu_run_test(test_associative_array);
+
+    mu_run_test(test_websocket_suite);
     return 0;
 }
 

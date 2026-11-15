@@ -28,6 +28,12 @@ test: test.out
 test.out: FORCE
 	$(CC) $(CFLAGS) test.c -o $@ $(LDLIBS)
 
+test-ws: test_websocket.out
+	./test_websocket.out
+
+test_websocket.out: FORCE
+	$(CC) $(CFLAGS) $(SANFLAGS) test_websocket_main.c -o $@ $(LDLIBS)
+
 clean:
 	rm -f *.out
 

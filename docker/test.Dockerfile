@@ -7,4 +7,4 @@ WORKDIR /src
 COPY . /src
 
 RUN make clean build
-CMD ["make", "test"]
+CMD ["make", "test", "test-ws"]

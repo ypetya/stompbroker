@@ -70,5 +70,5 @@ void ts_queue_init(ts_queue *q) {
     queue_init(&q->q);
     // PROCESS private condition and mutex
     pthread_cond_init(&q->has_new_elements, NULL);
-    pthread_mutex_init(&q->lock, (const pthread_mutexattr_t*) PTHREAD_PROCESS_PRIVATE);
+    pthread_mutex_init(&q->lock, NULL); // default attributes are process-private
 }
