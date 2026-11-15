@@ -10,3 +10,4 @@ node_modules
 doxy
 Doxyfile
 build
+e2e_broker.log

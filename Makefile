@@ -34,8 +34,13 @@ test-ws: test_websocket.out
 test_websocket.out: FORCE
 	$(CC) $(CFLAGS) $(SANFLAGS) test_websocket_main.c -o $@ $(LDLIBS)
 
+test-e2e: build
+	python3 e2e/websocket_e2e.py --broker ./stompbroker.out --port $(E2E_PORT)
+
+E2E_PORT ?= 3499
+
 clean:
-	rm -f *.out
+	rm -f *.out e2e_broker.log
 
 docker-image:
 	@test -n "$(CONTAINER_ENGINE)" || { echo "Neither podman nor docker found"; exit 1; }
