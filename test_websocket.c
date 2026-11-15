@@ -428,6 +428,80 @@ static void test_messages_before_close_are_delivered(void) {
 }
 
 /* ---------------------------------------------------------------------------
+ * Fragmentation (gap 4)
+ * ------------------------------------------------------------------------- */
+static void test_fragments_with_ping_between(void) {
+    unsigned char buf[256];
+    size_t n = make_frame(buf, 0, WS_OP_TEXT, "SEND\ndesti", 10, 1);
+    n += make_frame(buf + n, 1, WS_OP_PING, "p1", 2, 1);
+    n += make_frame(buf + n, 0, WS_OP_CONTINUATION, "nation:/a\n", 10, 1);
+    n += make_frame(buf + n, 1, WS_OP_PONG, "", 0, 1);
+    n += make_frame(buf + n, 1, WS_OP_CONTINUATION, "\nbody", 6, 1);
+    n += make_frame(buf + n, 1, WS_OP_TEXT, SMALL_STOMP, SMALL_STOMP_LEN, 1);
+
+    /* deliver in every chunk size from 1 byte to all at once */
+    for (size_t chunk = 1; chunk <= n; chunk++) {
+        int fd = new_test_fd();
+        char *messages = NULL, *replies = NULL;
+        size_t messages_len = 0, replies_len = 0;
+        for (size_t off = 0; off < n; off += chunk) {
+            size_t len = off + chunk > n ? n - off : chunk;
+            ws_input_result r;
+            feed(fd, buf + off, len, &r);
+            WS_CHECK(!r.close);
+            append_bytes(&messages, &messages_len, r.messages, r.messages_len);
+            append_bytes(&replies, &replies_len, r.replies, r.replies_len);
+            ws_input_result_free(&r);
+        }
+        WS_CHECK(messages_len == 33 && memcmp(messages, "SEND\ndestination:/a\n\nbody\0SEND\n\n\0", 33) == 0);
+        const unsigned char pong[] = {0x8A, 0x02, 'p', '1'};
+        WS_CHECK(replies_len == sizeof (pong) && memcmp(replies, pong, sizeof (pong)) == 0);
+        WS_CHECK(ws_buffer_find(fd) == NULL);
+        free(messages);
+        free(replies);
+    }
+}
+
+static void test_fragmented_binary_message(void) {
+    unsigned char buf[64];
+    size_t n = make_frame(buf, 0, WS_OP_BINARY, "SEN", 3, 1);
+    n += make_frame(buf + n, 1, WS_OP_CONTINUATION, "D\n\n", 4, 1);
+    int fd = new_test_fd();
+    ws_input_result r;
+    feed(fd, buf, n, &r);
+    WS_CHECK(messages_equal(&r, "SEND\n\n", 7) && !r.close);
+    ws_input_result_free(&r);
+}
+
+static void test_fragmented_message_too_big(void) {
+    unsigned char buf[128];
+    size_t n = make_frame(buf, 0, WS_OP_TEXT, "0123456789", 10, 1);
+    n += make_frame(buf + n, 0, WS_OP_CONTINUATION, "0123456789", 10, 1);
+    n += make_frame(buf + n, 1, WS_OP_CONTINUATION, "0123456789", 10, 1);
+    int fd = new_test_fd();
+    ws_input_result r;
+    /* each frame fits (10 <= 25) but the message does not (30 > 25) */
+    WS_CHECK(ws_input_filter_dataframe(fd, (char *) buf, n, 25, &r) == WS_TOO_LARGE_DATAFRAME);
+    WS_CHECK(r.close && r.close_code == WS_CLOSE_MESSAGE_TOO_BIG && r.messages == NULL);
+    WS_CHECK(r.replies_len == 4 && (unsigned char) r.replies[2] == 0x03 && (unsigned char) r.replies[3] == 0xF1);
+    WS_CHECK(ws_buffer_find(fd) == NULL);
+    ws_input_result_free(&r);
+}
+
+static void test_continuation_without_start_rejected(void) {
+    unsigned char buf[64];
+    size_t n = make_frame(buf, 1, WS_OP_CONTINUATION, "abc", 3, 1);
+    check_rejected(buf, n, WS_CLOSE_PROTOCOL_ERROR);
+}
+
+static void test_new_message_inside_fragmented_rejected(void) {
+    unsigned char buf[64];
+    size_t n = make_frame(buf, 0, WS_OP_TEXT, "abc", 3, 1);
+    n += make_frame(buf + n, 1, WS_OP_TEXT, "def", 3, 1);
+    check_rejected(buf, n, WS_CLOSE_PROTOCOL_ERROR);
+}
+
+/* ---------------------------------------------------------------------------
  * Output messages
  * ------------------------------------------------------------------------- */
 static void test_raw_output_message_is_written_verbatim(void) {
@@ -663,6 +737,13 @@ int run_websocket_tests(void) {
     WS_RUN(test_close_is_echoed);
     WS_RUN(test_close_without_code_is_echoed_empty);
     WS_RUN(test_messages_before_close_are_delivered);
+
+    printf("WebSocket fragmentation:\n");
+    WS_RUN(test_fragments_with_ping_between);
+    WS_RUN(test_fragmented_binary_message);
+    WS_RUN(test_fragmented_message_too_big);
+    WS_RUN(test_continuation_without_start_rejected);
+    WS_RUN(test_new_message_inside_fragmented_rejected);
 
     printf("Output messages:\n");
     WS_RUN(test_raw_output_message_is_written_verbatim);

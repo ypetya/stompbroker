@@ -42,6 +42,9 @@ extern "C" {
         int fd;
         size_t received_len;
         char* received; // undecoded bytes: partial frame or partial HTTP request
+        int in_fragment; // a fragmented message (FIN=0) is being reassembled
+        size_t fragments_len;
+        char* fragments; // payload of the fragments received so far
     } buffer_item;
 
 #define WS_CONTINUATION_BUFFER 1000
@@ -58,6 +61,13 @@ extern "C" {
     void ws_buffer_free(buffer_item * buffer);
     void ws_buffer_resize(buffer_item * buffer, size_t old_len, size_t new_len);
     buffer_item* ws_buffer_add(int fd, const char *buffer, size_t len);
+    /** Existing slot of fd or a new, empty one (NULL when out of slots). */
+    buffer_item* ws_buffer_get_or_add(int fd);
+    /** True when the slot holds neither pending bytes nor a partial message. */
+    int ws_buffer_is_idle(const buffer_item * buffer);
+
+    void ws_fragment_append(buffer_item * buffer, const char *data, size_t len);
+    void ws_fragment_clear(buffer_item * buffer);
 
     struct ws_buffer_stat_t {
         size_t allocated_size;

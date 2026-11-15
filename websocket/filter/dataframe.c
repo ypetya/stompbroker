@@ -200,23 +200,62 @@ static void reply_close_echo(ws_input_result *result, const ws_frame *frame) {
             : WS_CLOSE_NORMAL;
 }
 
+static ws_filter_dataframe_status protocol_error(ws_input_result *result) {
+    reply_close(result, WS_CLOSE_PROTOCOL_ERROR);
+    return WS_INVALID_HEADER;
+}
+
+/** First frame of a message (text or binary). */
+static ws_filter_dataframe_status ws_start_message(int fd, ws_frame *frame, ws_input_result *result) {
+    buffer_item *slot = ws_buffer_find(fd);
+    if (slot != NULL && slot->in_fragment) return protocol_error(result); // previous message unfinished
+
+    if (frame->fin) {
+        deliver_message(result, frame->payload, frame->payload_len);
+        return WS_INCOMPLETE_DATAFRAME;
+    }
+
+    slot = ws_buffer_get_or_add(fd);
+    if (slot == NULL) {
+        reply_close(result, WS_CLOSE_INTERNAL_ERROR);
+        return WS_BUFFER_OUT_OF_SLOTS;
+    }
+    ws_fragment_append(slot, frame->payload, frame->payload_len);
+    return WS_INCOMPLETE_DATAFRAME;
+}
+
+/** Continuation frame: reassemble, deliver on FIN, enforce the message size cap. */
+static ws_filter_dataframe_status ws_continue_message(int fd, ws_frame *frame,
+        size_t max_message_len, ws_input_result *result) {
+    buffer_item *slot = ws_buffer_find(fd);
+    if (slot == NULL || !slot->in_fragment) return protocol_error(result); // nothing to continue
+
+    if (slot->fragments_len + frame->payload_len > max_message_len) {
+        reply_close(result, WS_CLOSE_MESSAGE_TOO_BIG);
+        return WS_TOO_LARGE_DATAFRAME;
+    }
+    ws_fragment_append(slot, frame->payload, frame->payload_len);
+
+    if (frame->fin) {
+        deliver_message(result, slot->fragments, slot->fragments_len);
+        ws_fragment_clear(slot);
+    }
+    return WS_INCOMPLETE_DATAFRAME;
+}
+
 /**
- * Applies one decoded frame to the connection.
+ * Applies one decoded frame to the connection. Control frames may arrive
+ * between the fragments of a message.
  * @return status; WS_INCOMPLETE_DATAFRAME means "keep going"
  */
-static ws_filter_dataframe_status ws_dispatch_frame(ws_frame *frame, ws_input_result *result) {
+static ws_filter_dataframe_status ws_dispatch_frame(int fd, ws_frame *frame,
+        size_t max_message_len, ws_input_result *result) {
     switch (frame->opcode) {
         case WS_OP_TEXT:
         case WS_OP_BINARY: // policy: binary payload is treated as STOMP bytes, same as text
-            if (!frame->fin) {
-                reply_close(result, WS_CLOSE_PROTOCOL_ERROR); // fragmentation: see task 6
-                return WS_INVALID_HEADER;
-            }
-            deliver_message(result, frame->payload, frame->payload_len);
-            return WS_INCOMPLETE_DATAFRAME;
+            return ws_start_message(fd, frame, result);
         case WS_OP_CONTINUATION:
-            reply_close(result, WS_CLOSE_PROTOCOL_ERROR);
-            return WS_INVALID_HEADER;
+            return ws_continue_message(fd, frame, max_message_len, result);
         case WS_OP_PING:
         {
             char *pong = NULL;
@@ -227,15 +266,11 @@ static ws_filter_dataframe_status ws_dispatch_frame(ws_frame *frame, ws_input_re
         case WS_OP_PONG:
             return WS_INCOMPLETE_DATAFRAME; // unsolicited pong: ignore
         case WS_OP_CLOSE:
-            if (frame->payload_len == 1) { // a status code needs 2 bytes
-                reply_close(result, WS_CLOSE_PROTOCOL_ERROR);
-                return WS_INVALID_HEADER;
-            }
+            if (frame->payload_len == 1) return protocol_error(result); // a status code needs 2 bytes
             reply_close_echo(result, frame);
             return WS_OPCODE_CLIENT_DISCONNECT;
         default: // ws_decode_frame rejects unknown opcodes already
-            reply_close(result, WS_CLOSE_PROTOCOL_ERROR);
-            return WS_INVALID_HEADER;
+            return protocol_error(result);
     }
 }
 
@@ -243,7 +278,7 @@ static ws_filter_dataframe_status ws_dispatch_frame(ws_frame *frame, ws_input_re
  * Decodes and dispatches every complete frame in src.
  * @param consumed out: bytes used from src
  */
-static ws_filter_dataframe_status ws_process_frames(const char *src, size_t len,
+static ws_filter_dataframe_status ws_process_frames(int fd, const char *src, size_t len,
         size_t max_message_len, ws_input_result *result, size_t *consumed) {
     ws_filter_dataframe_status status = WS_INCOMPLETE_DATAFRAME;
     size_t offset = 0;
@@ -261,7 +296,7 @@ static ws_filter_dataframe_status ws_process_frames(const char *src, size_t len,
         }
         offset += frame.consumed;
         ws_processed_incoming_frames++;
-        status = ws_dispatch_frame(&frame, result);
+        status = ws_dispatch_frame(fd, &frame, max_message_len, result);
         free(frame.payload);
     }
 
@@ -292,7 +327,8 @@ ws_filter_dataframe_status ws_input_filter_dataframe(int fd, const char *data, s
     }
 
     size_t consumed = 0;
-    ws_filter_dataframe_status status = ws_process_frames(data, len, max_message_len, result, &consumed);
+    ws_filter_dataframe_status status = ws_process_frames(fd, data, len, max_message_len, result, &consumed);
+    slot = ws_buffer_find(fd); // dispatch may have created a slot for fragments
 
     if (result->close) {
         ws_buffer_free(slot); // nothing more will be read from this connection
@@ -301,18 +337,16 @@ ws_filter_dataframe_status ws_input_filter_dataframe(int fd, const char *data, s
         if (consumed > 0 && left > 0) memmove(slot->received, slot->received + consumed, left);
         ws_buffer_resize(slot, slot->received_len, left);
     } else if (consumed < len) { // keep the partial frame for the next read
-        if (slot == NULL) slot = ws_buffer_add(fd, data + consumed, len - consumed);
-        else {
-            ws_buffer_resize(slot, 0, len - consumed);
-            memcpy(slot->received, data + consumed, len - consumed);
-        }
+        slot = ws_buffer_get_or_add(fd);
         if (slot == NULL) {
             reply_close(result, WS_CLOSE_INTERNAL_ERROR);
             return WS_BUFFER_OUT_OF_SLOTS;
         }
+        ws_buffer_resize(slot, 0, len - consumed);
+        memcpy(slot->received, data + consumed, len - consumed);
     }
 
-    if (slot != NULL && !result->close && slot->received_len == 0) ws_buffer_free(slot);
+    if (slot != NULL && !result->close && ws_buffer_is_idle(slot)) ws_buffer_free(slot);
 
     if (status == WS_INCOMPLETE_DATAFRAME && result->messages_len > 0) status = WS_COMPLETE_DATAFRAME;
     return status;

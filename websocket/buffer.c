@@ -48,10 +48,37 @@ buffer_item* ws_buffer_find(int fd) {
 
 void ws_buffer_free(buffer_item * buffer) {
     if (buffer != NULL) {
+        ws_fragment_clear(buffer);
         free(buffer->received);
         ws_buffer_stat.allocated_size -= buffer->received_len;
         memset(buffer, '\0', sizeof (buffer_item));
     }
+}
+
+buffer_item* ws_buffer_get_or_add(int fd) {
+    buffer_item *slot = ws_buffer_find(fd);
+    return slot != NULL ? slot : ws_buffer_add(fd, NULL, 0);
+}
+
+int ws_buffer_is_idle(const buffer_item * buffer) {
+    return buffer->received_len == 0 && !buffer->in_fragment;
+}
+
+void ws_fragment_append(buffer_item * buffer, const char *data, size_t len) {
+    buffer->in_fragment = 1;
+    if (len == 0) return;
+    buffer->fragments = erealloc(buffer->fragments, buffer->fragments_len + len);
+    memcpy(buffer->fragments + buffer->fragments_len, data, len);
+    buffer->fragments_len += len;
+    ws_buffer_stat.allocated_size += len;
+}
+
+void ws_fragment_clear(buffer_item * buffer) {
+    free(buffer->fragments);
+    ws_buffer_stat.allocated_size -= buffer->fragments_len;
+    buffer->fragments = NULL;
+    buffer->fragments_len = 0;
+    buffer->in_fragment = 0;
 }
 
 // TODO: performance improvement: use buffers, not real allocations 
