@@ -43,13 +43,61 @@ WebSocket
   connection is closed afterwards. Unmasked client frames, reserved bits,
   unknown opcodes or invalid control frames close the connection with 1002.
 - **Binary frames policy:** binary data frames are accepted and treated exactly
-  like text frames, i.e. the payload is a STOMP frame. (STOMP bodies are handled
-  as NUL terminated strings inside the broker, so a body must not contain NUL.)
-  The broker always answers with text frames.
+  like text frames, i.e. the payload is a STOMP frame (a body may contain NUL
+  when the frame has a `content-length` header). The broker always answers with
+  text frames.
 - Transport detection: a new connection whose first bytes are `GET ` is an
   HTTP upgrade, anything else is raw STOMP over TCP. Once decided, the
   connection never switches.
 - Messaging patterns
+
+STOMP
+-----
+
+STOMP 1.2 over raw TCP and over WebSocket (the same frame handling for both).
+
+Frames from clients:
+
+| Frame | Headers used | Notes |
+|---|---|---|
+| `CONNECT` / `STOMP` | `accept-version` | Version negotiation: the highest of `1.2`, `1.1`, `1.0` the client offers; no `accept-version` means a 1.0 client. `CONNECTED` carries `version`, `session`, `server`, `heart-beat:0,0`. No common version: `ERROR` with `version:1.0,1.1,1.2`. |
+| `SEND` | `destination` (required, no `*`), `content-length`, `content-type`, any custom header | Delivered as `MESSAGE` to every matching subscription (worker queue topics starting with `#`: to one, see [Messaging](pubsub.md)). |
+| `SUBSCRIBE` | `id`, `destination` (both required) | `destination` may end in `*` (prefix match). An `id` already used by the connection is an `ERROR`. Stored TTL messages that match are delivered at once. |
+| `UNSUBSCRIBE` | `id` (required) | Removes the connection's subscription with that id. |
+| `DISCONNECT` | `receipt` | Subscriptions are removed, `RECEIPT` is sent when requested, then the broker closes the connection. |
+| `DIAG` | body: query | Non standard diagnostics, see `examples/js/websocket/stomp.diag.*.js`. |
+
+Every client frame may carry `receipt`: the broker answers with
+`RECEIPT\nreceipt-id:<value>\n\n` + NUL after the frame is processed.
+
+Frames from the broker:
+
+- `MESSAGE`: the `SEND` headers (without `receipt`) plus `destination`,
+  `subscription` (the subscription id), `message-id`, `content-length` and
+  `content-type` (default `text/plain`).
+- `ERROR`: `message` (short reason), `receipt-id` (when the offending frame
+  had `receipt`), `content-type`, `content-length`, the reason as body. After an
+  `ERROR` the broker ends the session (no more deliveries) and closes the
+  connection.
+
+Framing:
+
+- A frame ends at its NUL; with a `content-length` header it ends after that
+  many body bytes, which must be followed by NUL (the body may contain NUL).
+  A `content-length` that does not match is an `ERROR`.
+- Frames may span TCP reads and several frames may arrive in one read.
+  Frames larger than `max_frame_size` (default 1 000 000 bytes) get an `ERROR`
+  and the connection is closed.
+- EOLs between frames (heart-beats) are ignored; heart-beating is not
+  negotiated (`heart-beat:0,0`).
+- Commands and header names are case-sensitive and matched exactly; of
+  repeated headers the first one counts. Header lines may end with CRLF.
+- Malformed frames (no EOL after the command, a header line without `:`,
+  headers not ended by an empty line) get an `ERROR`.
+
+Not supported: `ACK`/`NACK`, transactions (`BEGIN`/`COMMIT`/`ABORT`), header
+value escaping (`\n`, `\c`, `\\` are passed through as they are),
+authentication.
 
 Messaging
 ---------
@@ -80,8 +128,10 @@ Usage example:
 processors=<num>            : writers count is processors-2 or at least 1
 port=<num>                  : port to listen to
 max_input_queue_size=<num>  : input queue limit
-max_stale_queue_size=<num>  : stale queue limit
-TTL=<num>                   : Time to live limit in <milli seconds>
+max_stale_queue_size=<num>  : stale queue limit (number of messages)
+max_stale_queue_bytes=<num> : stale queue memory limit in bytes (default 64000000)
+max_frame_size=<num>        : largest STOMP frame in bytes (default 1000000), larger ones get ERROR + close
+TTL=<num>                   : Time to live limit in <milli seconds> (0: messages without subscribers are dropped)
 write_timeout=<num>         : drop a slow consumer after <milli seconds> of waiting for it in total (default 5000); waiting restarts once it has taken one output buffer (10000 bytes)
 ws_allowed_origins=<a,b>    : WebSocket Origin allowlist, comma separated (default: any)
 ws_allowed_hosts=<a,b>      : WebSocket Host allowlist, comma separated, with or without port (default: any)
@@ -91,11 +141,20 @@ Build and test
 --------------
 
 ```
-make build        # Linux only (epoll)
-make test test-ws # unit tests; test-ws runs the WebSocket tests under ASan/UBSan (Linux and macOS)
-make test-e2e     # end-to-end WebSocket + raw STOMP test (Linux)
-make docker-test  # everything in a Linux container, uses podman or docker
+make build          # Linux only (epoll)
+make test           # unit tests: test.out + STOMP tests (parser, framing, handlers, close path) under ASan/UBSan
+make test-ws        # WebSocket unit tests under ASan/UBSan (Linux and macOS)
+make test-stomp     # STOMP unit tests only (Linux and macOS)
+make test-tsan      # STOMP unit tests under ThreadSanitizer
+make test-e2e       # end-to-end: WebSocket, raw TCP STOMP (e2e/stomp_tcp_e2e.py) and, when node is
+                    # installed, examples/js/raw/stomp.protocol.test.js; brokers start on free ports (Linux)
+make test-e2e-asan  # raw TCP end-to-end test against an ASan/UBSan build of the broker (Linux)
+make docker-test    # all of the above (but test-tsan) in a Linux container, uses podman or docker
+make docker-test-tsan
 ```
+
+The broker itself needs Linux (epoll); on macOS `build.sh` stops with a hint.
+The unit tests are portable; use the container targets for the rest.
 
 Performance
 -----------
@@ -130,7 +189,7 @@ The first character of the line can contain the following status codes:
 + Logger: Log output if necessary
 + Segregate main modules
 + TCP connection parent listener
-~ TCP connection listener (it can not read larger messages than buffer)
++ TCP connection listener (frames may span reads, see max_frame_size)
 + Socket reader
 + STOMP frame parser
 + Implementing command execution / broker
@@ -162,14 +221,15 @@ The first character of the line can contain the following status codes:
 + move code one level up
 + publish to github
 ~ create tests and nodejs applications, see `examples/js` directory
-+ examples/js/raw/stomp.protocol.test.js  - RAW frame tests compiled with DEBUG mode in main.c
++ examples/js/raw/stomp.protocol.test.js  - RAW frame tests, run by `make test-e2e`
++ STOMP unit tests (test_stomp.c) and raw TCP end-to-end tests (e2e/stomp_tcp_e2e.py)
 + examples/js/websocket/* performance, TTL, diagnostic messages
 - Create one functional test in javascript that tests all the test-cases. STOMP protocol, connection, load scenarios.
 + Websocket handshake filter
 + Websocket data frames encoding-decoding (all opcodes, fragmentation, any frame size)
 + WS: Buffer underrun, Buffer overflow
 + Make session threadsafe : use it only upfront!
-- STOMP: Buffer overflow, multiple messages
++ STOMP: frame reassembly, multiple frames per read, content-length, max_frame_size
 ~ performace testing
 + Diagnostic message for session_stats `examples/js/stomp.diag.session.js`
 + Diagnostic message for ws_buff `examples/js/stomp.diag.ws.js`

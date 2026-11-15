@@ -47,12 +47,30 @@ No special internal queues gets used for pending messages.
 
 ### TTL > 0 case
 
-The messages, which can not be delivered right the time they reach the broker
-gets into a special queue (the `stale_queue`). When further subscription occures to the same target they will get delivered.
+A message sent to a destination without a matching subscription at that time
+gets into a special queue (the `stale_queue`) instead of being dropped.
+
+- The next `SUBSCRIBE` whose destination pattern matches (wildcards included)
+  receives the stored messages at once, in the order they were sent, as normal
+  `MESSAGE` frames: `destination` is the destination of the message,
+  `subscription` the id of the new subscription. A stored message is delivered
+  once: the first matching subscriber takes it.
+- A message expires TTL milliseconds after the broker received it (monotonic
+  clock). Expired messages are dropped when a new message is stored or a
+  subscription looks for messages; they are never delivered.
+- Messages that wait in the input queue for longer than TTL are dropped too.
 
 #### Requirements (TTL>0, stale_queue)
 
-- consider to setup the `max_stale_queue_size`
+The stale queue is bounded, otherwise a flood of messages to destinations
+without subscribers would exhaust memory:
+
+- `max_stale_queue_size`: number of messages (default 1000000),
+- `max_stale_queue_bytes`: memory, counted as body + destination + per message
+  bookkeeping (default 64000000).
+
+When a limit is reached, new messages without subscribers are dropped (a
+warning is logged); expired messages are removed first.
 
 ## Acknowledgement: ACK, NACK frames
 
