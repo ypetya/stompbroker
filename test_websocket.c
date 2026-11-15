@@ -21,6 +21,7 @@
 #include "server/data/message/with_payload_length.c"
 #include "websocket/main.h"
 #include "server/threads/output_batch.c"
+#include "server/threads/output_queue.c"
 
 #include <pthread.h>
 #include <signal.h>
@@ -969,6 +970,82 @@ static void test_output_peer_closed_fails(void) {
 }
 
 /* ---------------------------------------------------------------------------
+ * Output queue: per-connection ordering across raw and encoded messages
+ * ------------------------------------------------------------------------- */
+typedef message_with_frame_len *output_batch_messages[MESSAGES_BATCH_SIZE];
+
+static int take_batch(ts_queue *q, output_batch_messages *batch) {
+    for (int i = 0; i < MESSAGES_BATCH_SIZE; i++) (*batch)[i] = NULL;
+    return output_queue_take_batch(batch, q, 10000);
+}
+
+/* checks the batch holds exactly `expected` (in order), then frees it */
+static void check_batch_contents(output_batch_messages *batch, const char *const *expected, int count) {
+    int i = 0;
+    for (; i < MESSAGES_BATCH_SIZE && (*batch)[i] != NULL; i++) {
+        WS_CHECK(i < count && strcmp((*batch)[i]->content, expected[i]) == 0);
+        message_destroy_with_frame_len((*batch)[i]);
+    }
+    WS_CHECK(i == count);
+}
+
+static void enqueue_raw(ts_queue *q, int fd, const char *text) {
+    ts_enqueue(q, message_create_raw(fd, text, strlen(text), 0));
+}
+
+static void test_output_queue_keeps_raw_and_encoded_in_one_ordered_batch(void) {
+    ts_queue q;
+    ts_queue_init(&q);
+    int fd = new_test_fd();
+    int other = new_test_fd();
+    /* client pipelined CONNECT with the upgrade: 101 (raw, bare fd) then CONNECTED (encoded fd) */
+    enqueue_raw(&q, fd, "HTTP/1.1 101");
+    ts_enqueue(&q, message_create_with_frame_len(session_set_encoded(fd), "CONNECTED"));
+    ts_enqueue(&q, message_create_with_frame_len(session_set_encoded(other), "MESSAGE"));
+    enqueue_raw(&q, fd, "CLOSE");
+
+    output_batch_messages batch;
+    WS_CHECK(take_batch(&q, &batch) == fd);
+    const char *const expected[] = {"HTTP/1.1 101", "CONNECTED", "CLOSE"};
+    check_batch_contents(&batch, expected, 3);
+    output_queue_release_fd(&q, fd);
+
+    WS_CHECK(take_batch(&q, &batch) == other);
+    const char *const expected_other[] = {"MESSAGE"};
+    check_batch_contents(&batch, expected_other, 1);
+    output_queue_release_fd(&q, other);
+    ts_queue_free(&q);
+}
+
+static void test_output_queue_one_writer_per_fd(void) {
+    ts_queue q;
+    ts_queue_init(&q);
+    int fd = new_test_fd();
+    int other = new_test_fd();
+    output_batch_messages batch;
+
+    ts_enqueue(&q, message_create_with_frame_len(session_set_encoded(fd), "ERROR"));
+    WS_CHECK(take_batch(&q, &batch) == fd); /* a writer now owns fd */
+    const char *const first[] = {"ERROR"};
+    check_batch_contents(&batch, first, 1);
+
+    /* later output for the same fd must wait until that writer is done */
+    enqueue_raw(&q, fd, "CLOSE");
+    ts_enqueue(&q, message_create_with_frame_len(session_set_encoded(other), "MESSAGE"));
+    WS_CHECK(take_batch(&q, &batch) == other);
+    const char *const second[] = {"MESSAGE"};
+    check_batch_contents(&batch, second, 1);
+    output_queue_release_fd(&q, other);
+
+    output_queue_release_fd(&q, fd);
+    WS_CHECK(take_batch(&q, &batch) == fd);
+    const char *const third[] = {"CLOSE"};
+    check_batch_contents(&batch, third, 1);
+    output_queue_release_fd(&q, fd);
+    ts_queue_free(&q);
+}
+
+/* ---------------------------------------------------------------------------
  * Suite
  * ------------------------------------------------------------------------- */
 int run_websocket_tests(void) {
@@ -1020,6 +1097,10 @@ int run_websocket_tests(void) {
     WS_RUN(test_output_larger_than_buffer_to_slow_reader);
     WS_RUN(test_output_gives_up_after_timeout);
     WS_RUN(test_output_peer_closed_fails);
+
+    printf("Output queue:\n");
+    WS_RUN(test_output_queue_keeps_raw_and_encoded_in_one_ordered_batch);
+    WS_RUN(test_output_queue_one_writer_per_fd);
 
     printf("Output messages:\n");
     WS_RUN(test_raw_output_message_is_written_verbatim);

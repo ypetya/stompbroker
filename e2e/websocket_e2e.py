@@ -304,8 +304,25 @@ def scenario_clean_close(port):
     ws.close()
 
 
+def scenario_pipelined_connect(port):
+    """CONNECT sent in the same segment as the upgrade: 101 must come before CONNECTED."""
+    for _ in range(50):
+        ws = WSClient(port)
+        connect = ws.send_frame(OP_TEXT, b"CONNECT\naccept-version:1.2\nhost:localhost\n\n\0")
+        ws.sock.sendall(ws.request + connect)
+        ws._need(len("HTTP/1.1 101"))
+        expect(ws.buf.startswith(b"HTTP/1.1 101"), f"101 must be first, got {ws.buf[:20]!r}")
+        while b"\r\n\r\n" not in ws.buf:
+            ws._need(len(ws.buf) + 1)
+        ws.buf = ws.buf.split(b"\r\n\r\n", 1)[1]
+        reply = ws.recv_stomp()
+        expect(reply.startswith("CONNECTED"), f"expected CONNECTED, got {reply[:40]!r}")
+        ws.close()
+
+
 SCENARIOS = [
     scenario_handshake,
+    scenario_pipelined_connect,
     scenario_bad_version,
     scenario_pubsub,
     scenario_ping_pong,

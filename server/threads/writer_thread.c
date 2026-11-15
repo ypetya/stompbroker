@@ -11,10 +11,9 @@
 #include "../data/cleanup.h"
 #include "../data/message/with_timestamp.h"
 #include "output_batch.h"
+#include "output_queue.h"
 #include <pthread.h>
 
-#define MESSAGES_BATCH_SIZE 1000
-void ts_dequeue_multiple_messages_for_same_fd(message_with_frame_len* (*ret)[MESSAGES_BATCH_SIZE], ts_queue * q, int buffer_size);
 void w_close_connection(int conn_sock, int fd_with_session, ts_queue * input_queue, const char * reason);
 
 /*
@@ -56,7 +55,7 @@ void *writer_thread(void *vargp) {
         failed = 0;
 
         for (int i = 0; i < MESSAGES_BATCH_SIZE; i++)messages[i] = NULL;
-        ts_dequeue_multiple_messages_for_same_fd(&messages, output_queue, config->output_buffer_size);
+        int owned_fd = output_queue_take_batch(&messages, output_queue, config->output_buffer_size);
 
         output_batch batch = {
             .fd = 0,
@@ -102,53 +101,11 @@ void *writer_thread(void *vargp) {
             w_close_connection(fd, fd_with_session, input_queue, "drop blocked connection");
         else if (close_after) // e.g. WebSocket close frame sent: now close TCP
             w_close_connection(fd, fd_with_session, input_queue, "closing connection after close frame");
+
+        output_queue_release_fd(output_queue, owned_fd); // next batch of this connection may go now
     }
 
     return NULL;
-}
-
-void ts_dequeue_multiple_messages_for_same_fd(message_with_frame_len* (*ret)[MESSAGES_BATCH_SIZE], ts_queue * q, int buffer_size) {
-
-    message_with_frame_len * msg = NULL;
-    general_list_item * parent = NULL;
-    general_list_item * current = NULL;
-    general_list_item * peek_cursor = NULL;
-    int first_fd = 0;
-    int index = 0;
-    int remaining_len = buffer_size;
-
-    pthread_mutex_lock(&q->lock);
-    
-    while(q->q.size==0)
-        pthread_cond_wait(&q->has_new_elements,&q->lock);
-    
-    if ((peek_cursor = q->q.first)) {
-        while(index < MESSAGES_BATCH_SIZE && peek_cursor != NULL && remaining_len > 0) {
-            current = peek_cursor;
-            msg = (message_with_frame_len *) peek_cursor->data;
-            if (msg->fd == -1) {
-                (*ret)[index++] = msg;
-                unchain_child(&q->q, parent, peek_cursor);
-                free(peek_cursor);
-                break;
-            } else if (first_fd == 0)
-                first_fd = msg->fd; // first item, always pick-up
-            else if (msg->fd != first_fd) {
-                parent = peek_cursor;
-                peek_cursor = peek_cursor->next;
-                continue; // skip different fd
-            } else if (msg->frame_len > remaining_len) break; // too large msg to fit in
-            // pick-up msg
-            (*ret)[index++] = msg;
-            remaining_len -= msg->frame_len;
-            // unchain
-            unchain_child(&q->q, parent, peek_cursor);
-            peek_cursor = peek_cursor->next;
-            free(current);
-        }
-    }
-
-    pthread_mutex_unlock(&q->lock);
 }
 
 void w_close_connection(int conn_sock, int fd_with_session, ts_queue * input_queue, const char * reason) {

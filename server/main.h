@@ -13,6 +13,7 @@ extern "C" {
 #include "signal_action_handler.c"
 #include "listen.c"
 #include "threads/output_batch.c"
+#include "threads/output_queue.c"
 #include "threads/writer_thread.c"
 #include "threads/reader_thread.c"
 #include "process.c"
