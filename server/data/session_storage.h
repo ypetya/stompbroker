@@ -21,18 +21,28 @@
 extern "C" {
 #endif
 
-    // FD space should be 17bits, max-connections: 131072
+    /*
+     * Session value layout (int):
+     *
+     *   bit  31 .. 21 | 20    | 19      | 18     | 17 .......... 0
+     *       +---------+-------+---------+--------+-----------------+
+     *       | unused  | PURGE | ENCODED | unused | fd (18 bits)    |
+     *       +---------+-------+---------+--------+-----------------+
+     *                  0x100000 0x80000            FD_MASK 0x3FFFF
+     *
+     * Valid fds are 0 .. MAX_NUMBER_OF_CONNECTIONS (0x20000), which needs
+     * 18 bits. FD_MASK must cover all of them, or two fds share one slot
+     * of every array indexed by session_without_flags().
+     */
 #define MAX_NUMBER_OF_CONNECTIONS 0x20000
-    // the lower 18 bit must contain the valid FD. This covers MAX_NUMBER_OF_CONNECTIONS + 1 bit
-#define FD_MASK 0x3FFF
-    // the 19th bit describes the encoded status flag
-    // this means the session needs to be care as encoded communication channel
+#define FD_MASK 0x3FFFF
+    // the session needs to be handled as an encoded (WebSocket) channel
 #define FD_IS_ENCODED_MASK 0x80000
-
-    // the 20th bit describes the pruge session command flag
-    // this will cause STOMP logic to remove subscriptions of the FD and
-    // this info can travel with the message
+    // the STOMP layer removes the subscriptions of the fd; travels with the message
 #define FD_CMD_PURGE_SESSION 0x100000
+
+    _Static_assert(FD_MASK >= MAX_NUMBER_OF_CONNECTIONS, "FD_MASK must cover every valid fd");
+    _Static_assert((FD_MASK & (FD_IS_ENCODED_MASK | FD_CMD_PURGE_SESSION)) == 0, "fd bits overlap flag bits");
 
     enum session_status {
         EMPTY_SESSION = 0,

@@ -1101,6 +1101,16 @@ static void test_existing_session_survives_full_storage(void) {
     session_storage_unlock();
 }
 
+/* fds above 14 bits must not alias lower fds, and flags must not leak into the fd */
+static void test_high_fds_do_not_alias(void) {
+    ST_CHECK(session_without_flags(16384) == 16384);
+    ST_CHECK(session_without_flags(MAX_NUMBER_OF_CONNECTIONS) == MAX_NUMBER_OF_CONNECTIONS);
+    int flagged = session_set_cmd_purge(session_set_encoded(MAX_NUMBER_OF_CONNECTIONS));
+    ST_CHECK(session_without_flags(flagged) == MAX_NUMBER_OF_CONNECTIONS);
+    ST_CHECK(session_is_encoded(flagged) && session_is_cmd_purge(flagged));
+    ST_CHECK(stomp_input_of(16384) != stomp_input_of(0));
+}
+
 /* review 7: a frame split over many reads is rescanned only when it can be complete */
 static void test_framing_waits_without_rescanning(void) {
     stomp_input_buffer in = {0};
@@ -1224,6 +1234,7 @@ int run_stomp_tests(void) {
     ST_RUN(test_framing_waits_without_rescanning);
     ST_RUN(test_framing_large_content_length_frame_in_chunks);
     ST_RUN(test_wildcard_matches_empty_rest);
+    ST_RUN(test_high_fds_do_not_alias);
 
     session_storage_dispose();
     printf("STOMP tests: %d run, %d failed\n", st_tests_run, st_tests_failed);
