@@ -17,7 +17,8 @@ PUB-SUB message exchange delivers a message to all the subscriptions.
 This is the default behaviour. When a message is sent to a specific topic, a
 fan-out happens which delivers the message to all of the subscriptions which
 have a matching topic pattern. A topic pattern can use wildcard caracter '*' to
-match the remaining string.
+match the remaining string, which may be empty: `/topic/*` matches `/topic/a`
+and `/topic/` as well. Stored TTL messages are matched by the same rule.
 
 ### Worker queue
 

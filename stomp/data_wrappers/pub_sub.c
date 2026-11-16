@@ -95,12 +95,9 @@ int pubsub_has_subscription(int client_session_id, const char* subscription_id) 
 }
 
 /**
- * 
- * The method collects out matching subscriptions to a given topic_mask pattern. 
- * 
- * @param topic_mask the message is sent to
- * @param matches linked list pointer where the matches are collected to
- * @return number of matches or -1 on error
+ * A '*' matches any rest of the destination, including an empty one:
+ * pattern "/topic/" + '*' matches destination "/topic/" too. Live delivery always worked this way;
+ * stored TTL messages now use the same rule.
  */
 int pubsub_topic_matches(const char* pattern, const char* destination) {
     const char * wild_card = strchr(pattern, '*');

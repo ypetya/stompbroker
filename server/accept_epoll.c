@@ -250,22 +250,19 @@ void handle_handshake_data(int conn_sock, const char *data, int received_length,
 
 /**
  * Routes one chunk of received bytes by the connection's transport state.
- * @return 0 if the connection was dropped
+ * @return 0 if the connection must be dropped (the caller closes it)
  */
 int process_received(int conn_sock, char * read_buffer, int received_length, ts_queue * input_queue) {
     if (ws_conn_get_state(conn_sock) == CONN_WS_CLOSING) return 1; // closing handshake in progress
 
     session_storage_lock();
-    if (session_storage_add_new(conn_sock) == MAX_SESSION_NUMBER_EXCEEDED) {
-        warn("server: max session size exceeded, dropping connection on fd:%d\n", conn_sock);
+    int added = session_storage_add_new(conn_sock);
+    session_storage_unlock();
+    if (added == MAX_SESSION_NUMBER_EXCEEDED) {
         // Sorry-sorry, no bananas left. :)
-        session_storage_unlock();
-        close(conn_sock);
-        ws_conn_reset(conn_sock);
-        stomp_input_reset(stomp_input_of(conn_sock));
+        warn("server: max session size exceeded, dropping connection on fd:%d\n", conn_sock);
         return 0;
     }
-    session_storage_unlock();
 
     switch (ws_conn_route(conn_sock, read_buffer, (size_t) received_length)) {
         case CONN_RAW_STOMP:
@@ -302,7 +299,10 @@ void do_use_fd(int epollfd, int conn_sock, char* read_buffer, ts_queue * input_q
             return;
         }
 
-        if (!process_received(conn_sock, read_buffer, received_length, input_queue)) return;
+        if (!process_received(conn_sock, read_buffer, received_length, input_queue)) {
+            close_connection(epollfd, conn_sock, input_queue); // the one close path (see cleanup.h)
+            return;
+        }
     }
 }
 

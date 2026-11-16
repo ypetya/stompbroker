@@ -10,6 +10,7 @@
 #include "parser.h"
 
 #include "messages/message.h"
+#include "../websocket/filter/dataframe.h"
 #include "messages/create_diagnostic_message.h"
 #include "messages/distribute_messages.h"
 
@@ -54,6 +55,21 @@ static stomp_reply nothing(void) {
 static void reply_to(ts_queue * output_queue, message_with_timestamp * input, message_with_frame_len * m) {
     m->generation = input->generation;
     ts_enqueue(output_queue, m);
+}
+
+/**
+ * Queues frame (may be NULL), then ends the connection. Raw TCP closes right
+ * after the frame; WebSocket sends a close frame with ws_close_code first.
+ */
+static void reply_then_close(ts_queue * output_queue, message_with_timestamp * input,
+        message_with_frame_len * frame, uint16_t ws_close_code) {
+    int websocket = session_is_encoded(input->fd);
+    if (frame != NULL) {
+        frame->close_after = !websocket;
+        reply_to(output_queue, input, frame);
+    }
+    if (frame == NULL || websocket)
+        reply_to(output_queue, input, message_close_request(input->fd, ws_close_code));
 }
 
 /** Is version one of the comma separated tokens of list? */
@@ -182,7 +198,7 @@ int stomp_process(ts_queue* input_queue,
 
     if (input->error != NULL) { // the connection's byte stream could not be cut into frames
         end_session(client_id);
-        reply_to(output_queue, input, message_error(input->fd, input->error, NULL));
+        reply_then_close(output_queue, input, message_error(input->fd, input->error, NULL), WS_CLOSE_POLICY_VIOLATION);
         return 0;
     }
 
@@ -195,12 +211,12 @@ int stomp_process(ts_queue* input_queue,
 
     message_with_frame_len * frame = reply.frame;
     if (frame == NULL && pm->receipt_id != NULL) frame = message_receipt(input->fd, pm->receipt_id);
-    if (frame == NULL && reply.close) frame = message_close_request(input->fd);
-    if (frame != NULL) {
-        if (frame->close_after) end_session(client_id); // ERROR
-        frame->close_after |= reply.close;
+    int error = frame != NULL && frame->close_after; // ERROR frames end the session
+    if (error) end_session(client_id);
+    if (error || reply.close)
+        reply_then_close(output_queue, input, frame, error ? WS_CLOSE_POLICY_VIOLATION : WS_CLOSE_NORMAL);
+    else if (frame != NULL)
         reply_to(output_queue, input, frame);
-    }
 
     if (reply.consumed) free_parsed_message(pm);
 

@@ -37,11 +37,10 @@ void session_storage_dispose() {
 }
 
 int session_storage_add_new(int fd) {
-    if (number_of_clients >= MAX_NUMBER_OF_CONNECTIONS ||
-            fd > MAX_NUMBER_OF_CONNECTIONS
-            ) return MAX_SESSION_NUMBER_EXCEEDED;
-    
+    if (fd > MAX_NUMBER_OF_CONNECTIONS) return MAX_SESSION_NUMBER_EXCEEDED;
+    // a session that already exists is never refused, even when the limit is reached
     if (clients[fd] > 0) return SESSION_IS_IN_USE;
+    if (number_of_clients >= MAX_NUMBER_OF_CONNECTIONS) return MAX_SESSION_NUMBER_EXCEEDED;
     clients[fd] = fd;
 
     number_of_clients++;

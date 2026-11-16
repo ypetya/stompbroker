@@ -34,6 +34,10 @@ extern "C" {
         size_t len; // frame length without the terminating NUL
         size_t consumed; // bytes the caller may drop: the frame and its NUL, or the skipped EOLs
         const char *error; // STOMP_FRAME_ERROR: static reason
+        // STOMP_FRAME_NEED_MORE: what the pending frame (from start) waits for, so
+        // a caller holding it need not rescan before the result can change
+        size_t wait_len; // content-length known: bytes the frame and its NUL take; 0: unknown
+        int wait_nul;    // headers complete, no content-length: only a NUL (or the size limit) ends it
     } stomp_frame_span;
 
     /** Finds the first frame in buf. */
@@ -44,6 +48,9 @@ extern "C" {
     typedef struct stomp_input_buffer_t {
         char *data;
         size_t len;
+        size_t cap;      // allocated bytes, grown geometrically
+        size_t wait_len; // hints of the pending frame, see stomp_frame_span
+        int wait_nul;
     } stomp_input_buffer;
 
     /** Receives one complete frame (without its NUL); frame is only valid during the call. */
@@ -51,6 +58,8 @@ extern "C" {
 
     /**
      * Appends received bytes and hands every complete frame to sink, in order.
+     * A frame arriving in many reads is scanned once more only when the new
+     * bytes can complete it, so its cost stays linear in its size.
      * @return 0, or -1 on a framing error: *error is set and the buffer is cleared
      */
     int stomp_input_feed(stomp_input_buffer *in, const char *data, size_t len, size_t max_frame_len,

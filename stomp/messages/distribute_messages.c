@@ -57,9 +57,23 @@ size_t stale_queue_bytes(void) {
     return stale_bytes;
 }
 
-/** Memory a stored message is charged with. */
+static size_t str_size(const char * s) {
+    return s != NULL ? strlen(s) + 1 : 0;
+}
+
+static size_t headers_size(const aa_item * node) {
+    if (node == NULL) return 0;
+    return sizeof (aa_item) + str_size(node->key) + str_size(node->value)
+            + headers_size(node->left) + headers_size(node->right);
+}
+
+/**
+ * Memory a stored message is charged with: everything it owns. Stored
+ * messages are never changed, so storing and freeing charge the same size.
+ */
 static size_t stale_size_of(parsed_message * pm) {
-    return sizeof (parsed_message) + pm->body_len + strlen(pm->topic);
+    return sizeof (parsed_message) + sizeof (associative_array) + headers_size(pm->headers->root)
+            + pm->body_len + 1 + str_size(pm->topic) + str_size(pm->receipt_id) + str_size(pm->id);
 }
 
 static int is_expired(parsed_message * pm, unsigned int ttl, long long now) {

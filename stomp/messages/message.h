@@ -5,6 +5,7 @@
 extern "C" {
 #endif
 
+#include <stdint.h>
 #include "../../lib/associative_array.h"
 #include "../../server/data/message/with_payload_length.h"
 #include "../../server/data/message/with_timestamp.h"
@@ -15,8 +16,12 @@ extern "C" {
     message_with_frame_len * message_error_versions(int fd, const char *reason, const char *receipt_id,
             const char *supported_versions);
     message_with_frame_len * message_connected(int fd, int session_id, const char *version);
-    /** Nothing to send, only close the connection after the messages before it. */
-    message_with_frame_len * message_close_request(int fd);
+    /**
+     * Closes the connection after the messages before it. Raw TCP: nothing to
+     * send. WebSocket (encoded fd): a close frame with ws_close_code, so the
+     * client sees a clean close instead of 1006.
+     */
+    message_with_frame_len * message_close_request(int fd, uint16_t ws_close_code);
     message_with_frame_len * message_disconnect(int fd);
     message_with_frame_len * message_receipt(int fd, char* receipt_id);
     message_with_frame_len * message_send(int fd, int subscription_id,

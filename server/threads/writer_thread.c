@@ -30,13 +30,27 @@ static void request_close(int fd, const char * reason) {
     shutdown(fd, SHUT_RDWR);
 }
 
-/** Is msg still for the session that currently uses its fd? */
-static int is_current_session(const message_with_frame_len * msg, int fd) {
-    return session_storage_get(fd) && msg->generation == session_storage_generation(fd);
+/** The session that currently uses an fd, read under session_storage_lock. */
+typedef struct session_view_t {
+    int alive;
+    unsigned int generation;
+} session_view;
+
+/*
+ * One snapshot serves the whole batch: every message of a batch is for the
+ * fd the writer owns, and the generation only changes in connection_close(),
+ * which waits until the writer hands the fd back.
+ */
+static session_view session_view_of(int fd) {
+    session_storage_lock();
+    session_view view = {session_storage_get(fd) != 0, session_storage_generation(fd)};
+    session_storage_unlock();
+    return view;
 }
 
 int writer_send_batch(message_with_frame_len *(*messages)[MESSAGES_BATCH_SIZE], output_batch *batch) {
-    int close_after = 0, failed = 0;
+    int close_after = 0, failed = 0, viewed = 0;
+    session_view session = {0, 0};
 
     for (int i = 0; i < MESSAGES_BATCH_SIZE && (*messages)[i] != NULL; i++) {
         message_with_frame_len * msg = (*messages)[i];
@@ -47,13 +61,19 @@ int writer_send_batch(message_with_frame_len *(*messages)[MESSAGES_BATCH_SIZE], 
             message_destroy_with_frame_len(msg);
             return 1;
         }
-        if (failed || !is_current_session(msg, fd)) { // disconnected client or closed session
+        if (!viewed) {
+            session = session_view_of(fd);
+            viewed = 1;
+        }
+        // Drop output of a closed session, after a failed write, and after the
+        // message that ends the connection (nothing may follow ERROR / close).
+        if (failed || close_after || !session.alive || msg->generation != session.generation) {
             message_destroy_with_frame_len(msg);
             continue;
         }
         batch->fd = fd;
         debug(">>>\n%s\n", msg->content);
-        close_after |= msg->close_after;
+        close_after = msg->close_after;
         size_t len = ws_output_filter(msg);
         failed = output_batch_add(batch, msg->content, len) < 0;
         message_destroy_with_frame_len(msg);

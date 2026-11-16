@@ -4,6 +4,8 @@
 #include "message.h"
 #include "../../lib/emalloc.h"
 #include "../../lib/clone_str.h"
+#include "../../server/data/session_storage.h"
+#include "../../websocket/filter/dataframe.h"
 
 char * ERROR_TEMPLATE = "ERROR\n"
         "%s%s%s" // receipt-id
@@ -72,8 +74,14 @@ message_with_frame_len * message_disconnect(int fd) {
     return message_create_with_frame_len(fd, DISCONNECT_TEMPLATE);
 }
 
-message_with_frame_len * message_close_request(int fd) {
-    return message_create_raw(fd, "", 0, 1);
+message_with_frame_len * message_close_request(int fd, uint16_t ws_close_code) {
+    if (!session_is_encoded(fd)) return message_create_raw(fd, "", 0, 1);
+
+    char * frame = NULL;
+    size_t len = ws_encode_close(ws_close_code, &frame);
+    message_with_frame_len * m = message_create_raw(fd, frame, len, 1);
+    free(frame);
+    return m;
 }
 
 char * RECEIPT_TEMPLATE = "RECEIPT\n"

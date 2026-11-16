@@ -75,7 +75,10 @@ stomp_frame_status stomp_find_frame(const char *buf, size_t len, size_t max_fram
             size_t end = (size_t) body + (size_t) declared;
             if (declared > (long long) max_frame_len || end > max_frame_len)
                 return frame_error(span, "Frame too large!");
-            if (available <= end) return STOMP_FRAME_NEED_MORE;
+            if (available <= end) {
+                span->wait_len = end + 1;
+                return STOMP_FRAME_NEED_MORE;
+            }
             if (frame[end] != '\0') return frame_error(span, "Frame body does not match its content-length!");
             span->len = end;
             span->consumed = start + end + 1;
@@ -90,13 +93,13 @@ stomp_frame_status stomp_find_frame(const char *buf, size_t len, size_t max_fram
         return STOMP_FRAME_COMPLETE;
     }
     if (available > max_frame_len) return frame_error(span, "Frame too large!");
+    span->wait_nul = body >= 0; // headers complete (a content-length would have returned above)
     return STOMP_FRAME_NEED_MORE;
 }
 
 void stomp_input_reset(stomp_input_buffer *in) {
     free(in->data);
-    in->data = NULL;
-    in->len = 0;
+    *in = (stomp_input_buffer) {0};
 }
 
 /** Keeps src[offset..src_len) as the pending bytes of the connection. */
@@ -111,7 +114,26 @@ static void keep_tail(stomp_input_buffer *in, const char *src, size_t src_len, s
         in->data = emalloc(left);
         memcpy(in->data, src + offset, left);
         in->len = left;
+        in->cap = left;
     }
+}
+
+static void append(stomp_input_buffer *in, const char *data, size_t len) {
+    if (in->len + len > in->cap) {
+        size_t cap = in->cap > 0 ? in->cap : 256;
+        while (cap < in->len + len) cap *= 2;
+        in->data = erealloc(in->data, cap);
+        in->cap = cap;
+    }
+    if (len > 0) memcpy(in->data + in->len, data, len);
+    in->len += len;
+}
+
+/** After appending data: can the pending frame still not be complete (nor too large)? */
+static int still_pending(const stomp_input_buffer *in, const char *data, size_t len, size_t max_frame_len) {
+    if (in->wait_len > 0) return in->len < in->wait_len;
+    if (in->wait_nul) return in->len <= max_frame_len && memchr(data, '\0', len) == NULL;
+    return 0;
 }
 
 int stomp_input_feed(stomp_input_buffer *in, const char *data, size_t len, size_t max_frame_len,
@@ -119,9 +141,8 @@ int stomp_input_feed(stomp_input_buffer *in, const char *data, size_t len, size_
     const char *src = data;
     size_t src_len = len;
     if (in->len > 0) { // continue a partial frame
-        in->data = erealloc(in->data, in->len + len);
-        if (len > 0) memcpy(in->data + in->len, data, len);
-        in->len += len;
+        append(in, data, len);
+        if (still_pending(in, data, len, max_frame_len)) return 0;
         src = in->data;
         src_len = in->len;
     }
@@ -139,7 +160,9 @@ int stomp_input_feed(stomp_input_buffer *in, const char *data, size_t len, size_
         stomp_input_reset(in);
         return -1;
     }
-    keep_tail(in, src, src_len, offset + span.consumed);
+    keep_tail(in, src, src_len, offset + span.consumed); // the pending frame starts at in->data
+    in->wait_len = in->len > 0 ? span.wait_len : 0;
+    in->wait_nul = in->len > 0 && span.wait_nul;
     return 0;
 }
 

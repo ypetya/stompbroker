@@ -899,8 +899,10 @@ static void test_ttl_store_is_bounded(void) {
     receive_now(6, "SEND\ndestination:/ttl/3\n\nc"); /* dropped: count limit */
     ST_CHECK(st_stale_queue.size == 2);
     stale_queue_max_size = 1000;
-    stale_queue_max_bytes = stale_queue_bytes() + sizeof (parsed_message) + 10; /* room for a small one */
-    receive_now(6, "SEND\ndestination:/ttl/4\n\nthis body is too large for the byte limit");
+    stale_queue_max_bytes = stale_queue_bytes() + 300; /* room for a small one */
+    char large[600];
+    snprintf(large, sizeof (large), "SEND\ndestination:/ttl/4\n\n%0400d", 0); /* body too large for the byte limit */
+    receive_now(6, large);
     ST_CHECK(st_stale_queue.size == 2);
     receive_now(6, "SEND\ndestination:/t\n\nok");
     ST_CHECK(st_stale_queue.size == 3);
@@ -921,6 +923,247 @@ static void test_message_headers_forwarded_from_send(void) {
         message_destroy_with_frame_len(m);
     }
     ST_CHECK(expect_output("RECEIPT\nreceipt-id:r9\n\n"));
+}
+
+/* ---------------------------------------------------------------------------
+ * Code review F1 follow-ups
+ * ------------------------------------------------------------------------- */
+typedef struct claimer_st {
+    ts_queue *q;
+    int fd;
+    volatile int done;
+} claimer;
+
+static void *claimer_thread(void *arg) {
+    claimer *c = arg;
+    output_queue_claim_fd(c->q, c->fd);
+    c->done = 1;
+    return NULL;
+}
+
+static void *writer_round_thread(void *arg) {
+    writer_round(arg);
+    return NULL;
+}
+
+/* review 1: a close waiting for a busy fd must not swallow the wake-up meant for writers */
+static void test_close_waiting_on_busy_fd_does_not_stall_other_output(void) {
+    ts_queue out;
+    ts_queue_init(&out);
+    int busy[2], other[2];
+    ST_CHECK(socket_pair(busy) == 0 && socket_pair(other) == 0);
+    session_storage_add_new(busy[0]);
+    session_storage_add_new(other[0]);
+
+    /* a writer is busy with the first connection */
+    enqueue_for_session(&out, busy[0], "BUSY", session_storage_generation(busy[0]));
+    message_with_frame_len *batch[MESSAGES_BATCH_SIZE] = {NULL};
+    ST_CHECK(output_queue_take_batch(&batch, &out, 1000) == busy[0]);
+
+    /* the epoll thread waits to close it; an idle writer waits for output (in this order) */
+    claimer c = {&out, busy[0], 0};
+    pthread_t closer_t, writer_t;
+    pthread_create(&closer_t, NULL, claimer_thread, &c);
+    usleep(50000);
+    pthread_create(&writer_t, NULL, writer_round_thread, &out);
+    usleep(50000);
+
+    /* output for another connection must go out while the close keeps waiting */
+    enqueue_for_session(&out, other[0], "OTHER", session_storage_generation(other[0]));
+    char got[16] = {0};
+    size_t n = read_some(other[1], got, sizeof (got));
+    ST_CHECK(n == 6 && memcmp(got, "OTHER\0", 6) == 0);
+    ST_CHECK(c.done == 0);
+
+    for (int i = 0; batch[i] != NULL; i++) message_destroy_with_frame_len(batch[i]);
+    output_queue_release_fd(&out, busy[0]); /* the close may go now */
+    pthread_join(closer_t, NULL);
+    pthread_join(writer_t, NULL);
+    ST_CHECK(c.done == 1);
+    output_queue_release_fd(&out, busy[0]);
+
+    session_storage_lock();
+    session_storage_remove(busy[0]);
+    session_storage_remove(other[0]);
+    session_storage_unlock();
+    close(busy[0]); close(busy[1]); close(other[0]); close(other[1]);
+    ts_queue_free(&out);
+}
+
+/* review 3: nothing is written after ERROR, even when it is in the same batch */
+static void test_nothing_is_written_after_error(void) {
+    ts_queue out;
+    ts_queue_init(&out);
+    int sv[2];
+    ST_CHECK(socket_pair(sv) == 0);
+    session_storage_add_new(sv[0]);
+    unsigned int generation = session_storage_generation(sv[0]);
+
+    message_with_frame_len *error = message_create_with_frame_len(sv[0], "ERROR\n\nbye");
+    error->generation = generation;
+    error->close_after = 1;
+    ts_enqueue(&out, error);
+    enqueue_for_session(&out, sv[0], "MESSAGE\n\nlate", generation);
+    ST_CHECK(out.q.size == 2);
+    writer_round(&out); /* both in one batch */
+    ST_CHECK(out.q.size == 0);
+
+    char got[64];
+    size_t n = read_some(sv[1], got, sizeof (got));
+    ST_CHECK(n == strlen("ERROR\n\nbye") + 1 && memcmp(got, "ERROR\n\nbye", n) == 0);
+    ST_CHECK(recv(sv[1], got, sizeof (got), MSG_DONTWAIT) == 0); /* then EOF */
+
+    session_storage_lock();
+    session_storage_remove(sv[0]);
+    session_storage_unlock();
+    close(sv[0]);
+    close(sv[1]);
+    ts_queue_free(&out);
+}
+
+/* review 4: stored messages are charged for their headers too */
+static void test_ttl_store_charges_headers(void) {
+    ttl = 5000 * 1000;
+    connect_client(6);
+    receive_now(6, "SEND\ndestination:/ttl/h\nx-small:1\n\n");
+    ST_CHECK(st_stale_queue.size == 1);
+    ST_CHECK(stale_queue_bytes() >= sizeof (parsed_message) + sizeof (aa_item) * 2 + strlen("x-small1destination/ttl/h"));
+
+    stale_queue_max_bytes = stale_queue_bytes() + 1000;
+    size_t header_len = 4000;
+    char *frame = emalloc(header_len + 64);
+    int head = snprintf(frame, 64, "SEND\ndestination:/ttl/h\nx-big:");
+    memset(frame + head, 'h', header_len);
+    strcpy(frame + head + header_len, "\n\n"); /* empty body, 4 KB of headers */
+    receive_now(6, frame);
+    free(frame);
+    ST_CHECK(st_stale_queue.size == 1); /* refused: over the byte limit */
+    stale_queue_max_bytes = DEFAULT_STALE_QUEUE_BYTES;
+}
+
+/* review 6: WebSocket sessions end with a close frame */
+static int is_ws_close(message_with_frame_len *m, uint16_t code) {
+    return m != NULL && m->raw && m->close_after && m->content_len == 4
+            && (unsigned char) m->content[0] == 0x88 && m->content[1] == 2
+            && (unsigned char) m->content[2] == (code >> 8) && (unsigned char) m->content[3] == (code & 0xff);
+}
+
+static void test_websocket_disconnect_sends_close_frame(void) {
+    int ws = session_set_encoded(5);
+    connect_client(ws);
+    receive(ws, "DISCONNECT\nreceipt:9\n\n");
+    message_with_frame_len *m = next_output();
+    ST_CHECK(m != NULL && strcmp(m->content, "RECEIPT\nreceipt-id:9\n\n") == 0 && !m->close_after);
+    if (m) message_destroy_with_frame_len(m);
+    m = next_output();
+    ST_CHECK(is_ws_close(m, WS_CLOSE_NORMAL));
+    if (m) message_destroy_with_frame_len(m);
+
+    connect_client(ws);
+    receive(ws, "DISCONNECT\n\n"); /* without receipt: only the close frame */
+    m = next_output();
+    ST_CHECK(is_ws_close(m, WS_CLOSE_NORMAL) && output_count() == 0);
+    if (m) message_destroy_with_frame_len(m);
+}
+
+static void test_websocket_error_sends_close_frame(void) {
+    int ws = session_set_encoded(5);
+    connect_client(ws);
+    receive(ws, "SEND\n\nno destination");
+    message_with_frame_len *m = next_output();
+    ST_CHECK(m != NULL && starts_with(m->content, "ERROR\n") && !m->close_after);
+    if (m) message_destroy_with_frame_len(m);
+    m = next_output();
+    ST_CHECK(is_ws_close(m, WS_CLOSE_POLICY_VIOLATION));
+    if (m) message_destroy_with_frame_len(m);
+
+    /* a framing error ends the same way */
+    message_with_timestamp *in = message_create_with_timestamp(ws, "", 0);
+    in->error = "Frame too large!";
+    stomp_process(&st_input_queue, &st_stale_queue, &st_output_queue, in);
+    message_destroy_with_timestamp(in);
+    ST_CHECK(expect_output("ERROR\n"));
+    m = next_output();
+    ST_CHECK(is_ws_close(m, WS_CLOSE_POLICY_VIOLATION));
+    if (m) message_destroy_with_frame_len(m);
+}
+
+/* review 5: an existing session is never refused when the limit is reached */
+static void test_existing_session_survives_full_storage(void) {
+    session_storage_lock();
+    ST_CHECK(session_storage_add_new(7) == 7);
+    int saved = number_of_clients;
+    number_of_clients = MAX_NUMBER_OF_CONNECTIONS;
+    ST_CHECK(session_storage_add_new(7) == SESSION_IS_IN_USE);
+    ST_CHECK(session_storage_add_new(8) == MAX_SESSION_NUMBER_EXCEEDED);
+    number_of_clients = saved;
+    session_storage_remove(7);
+    session_storage_unlock();
+}
+
+/* review 7: a frame split over many reads is rescanned only when it can be complete */
+static void test_framing_waits_without_rescanning(void) {
+    stomp_input_buffer in = {0};
+    collected_frames c = {0};
+    const char *error = NULL;
+    const char *head = "SEND\ndestination:/a\ncontent-length:10\n\n";
+    ST_CHECK(stomp_input_feed(&in, head, strlen(head), 1000, collect_frame, &c, &error) == 0);
+    ST_CHECK(in.wait_len == strlen(head) + 11 && !in.wait_nul);
+    ST_CHECK(stomp_input_feed(&in, "01234", 5, 1000, collect_frame, &c, &error) == 0 && c.count == 0);
+    ST_CHECK(stomp_input_feed(&in, "56789\0SEND\n\nx", 13, 1000, collect_frame, &c, &error) == 0);
+    ST_CHECK(c.count == 1 && collected_is(&c, 0, "SEND\ndestination:/a\ncontent-length:10\n\n0123456789", strlen(head) + 10));
+    ST_CHECK(in.len == 7 && in.wait_nul && in.wait_len == 0); /* "SEND\n\nx" waits for its NUL */
+    ST_CHECK(stomp_input_feed(&in, "yz", 2, 1000, collect_frame, &c, &error) == 0 && c.count == 1);
+    ST_CHECK(stomp_input_feed(&in, "\0", 1, 1000, collect_frame, &c, &error) == 0);
+    ST_CHECK(c.count == 2 && collected_is(&c, 1, "SEND\n\nxyz", 9) && in.len == 0 && in.data == NULL);
+    collected_free(&c);
+    stomp_input_reset(&in);
+}
+
+static void test_framing_large_content_length_frame_in_chunks(void) {
+    size_t body_len = DEFAULT_MAX_FRAME_SIZE - 100, chunk = 16000;
+    char head[64];
+    int head_len = snprintf(head, sizeof (head), "SEND\ndestination:/big\ncontent-length:%zu\n\n", body_len);
+    size_t len = (size_t) head_len + body_len + 1;
+    char *data = emalloc(len);
+    memcpy(data, head, (size_t) head_len);
+    memset(data + head_len, 'B', body_len);
+    data[head_len + 7] = '\0'; /* NUL in the body is fine with content-length */
+    stomp_input_buffer in = {0};
+    collected_frames c = {0};
+    const char *error = NULL;
+    for (size_t off = 0; off < len; off += chunk)
+        ST_CHECK(stomp_input_feed(&in, data + off, off + chunk > len ? len - off : chunk,
+            DEFAULT_MAX_FRAME_SIZE, collect_frame, &c, &error) == 0);
+    ST_CHECK(c.count == 1 && collected_is(&c, 0, data, len - 1));
+    collected_free(&c);
+    stomp_input_reset(&in);
+    free(data);
+}
+
+/* review 8: '*' matches an empty rest, for live and for stored messages alike */
+static void test_wildcard_matches_empty_rest(void) {
+    ST_CHECK(pubsub_topic_matches("/topic/*", "/topic/"));
+    ST_CHECK(pubsub_topic_matches("/topic/*", "/topic/a"));
+    ST_CHECK(!pubsub_topic_matches("/topic/*", "/topic"));
+    ST_CHECK(!pubsub_topic_matches("/topic/a", "/topic/"));
+
+    connect_client(5);
+    receive(5, "SUBSCRIBE\nid:live\ndestination:/w/*\n\n");
+    connect_client(6);
+    receive(6, "SEND\ndestination:/w/\n\nlive");
+    message_with_frame_len *m = next_output();
+    ST_CHECK(m != NULL && m->fd == 5 && starts_with(m->content, "MESSAGE\n"));
+    if (m) message_destroy_with_frame_len(m);
+
+    ttl = 5000 * 1000;
+    receive_now(6, "SEND\ndestination:/s/\n\nstored");
+    ST_CHECK(st_stale_queue.size == 1);
+    receive_now(5, "SUBSCRIBE\nid:stored\ndestination:/s/*\n\n");
+    m = next_output();
+    ST_CHECK(m != NULL && m->fd == 5 && strstr(m->content, "\ndestination:/s/\n") != NULL);
+    if (m) message_destroy_with_frame_len(m);
+    ST_CHECK(st_stale_queue.size == 0);
 }
 
 int run_stomp_tests(void) {
@@ -972,6 +1215,15 @@ int run_stomp_tests(void) {
     ST_RUN(test_ttl_expired_messages_are_dropped);
     ST_RUN(test_ttl_store_is_bounded);
     ST_RUN(test_message_headers_forwarded_from_send);
+    ST_RUN(test_close_waiting_on_busy_fd_does_not_stall_other_output);
+    ST_RUN(test_nothing_is_written_after_error);
+    ST_RUN(test_ttl_store_charges_headers);
+    ST_RUN(test_websocket_disconnect_sends_close_frame);
+    ST_RUN(test_websocket_error_sends_close_frame);
+    ST_RUN(test_existing_session_survives_full_storage);
+    ST_RUN(test_framing_waits_without_rescanning);
+    ST_RUN(test_framing_large_content_length_frame_in_chunks);
+    ST_RUN(test_wildcard_matches_empty_rest);
 
     session_storage_dispose();
     printf("STOMP tests: %d run, %d failed\n", st_tests_run, st_tests_failed);

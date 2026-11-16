@@ -15,8 +15,15 @@
  *   writers never race to send batches of one connection in the wrong order.
  *
  * fd_owned is guarded by the queue lock.
+ *
+ * Wake-ups: writers wait on the queue's has_new_elements, which enqueue
+ * signals (one waiter). The close path waits for an fd on fd_released
+ * instead: sharing has_new_elements would let an enqueue's single wake-up
+ * land on a waiting close, leaving the new output unsent while writers sleep.
+ * Like fd_owned it is process wide: there is one output queue.
  */
 static unsigned char fd_owned[FD_MASK + 1];
+static pthread_cond_t fd_released = PTHREAD_COND_INITIALIZER;
 static output_stall stalls[FD_MASK + 1];
 
 output_stall *output_queue_stall_of(int fd) {
@@ -83,7 +90,7 @@ int output_queue_take_batch(message_with_frame_len *(*ret)[MESSAGES_BATCH_SIZE],
 void output_queue_claim_fd(ts_queue *q, int fd) {
     int real_fd = session_without_flags(fd);
     pthread_mutex_lock(&q->lock);
-    while (fd_owned[real_fd]) pthread_cond_wait(&q->has_new_elements, &q->lock);
+    while (fd_owned[real_fd]) pthread_cond_wait(&fd_released, &q->lock);
     fd_owned[real_fd] = 1;
     pthread_mutex_unlock(&q->lock);
 }
@@ -91,6 +98,7 @@ void output_queue_claim_fd(ts_queue *q, int fd) {
 void output_queue_release_fd(ts_queue *q, int fd) {
     pthread_mutex_lock(&q->lock);
     fd_owned[session_without_flags(fd)] = 0;
-    pthread_cond_broadcast(&q->has_new_elements);
+    pthread_cond_broadcast(&q->has_new_elements); // writers: output of this fd is eligible again
+    pthread_cond_broadcast(&fd_released);         // close path waiting for this fd
     pthread_mutex_unlock(&q->lock);
 }
