@@ -13,6 +13,10 @@ Maintains the size information
 Inserting and removing elements are guarded by pthread_mutex locks.
 Dequeue operations are waiting on conditional thread wait, which are provided by
 the queue counterpart.
+`ts_dequeue_timed` waits at most a given time and returns NULL on time-out. Its
+deadline uses the monotonic clock (on Linux the condition variable is set to
+`CLOCK_MONOTONIC`, on macOS a relative wait is used), so stepping the wall clock
+does not stretch the wait.
 Based on queue.
 
 ## associative_array

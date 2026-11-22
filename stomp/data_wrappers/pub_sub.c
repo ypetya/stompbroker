@@ -31,15 +31,18 @@ void pubsub_dispose() {
     topics = NULL;
 }
 
-void pubsub_subscribe(char* topic_str, int client_session_id, char* subscription_id, unsigned int generation) {
-    if (topics == NULL) return;
+subscription * pubsub_subscribe(char* topic_str, int client_session_id, char* subscription_id, unsigned int generation) {
+    if (topics == NULL) return NULL;
     subscription * new_sub = emalloc(sizeof (subscription));
     new_sub->session_id = client_session_id;
     new_sub->topic_pattern = clone_str(topic_str);
     new_sub->id = clone_str(subscription_id);
     new_sub->generation = generation;
+    new_sub->ack = ACK_AUTO;
+    new_sub->prefetch = 1;
 
     list_add(topics, new_sub);
+    return new_sub;
 }
 
 typedef int (*subscription_filter)(const subscription * sub, int client_session_id, const char * id);
@@ -119,6 +122,12 @@ int pubsub_find_matching(char* topic_mask, general_list * matches) {
         if (pubsub_topic_matches(sub->topic_pattern, topic_mask)) list_add(matches, sub);
     }
     return matches->size;
+}
+
+int pubsub_has_matching(const char* destination) {
+    for (general_list_item * c = topics->first; c != NULL; c = c->next)
+        if (pubsub_topic_matches(((subscription *) c->data)->topic_pattern, destination)) return 1;
+    return 0;
 }
 
 int pubsub_size() {

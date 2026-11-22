@@ -17,6 +17,7 @@ void config_init() {
     config_main.max_stale_queue_size = 0;
     config_main.max_stale_queue_bytes = 0;
     config_main.ttl = 0;
+    config_main.ack_timeout = 0;
     config_main.ws_allowed_origins = NULL;
     config_main.ws_allowed_hosts = NULL;
     config_main.write_timeout_ms = 0;
@@ -53,6 +54,7 @@ void config_setup_missing_defaults() {
     info("server: max_input_queue_size: %d max_stale_queue_size: %d max_stale_queue_bytes: %lu\n",
             config_main.max_input_queue_size, config_main.max_stale_queue_size, config_main.max_stale_queue_bytes);
     info("server: TTL: %d micro-seconds\n", config_main.ttl);
+    info("server: ack_timeout: %u micro-seconds\n", config_main.ack_timeout);
     info("server: write_timeout: %d ms\n", config_main.write_timeout_ms);
     info("server: ws_allowed_origins: %s ws_allowed_hosts: %s\n",
             config_main.ws_allowed_origins ? config_main.ws_allowed_origins : "(any)",
@@ -122,6 +124,10 @@ void config_parse_parse(int argc, char* argv[]) {
         } else if (strncmp("write_timeout", token, 13) == 0) {
             token = strtok(NULL, "=");
             if (token) sscanf(token, "%d", &config_main.write_timeout_ms);
+        } else if (strncmp("ack_timeout", token, 11) == 0) {
+            token = strtok(NULL, "=");
+            // convert millies to micros
+            if (token && sscanf(token, "%u", &config_main.ack_timeout) == 1) config_main.ack_timeout *= 1000;
         } else if (strncmp("TTL", token, 3) == 0) {
             token = strtok(NULL, "=");
             sscanf(token, "%d", &config_main.ttl);

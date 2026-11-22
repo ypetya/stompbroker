@@ -32,6 +32,7 @@ struct CONFIG_STRUCTURE {
     unsigned int ttl;
     unsigned int max_stale_queue_size;
     unsigned long max_stale_queue_bytes;
+    unsigned int ack_timeout; // micro-seconds; worker queue messages not acknowledged for this long are redelivered, 0: never
 
     int input_buffer_size; // bytes read from a socket at once
     unsigned int max_frame_size; // larger frames get ERROR and the connection is closed

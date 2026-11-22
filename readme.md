@@ -62,8 +62,9 @@ Frames from clients:
 |---|---|---|
 | `CONNECT` / `STOMP` | `accept-version` | Version negotiation: the highest of `1.2`, `1.1`, `1.0` the client offers; no `accept-version` means a 1.0 client. `CONNECTED` carries `version`, `session`, `server`, `heart-beat:0,0`. No common version: `ERROR` with `version:1.0,1.1,1.2`. |
 | `SEND` | `destination` (required, no `*`), `content-length`, `content-type`, any custom header | Delivered as `MESSAGE` to every matching subscription (worker queue topics starting with `#`: to one, see [Messaging](pubsub.md)). |
-| `SUBSCRIBE` | `id`, `destination` (both required) | `destination` may end in `*` (prefix match). An `id` already used by the connection is an `ERROR`. Stored TTL messages that match are delivered at once. |
-| `UNSUBSCRIBE` | `id` (required) | Removes the connection's subscription with that id. |
+| `SUBSCRIBE` | `id`, `destination` (both required), `ack` (`auto`, `client`, `client-individual`), `prefetch-count` (default 1) | `destination` may end in `*` (prefix match). An `id` already used by the connection is an `ERROR`. Stored TTL messages that match are delivered at once (worker queues with `ack` other than `auto`: `prefetch-count` of them). |
+| `UNSUBSCRIBE` | `id` (required) | Removes the connection's subscription with that id; its unacknowledged worker queue messages go to other workers. With TTL 0, stored worker queue jobs that no remaining subscription matches are dropped (also when a session ends). |
+| `ACK` / `NACK` | `id` (required): the `ack` header of the `MESSAGE` | Worker queues only: settles the message (`client`: and the earlier ones of the subscription). A NACKed message goes to another worker. Unknown ids are ignored. |
 | `DISCONNECT` | `receipt` | Subscriptions are removed, `RECEIPT` is sent when requested, then the broker closes the connection. |
 | `DIAG` | body: query | Non standard diagnostics, see `examples/js/websocket/stomp.diag.*.js`. |
 
@@ -74,7 +75,9 @@ Frames from the broker:
 
 - `MESSAGE`: the `SEND` headers (without `receipt`) plus `destination`,
   `subscription` (the subscription id), `message-id`, `content-length` and
-  `content-type` (default `text/plain`).
+  `content-type` (default `text/plain`). Worker queue messages to a
+  subscription with `ack:client`/`ack:client-individual` carry `ack`;
+  redelivered ones `redelivered:true`.
 - `ERROR`: `message` (short reason), `receipt-id` (when the offending frame
   had `receipt`), `content-type`, `content-length`, the reason as body. After an
   `ERROR` the broker ends the session (no more deliveries) and closes the
@@ -95,8 +98,9 @@ Framing:
 - Malformed frames (no EOL after the command, a header line without `:`,
   headers not ended by an empty line) get an `ERROR`.
 
-Not supported: `ACK`/`NACK`, transactions (`BEGIN`/`COMMIT`/`ABORT`), header
-value escaping (`\n`, `\c`, `\\` are passed through as they are),
+Not supported: `ACK`/`NACK` on pub-sub destinations (accepted, nothing is
+tracked) and STOMP 1.1 `ACK` by `message-id`, transactions
+(`BEGIN`/`COMMIT`/`ABORT`), header value escaping (`\n`, `\c`, `\\` are passed through as they are),
 authentication.
 
 Messaging
@@ -132,6 +136,7 @@ max_stale_queue_size=<num>  : stale queue limit (number of messages)
 max_stale_queue_bytes=<num> : stale queue memory limit in bytes (default 64000000)
 max_frame_size=<num>        : largest STOMP frame in bytes (default 1000000), larger ones get ERROR + close
 TTL=<num>                   : Time to live limit in <milli seconds> (0: messages without subscribers are dropped)
+ack_timeout=<num>           : worker queue messages not acknowledged within <milli seconds> are redelivered (default 0: never)
 write_timeout=<num>         : drop a slow consumer after <milli seconds> of waiting for it in total (default 5000); waiting restarts once it has taken one output buffer (10000 bytes)
 ws_allowed_origins=<a,b>    : WebSocket Origin allowlist, comma separated (default: any)
 ws_allowed_hosts=<a,b>      : WebSocket Host allowlist, comma separated, with or without port (default: any)
@@ -142,7 +147,7 @@ Build and test
 
 ```
 make build          # Linux only (epoll)
-make test           # unit tests: test.out + STOMP tests (parser, framing, handlers, close path) under ASan/UBSan
+make test           # unit tests: test.out + STOMP tests (parser, framing, handlers, close path, worker queues, ACK/NACK) under ASan/UBSan
 make test-ws        # WebSocket unit tests under ASan/UBSan (Linux and macOS)
 make test-stomp     # STOMP unit tests only (Linux and macOS)
 make test-tsan      # STOMP unit tests under ThreadSanitizer
@@ -197,8 +202,8 @@ The first character of the line can contain the following status codes:
 + SEND
 + SUBSCRIBE (handle id header for subscription!)
 + UNSUBSCRIBE
-- ACK
-- NACK
++ ACK (worker queues: ack:client, ack:client-individual, prefetch-count)
++ NACK (redelivery to another worker)
 - BEGIN
 - COMMIT
 - ABORT
@@ -250,8 +255,8 @@ The first character of the line can contain the following status codes:
 - change processors params name: 1) to reflect writer threads count 2) be more intuitive
 + add basic help and upload binary
 + message exchange PUB-SUB distribution by default
-~ message exchange "Workerqueue distribution" with special topic name (only a single topic is guaranteed to keep the orders balanced)
-- Introduce new internal queue for ACK/NACK: ack_queue, with command line arg ack_timeout
++ message exchange "Workerqueue distribution" with special topic name '#': round-robin per destination (skewed by wildcard workers, see pubsub.md), backlog split by prefetch-count
++ Introduce new internal queue for ACK/NACK: pending acknowledgements, redelivery on NACK, session end and command line arg ack_timeout
 ? multiple message dispatcher threads
 + Lower CPU load: replace sleeping thread loops with mutex to wait/notify awake in threadsafe queue
 + balanced tree implementation for associative array

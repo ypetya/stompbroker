@@ -54,6 +54,8 @@ static int command_of(const char *p, size_t len) {
     if (token_is(p, len, FRM_UNSUBSCRIBE)) return FRM_UNSUBSCRIBE_ID;
     if (token_is(p, len, FRM_SEND)) return FRM_SEND_ID;
     if (token_is(p, len, FRM_DIAGNOSTIC)) return FRM_DIAGNOSTIC_ID;
+    if (token_is(p, len, FRM_ACK)) return FRM_ACK_ID;
+    if (token_is(p, len, FRM_NACK)) return FRM_NACK_ID;
     return -1;
 }
 

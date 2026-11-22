@@ -1176,6 +1176,357 @@ static void test_wildcard_matches_empty_rest(void) {
     ST_CHECK(st_stale_queue.size == 0);
 }
 
+/* ---------------------------------------------------------------------------
+ * F4 worker queues: destinations starting with '#'
+ * ------------------------------------------------------------------------- */
+
+/** Copies the value of header name of frame m into buf ("" if missing). */
+static const char *header_of(message_with_frame_len *m, const char *name, char *buf, size_t size) {
+    char key[64];
+    snprintf(key, sizeof (key), "\n%s:", name);
+    buf[0] = '\0';
+    const char *at = m != NULL ? strstr(m->content, key) : NULL;
+    if (at == NULL) return buf;
+    at += strlen(key);
+    size_t len = strcspn(at, "\n");
+    if (len >= size) len = size - 1;
+    memcpy(buf, at, len);
+    buf[len] = '\0';
+    return buf;
+}
+
+/** Pops the next output, checks it is a MESSAGE to fd with body, keeps its ack header in ack (may be NULL). */
+static int expect_message(int fd, const char *body, char *ack, size_t ack_size) {
+    message_with_frame_len *m = next_output();
+    size_t body_len = strlen(body);
+    int ok = m != NULL && m->fd == fd && starts_with(m->content, "MESSAGE\n")
+            && m->content_len >= body_len && memcmp(m->content + m->content_len - body_len, body, body_len) == 0;
+    if (!ok) printf("    expected MESSAGE %s to fd %d, got: fd %d %.80s\n", body, fd, m ? m->fd : -1, m ? m->content : "(nothing)");
+    if (ack != NULL) header_of(m, "ack", ack, ack_size);
+    if (m) message_destroy_with_frame_len(m);
+    return ok;
+}
+
+static void send_job(int fd, const char *destination, const char *body) {
+    char frame[256];
+    snprintf(frame, sizeof (frame), "SEND\ndestination:%s\n\n%s", destination, body);
+    receive_now(fd, frame);
+}
+
+static void send_ack(int fd, const char *command, const char *ack_id) {
+    char frame[128];
+    snprintf(frame, sizeof (frame), "%s\nid:%s\n\n", command, ack_id);
+    receive_now(fd, frame);
+}
+
+/* every job reaches exactly one worker, in rotation; pub-sub stays fan-out */
+static void test_worker_queue_round_robin(void) {
+    for (int fd = 5; fd <= 8; fd++) connect_client(fd);
+    receive(5, "SUBSCRIBE\nid:w\ndestination:#jobs\n\n");
+    receive(6, "SUBSCRIBE\nid:w\ndestination:#jobs\n\n");
+    receive(7, "SUBSCRIBE\nid:w\ndestination:#*\n\n"); /* wildcards join the pool too */
+    for (int round = 0; round < 2; round++) {
+        send_job(8, "#jobs", "j");
+        send_job(8, "#jobs", "j");
+        send_job(8, "#jobs", "j");
+        ST_CHECK(expect_message(5, "j", NULL, 0));
+        ST_CHECK(expect_message(6, "j", NULL, 0));
+        ST_CHECK(expect_message(7, "j", NULL, 0));
+        ST_CHECK(output_count() == 0);
+    }
+    receive(5, "SUBSCRIBE\nid:p\ndestination:/news\n\n");
+    receive(6, "SUBSCRIBE\nid:p\ndestination:/news\n\n");
+    send_job(8, "/news", "all");
+    ST_CHECK(output_count() == 2);
+}
+
+/* gap 3: the rotation of one destination does not depend on traffic to others */
+static void test_worker_round_robin_is_per_destination(void) {
+    for (int fd = 5; fd <= 9; fd++) connect_client(fd);
+    receive(5, "SUBSCRIBE\nid:a\ndestination:#a\n\n");
+    receive(6, "SUBSCRIBE\nid:a\ndestination:#a\n\n");
+    receive(7, "SUBSCRIBE\nid:b\ndestination:#b\n\n");
+    receive(8, "SUBSCRIBE\nid:b\ndestination:#b\n\n");
+    /* with one global counter #a always hit the even index: fd 5 got every #a job */
+    for (int i = 0; i < 2; i++) {
+        send_job(9, "#a", "a");
+        send_job(9, "#b", "b");
+    }
+    ST_CHECK(expect_message(5, "a", NULL, 0));
+    ST_CHECK(expect_message(7, "b", NULL, 0));
+    ST_CHECK(expect_message(6, "a", NULL, 0));
+    ST_CHECK(expect_message(8, "b", NULL, 0));
+}
+
+/* a worker that joins takes the next job; one that leaves is skipped */
+static void test_worker_pool_changes(void) {
+    for (int fd = 5; fd <= 8; fd++) connect_client(fd);
+    receive(5, "SUBSCRIBE\nid:w\ndestination:#jobs\n\n");
+    send_job(8, "#jobs", "1");
+    send_job(8, "#jobs", "2");
+    ST_CHECK(expect_message(5, "1", NULL, 0) && expect_message(5, "2", NULL, 0));
+    receive(6, "SUBSCRIBE\nid:w\ndestination:#jobs\n\n");
+    send_job(8, "#jobs", "3");
+    send_job(8, "#jobs", "4");
+    ST_CHECK(expect_message(6, "3", NULL, 0) && expect_message(5, "4", NULL, 0));
+    receive(6, "UNSUBSCRIBE\nid:w\n\n");
+    send_job(8, "#jobs", "5");
+    ST_CHECK(expect_message(5, "5", NULL, 0));
+    ST_CHECK(output_count() == 0);
+}
+
+/* gap 1: a backlog (TTL > 0) is split across acknowledging workers, each job once */
+static void test_worker_backlog_is_split_across_workers(void) {
+    ttl = 5000 * 1000;
+    for (int fd = 5; fd <= 7; fd++) connect_client(fd);
+    send_job(7, "#jobs", "1");
+    send_job(7, "#jobs", "2");
+    send_job(7, "#jobs", "3");
+    send_job(7, "#jobs", "4");
+    ST_CHECK(st_stale_queue.size == 4);
+
+    char ack5[32], ack6[32];
+    receive_now(5, "SUBSCRIBE\nid:w\ndestination:#jobs\nack:client-individual\n\n");
+    ST_CHECK(expect_message(5, "1", ack5, sizeof (ack5)) && ack5[0] != '\0');
+    ST_CHECK(output_count() == 0); /* prefetch-count 1: one job at a time */
+    receive_now(6, "SUBSCRIBE\nid:w\ndestination:#jobs\nack:client-individual\n\n");
+    ST_CHECK(expect_message(6, "2", ack6, sizeof (ack6)));
+    ST_CHECK(st_stale_queue.size == 2 && pending_size() == 2);
+
+    send_ack(6, "ACK", ack6);
+    ST_CHECK(expect_message(6, "3", ack6, sizeof (ack6)));
+    send_ack(5, "ACK", ack5);
+    ST_CHECK(expect_message(5, "4", ack5, sizeof (ack5)));
+    send_ack(5, "ACK", ack5);
+    send_ack(6, "ACK", ack6);
+    ST_CHECK(output_count() == 0 && st_stale_queue.size == 0 && stale_queue_bytes() == 0 && pending_size() == 0);
+}
+
+/* ack:auto has no flow control: the first worker takes the whole backlog (documented) */
+static void test_worker_auto_ack_takes_backlog(void) {
+    ttl = 5000 * 1000;
+    connect_client(5);
+    connect_client(7);
+    send_job(7, "#jobs", "1");
+    send_job(7, "#jobs", "2");
+    receive_now(5, "SUBSCRIBE\nid:w\ndestination:#jobs\n\n");
+    ST_CHECK(expect_message(5, "1", NULL, 0) && expect_message(5, "2", NULL, 0));
+    ST_CHECK(st_stale_queue.size == 0 && pending_size() == 0);
+}
+
+/* busy workers: jobs wait in the stale queue even with TTL 0, prefetch-count allows more in flight */
+static void test_worker_busy_jobs_wait(void) {
+    connect_client(5);
+    connect_client(7);
+    receive_now(5, "SUBSCRIBE\nid:w\ndestination:#jobs\nack:client-individual\nprefetch-count:2\n\n");
+    send_job(7, "#jobs", "1");
+    send_job(7, "#jobs", "2");
+    send_job(7, "#jobs", "3");
+    char ack1[32], ack2[32], ack3[32];
+    ST_CHECK(expect_message(5, "1", ack1, sizeof (ack1)) && expect_message(5, "2", ack2, sizeof (ack2)));
+    ST_CHECK(output_count() == 0 && st_stale_queue.size == 1);
+    send_ack(5, "ACK", ack2);
+    ST_CHECK(expect_message(5, "3", ack3, sizeof (ack3)));
+    send_ack(5, "ACK", ack1);
+    send_ack(5, "ACK", ack3);
+    ST_CHECK(pending_size() == 0 && st_stale_queue.size == 0);
+    /* no worker at all and TTL 0: dropped as before */
+    receive_now(5, "UNSUBSCRIBE\nid:w\n\n");
+    send_job(7, "#jobs", "lost");
+    ST_CHECK(st_stale_queue.size == 0 && output_count() == 0);
+}
+
+/* ack:client acknowledges every earlier message of the subscription */
+static void test_worker_client_ack_is_cumulative(void) {
+    connect_client(5);
+    connect_client(7);
+    receive_now(5, "SUBSCRIBE\nid:w\ndestination:#jobs\nack:client\nprefetch-count:3\n\n");
+    for (int i = 0; i < 3; i++) send_job(7, "#jobs", "j");
+    char ack[3][32];
+    for (int i = 0; i < 3; i++) ST_CHECK(expect_message(5, "j", ack[i], sizeof (ack[i])));
+    send_ack(5, "ACK", ack[1]);
+    ST_CHECK(pending_size() == 1);
+    send_ack(5, "ACK", ack[0]); /* already settled: ignored */
+    ST_CHECK(pending_size() == 1);
+    send_ack(5, "ACK", ack[2]);
+    ST_CHECK(pending_size() == 0);
+}
+
+/* gap 2: a NACKed job goes to another worker, marked redelivered */
+static void test_worker_nack_redelivers_to_another_worker(void) {
+    for (int fd = 5; fd <= 7; fd++) connect_client(fd);
+    receive_now(5, "SUBSCRIBE\nid:w\ndestination:#jobs\nack:client-individual\n\n");
+    receive_now(6, "SUBSCRIBE\nid:w\ndestination:#jobs\nack:client-individual\n\n");
+    send_job(7, "#jobs", "job");
+    char ack[32];
+    ST_CHECK(expect_message(5, "job", ack, sizeof (ack)));
+    send_ack(5, "NACK", ack);
+    message_with_frame_len *m = next_output();
+    ST_CHECK(m != NULL && m->fd == 6 && strstr(m->content, "\nredelivered:true\n") != NULL);
+    if (m) message_destroy_with_frame_len(m);
+    ST_CHECK(output_count() == 0 && pending_size() == 1);
+
+    /* the only worker NACKs: it gets the job again */
+    receive_now(6, "UNSUBSCRIBE\nid:w\n\n");
+    ST_CHECK(expect_message(5, "job", ack, sizeof (ack)));
+    send_ack(5, "NACK", ack);
+    ST_CHECK(expect_message(5, "job", NULL, 0));
+}
+
+/* gap 2: a worker that dies before ACK does not lose its job (TTL > 0: it waits for the next worker) */
+static void test_worker_session_end_redelivers(void) {
+    ttl = 5000 * 1000;
+    for (int fd = 5; fd <= 7; fd++) connect_client(fd);
+    receive_now(5, "SUBSCRIBE\nid:w\ndestination:#jobs\nack:client-individual\n\n");
+    receive_now(6, "SUBSCRIBE\nid:w\ndestination:#jobs\nack:client-individual\n\n");
+    send_job(7, "#jobs", "a");
+    send_job(7, "#jobs", "b");
+    ST_CHECK(expect_message(5, "a", NULL, 0) && expect_message(6, "b", NULL, 0));
+    receive_now(5, "DISCONNECT\n\n"); /* worker 5 leaves with "a" not acknowledged */
+    drop_output(); /* close request */
+    ST_CHECK(pending_size() == 1 && st_stale_queue.size == 1); /* worker 6 is busy */
+
+    char ack[32];
+    receive_now(6, "SUBSCRIBE\nid:w2\ndestination:#jobs\nack:client-individual\n\n");
+    ST_CHECK(expect_message(6, "a", ack, sizeof (ack)));
+    /* the last worker breaks the protocol: ERROR ends its session, the jobs wait */
+    receive_now(6, "BOGUS\n\n");
+    drop_output();
+    ST_CHECK(pending_size() == 0 && st_stale_queue.size == 2);
+    connect_client(8);
+    receive_now(8, "SUBSCRIBE\nid:w\ndestination:#jobs\n\n");
+    for (const char *job = "ba"; *job != '\0'; job++) { /* in the order worker 6 got them, before newer jobs */
+        message_with_frame_len *m = next_output();
+        ST_CHECK(m != NULL && m->fd == 8 && strstr(m->content, "\nredelivered:true\n") != NULL);
+        ST_CHECK(m != NULL && m->content[m->content_len - 1] == *job);
+        if (m) message_destroy_with_frame_len(m);
+    }
+    ST_CHECK(st_stale_queue.size == 0 && stale_queue_bytes() == 0);
+}
+
+/* gap 2: jobs not acknowledged within ack_timeout go to another worker */
+static void test_worker_ack_timeout_redelivers(void) {
+    ack_timeout = 1000; /* 1 ms */
+    for (int fd = 5; fd <= 7; fd++) connect_client(fd);
+    receive_now(5, "SUBSCRIBE\nid:w\ndestination:#jobs\nack:client-individual\n\n");
+    receive_now(6, "SUBSCRIBE\nid:w\ndestination:#jobs\nack:client-individual\n\n");
+    send_job(7, "#jobs", "slow");
+    char late_ack[32];
+    ST_CHECK(expect_message(5, "slow", late_ack, sizeof (late_ack)));
+    stomp_redeliver_timed_out(&st_stale_queue, &st_output_queue);
+    ST_CHECK(output_count() == 0); /* not yet */
+    usleep(20000);
+    stomp_redeliver_timed_out(&st_stale_queue, &st_output_queue);
+    ST_CHECK(expect_message(6, "slow", NULL, 0));
+    send_ack(5, "ACK", late_ack); /* too late: ignored, the job is with worker 6 now */
+    ST_CHECK(pending_size() == 1 && output_count() == 0);
+}
+
+static void test_ack_frames_are_validated(void) {
+    connect_client(5);
+    receive(5, "SUBSCRIBE\nid:w\ndestination:#jobs\nack:sometimes\n\n");
+    ST_CHECK(expect_output("ERROR\n"));
+    drop_output();
+    connect_client(6);
+    receive(6, "SUBSCRIBE\nid:w\ndestination:#jobs\nack:client\nprefetch-count:0\n\n");
+    ST_CHECK(expect_output("ERROR\n"));
+    drop_output();
+    connect_client(7);
+    receive(7, "ACK\nid:12345\nreceipt:r\n\n"); /* unknown id: ignored */
+    ST_CHECK(expect_output("RECEIPT\nreceipt-id:r\n"));
+    receive(7, "NACK\nid:pub-sub\n\n"); /* not a worker queue ack id: ignored */
+    ST_CHECK(output_count() == 0);
+    receive(7, "ACK\n\n");
+    ST_CHECK(expect_output("ERROR\n"));
+    drop_output();
+    receive(8, "ACK\nid:1\n\n");
+    ST_CHECK(expect_output("ERROR\n")); /* not connected */
+}
+
+/* review 1: a redelivered (younger) job at the head must not hide expired messages from a full queue */
+static void test_full_stale_queue_drops_expired_behind_redelivered_job(void) {
+    ttl = 200 * 1000; /* 200 ms */
+    stale_queue_max_size = 3;
+    for (int fd = 5; fd <= 7; fd++) connect_client(fd);
+    send_job(7, "/p/1", "old");
+    send_job(7, "/p/2", "old");
+    usleep(120000);
+    receive_now(5, "SUBSCRIBE\nid:w\ndestination:#jobs\nack:client-individual\n\n");
+    receive_now(6, "SUBSCRIBE\nid:w\ndestination:#jobs\nack:client-individual\n\n");
+    send_job(7, "#jobs", "j1");
+    send_job(7, "#jobs", "j2");
+    ST_CHECK(expect_message(5, "j1", NULL, 0) && expect_message(6, "j2", NULL, 0));
+    receive_now(5, "UNSUBSCRIBE\nid:w\n\n"); /* j1 back to the head: worker 6 is busy */
+    ST_CHECK(st_stale_queue.size == 3 && ((parsed_message *) st_stale_queue.first->data)->topic[0] == '#');
+    usleep(120000); /* /p/1, /p/2 expire, j1 does not */
+    send_job(7, "/p/3", "new");
+    ST_CHECK(st_stale_queue.size == 2); /* j1 and /p/3: stored, not "stale queue is full" */
+    ST_CHECK(st_stale_queue.last != NULL && strcmp(((parsed_message *) st_stale_queue.last->data)->topic, "/p/3") == 0);
+    stale_queue_max_size = 1000;
+}
+
+/* review 2: TTL 0, jobs waiting for busy workers are dropped when the last matching worker leaves */
+static void test_orphaned_jobs_are_dropped_with_ttl_zero(void) {
+    for (int fd = 5; fd <= 8; fd++) connect_client(fd);
+    receive_now(5, "SUBSCRIBE\nid:w\ndestination:#jobs\nack:client-individual\n\n");
+    receive_now(6, "SUBSCRIBE\nid:w\ndestination:#jobs\nack:client-individual\n\n");
+    receive_now(8, "SUBSCRIBE\nid:o\ndestination:#other\nack:client-individual\n\n");
+    send_job(7, "#jobs", "j1");
+    send_job(7, "#jobs", "j2");
+    send_job(7, "#jobs", "j3"); /* both busy: waits */
+    send_job(7, "#other", "o1");
+    send_job(7, "#other", "o2"); /* worker 8 busy: waits */
+    drop_output();
+    ST_CHECK(st_stale_queue.size == 2 && pending_size() == 3);
+
+    receive_now(5, "DISCONNECT\n\n"); /* j1 returns; worker 6 still matches: kept */
+    drop_output();
+    ST_CHECK(st_stale_queue.size == 3);
+    receive_now(6, "UNSUBSCRIBE\nid:w\n\n"); /* no #jobs worker left: j1, j2, j3 dropped */
+    ST_CHECK(st_stale_queue.size == 1 && pending_size() == 1);
+    ST_CHECK(strcmp(((parsed_message *) st_stale_queue.first->data)->topic, "#other") == 0);
+    receive_now(8, "BOGUS\n\n"); /* ERROR ends the session: #other jobs are orphaned too */
+    drop_output();
+    ST_CHECK(st_stale_queue.size == 0 && stale_queue_bytes() == 0 && pending_size() == 0);
+}
+
+static void *enqueue_later(void *queue_ptr) {
+    usleep(20000);
+    ts_enqueue(queue_ptr, strdup("late"));
+    return NULL;
+}
+
+static long long elapsed_ms_since(long long start_us) {
+    return (message_timestamp_now() - start_us) / 1000;
+}
+
+/* review 3: the timed dequeue waits on the monotonic clock and wakes up for new elements */
+static void test_ts_dequeue_timed(void) {
+    ts_queue q;
+    ts_queue_init(&q);
+    long long start = message_timestamp_now();
+    ST_CHECK(ts_dequeue_timed(&q, 50) == NULL);
+    long long waited = elapsed_ms_since(start);
+    ST_CHECK(waited >= 45 && waited < 1000);
+
+    ts_enqueue(&q, strdup("ready"));
+    start = message_timestamp_now();
+    char *item = ts_dequeue_timed(&q, 2000);
+    ST_CHECK(item != NULL && strcmp(item, "ready") == 0 && elapsed_ms_since(start) < 100);
+    free(item);
+
+    pthread_t producer;
+    pthread_create(&producer, NULL, enqueue_later, &q);
+    start = message_timestamp_now();
+    item = ts_dequeue_timed(&q, 5000);
+    ST_CHECK(item != NULL && strcmp(item, "late") == 0 && elapsed_ms_since(start) < 1000);
+    free(item);
+    pthread_join(producer, NULL);
+
+    ST_CHECK(ts_dequeue_timed(&q, 0) == NULL); /* zero timeout: no wait, no spin */
+    ts_queue_free(&q);
+}
+
 int run_stomp_tests(void) {
     printf("STOMP tests\n");
     session_storage_init();
@@ -1235,6 +1586,20 @@ int run_stomp_tests(void) {
     ST_RUN(test_framing_large_content_length_frame_in_chunks);
     ST_RUN(test_wildcard_matches_empty_rest);
     ST_RUN(test_high_fds_do_not_alias);
+    ST_RUN(test_worker_queue_round_robin);
+    ST_RUN(test_worker_round_robin_is_per_destination);
+    ST_RUN(test_worker_pool_changes);
+    ST_RUN(test_worker_backlog_is_split_across_workers);
+    ST_RUN(test_worker_auto_ack_takes_backlog);
+    ST_RUN(test_worker_busy_jobs_wait);
+    ST_RUN(test_worker_client_ack_is_cumulative);
+    ST_RUN(test_worker_nack_redelivers_to_another_worker);
+    ST_RUN(test_worker_session_end_redelivers);
+    ST_RUN(test_worker_ack_timeout_redelivers);
+    ST_RUN(test_ack_frames_are_validated);
+    ST_RUN(test_full_stale_queue_drops_expired_behind_redelivered_job);
+    ST_RUN(test_orphaned_jobs_are_dropped_with_ttl_zero);
+    ST_RUN(test_ts_dequeue_timed);
 
     session_storage_dispose();
     printf("STOMP tests: %d run, %d failed\n", st_tests_run, st_tests_failed);

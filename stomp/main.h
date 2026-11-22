@@ -9,6 +9,7 @@ extern "C" {
 
 #include "data_wrappers/session.c"
 #include "data_wrappers/pub_sub.c"
+#include "data_wrappers/pending_acks.c"
 #include "messages/message.c"
 #include "messages/create_diagnostic_message.c"
 #include "messages/distribute_messages.c"

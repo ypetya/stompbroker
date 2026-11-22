@@ -21,6 +21,8 @@ extern "C" {
     void ts_enqueue_multiple(ts_queue *q, general_list* new_items);
     int ts_enqueue_limited(ts_queue * q, void *new_data, unsigned int limit);
     void* ts_dequeue(ts_queue * q);
+    /** Like ts_dequeue, but waits at most timeout_ms. @return NULL on time-out */
+    void* ts_dequeue_timed(ts_queue * q, long timeout_ms);
     
     void ts_queue_free(ts_queue *q);
 

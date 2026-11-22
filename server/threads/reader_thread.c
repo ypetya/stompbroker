@@ -2,6 +2,9 @@
 #include "worker_thread_data.h"
 #include "../data/message/with_timestamp.h"
 
+// how often unacknowledged worker queue messages are checked for ack_timeout when idle
+#define ACK_TIMEOUT_CHECK_MS 100
+
 void *reader_thread(void *vargp) {
     worker_thread_data_struct * queues = vargp;
 
@@ -11,9 +14,11 @@ void *reader_thread(void *vargp) {
 
     // TODO: dequeue in a batch for speed improvement?
     message_with_timestamp * msg;
+    int check_ack_timeouts = stomp_ack_timeout_enabled();
 
     while (YES) {
-        if((msg = ts_dequeue(input_queue))){
+        msg = check_ack_timeouts ? ts_dequeue_timed(input_queue, ACK_TIMEOUT_CHECK_MS) : ts_dequeue(input_queue);
+        if (msg) {
             if (msg->fd == -1) {
                 debug(" * Reader thread: Poison pill detected.\n");
                 message_destroy_with_timestamp(msg);
@@ -32,6 +37,7 @@ void *reader_thread(void *vargp) {
 
             message_destroy_with_timestamp(msg);
         }
+        if (check_ack_timeouts) stomp_redeliver_timed_out(stale_queue, output_queue);
     }
     
     return NULL;

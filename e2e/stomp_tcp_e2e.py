@@ -364,6 +364,73 @@ def scenario_ttl_replay(port):
     sub.close()
 
 
+def worker(port, destination, sub_id, extra=""):
+    c = connected_client(port)
+    c.send(f"SUBSCRIBE\nid:{sub_id}\ndestination:{destination}\n{extra}receipt:w\n\n")
+    expect(headers_of(c.recv()).get("receipt-id") == "w", "SUBSCRIBE receipt")
+    return c
+
+
+def send_jobs(port, destination, bodies):
+    pub = connected_client(port)
+    for body in bodies:
+        pub.send(f"SEND\ndestination:{destination}\n\n{body}")
+    pub.send("DISCONNECT\nreceipt:done\n\n")
+    expect(headers_of(pub.recv()).get("receipt-id") == "done", "producer DISCONNECT receipt")
+    pub.close()
+
+
+def scenario_worker_queue_round_robin(port):
+    """'#' destinations: every job reaches exactly one worker, in rotation."""
+    workers = [worker(port, "#e2e-rr", "w") for _ in range(3)]
+    send_jobs(port, "#e2e-rr", [f"job-{i}" for i in range(6)])
+    for i in range(6):
+        msg = workers[i % 3].recv()
+        expect(msg.startswith("MESSAGE\n") and body_of(msg) == f"job-{i}", f"worker {i % 3}: {msg[:80]!r}")
+    for w in workers:
+        w.sock.settimeout(0.3)
+        try:
+            extra = w.recv()
+            raise TestFailure(f"job delivered twice: {extra[:80]!r}")
+        except socket.timeout:
+            pass
+        w.close()
+
+
+def scenario_worker_dies_job_is_redelivered(port):
+    """A worker with ack:client-individual drops its connection before ACK: another worker gets the job."""
+    ack = "ack:client-individual\n"
+    first = worker(port, "#e2e-crash", "w", ack)
+    second = worker(port, "#e2e-crash", "w", ack)
+    send_jobs(port, "#e2e-crash", ["a", "b"])
+    msg_a = first.recv()
+    msg_b = second.recv()
+    expect(body_of(msg_a) == "a" and body_of(msg_b) == "b", f"{msg_a[:60]!r} {msg_b[:60]!r}")
+    first.close()  # dies without ACK
+    second.send(f"ACK\nid:{headers_of(msg_b)['ack']}\n\n")
+    again = second.recv()
+    expect(body_of(again) == "a" and headers_of(again).get("redelivered") == "true", f"redelivered {again[:80]!r}")
+    second.send(f"ACK\nid:{headers_of(again)['ack']}\nreceipt:acked\n\n")
+    expect(headers_of(second.recv()).get("receipt-id") == "acked", "ACK receipt")
+    second.close()
+
+
+def scenario_worker_ack_timeout(port):
+    """The broker runs with ack_timeout=300: a job not acknowledged in time goes to another worker."""
+    ack = "ack:client-individual\n"
+    slow = worker(port, "#e2e-timeout", "w", ack)
+    fast = worker(port, "#e2e-timeout", "w", ack)
+    send_jobs(port, "#e2e-timeout", ["slow job"])
+    expect(body_of(slow.recv()) == "slow job", "first delivery")
+    started = time.time()
+    again = fast.recv()  # no traffic meanwhile: the idle reader thread checks the time-out
+    expect(body_of(again) == "slow job" and headers_of(again).get("redelivered") == "true", f"{again[:80]!r}")
+    expect(time.time() - started >= 0.25, "redelivered before ack_timeout")
+    fast.send(f"ACK\nid:{headers_of(again)['ack']}\n\n")
+    slow.close()
+    fast.close()
+
+
 SCENARIOS = [
     scenario_pubsub_round_trip,
     scenario_two_frames_in_one_write,
@@ -385,6 +452,9 @@ SCENARIOS = [
     scenario_error_has_receipt_id_and_closes,
     scenario_version_negotiation,
     scenario_ttl_replay,
+    scenario_worker_queue_round_robin,
+    scenario_worker_dies_job_is_redelivered,
+    scenario_worker_ack_timeout,
 ]
 
 
@@ -417,7 +487,7 @@ def main():
     log = None
     if args.broker:
         log = open(args.log, "w")
-        broker = subprocess.Popen([args.broker, f"port={port}", "processors=4", "TTL=5000"],
+        broker = subprocess.Popen([args.broker, f"port={port}", "processors=4", "TTL=5000", "ack_timeout=300"],
                                   stdout=log, stderr=subprocess.STDOUT)
     failures = 0
     try:

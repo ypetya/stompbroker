@@ -26,6 +26,10 @@ extern "C" {
 #define FRM_DIAGNOSTIC "DIAG"
 #define FRM_DIAGNOSTIC_LEN 4
 #define FRM_DIAGNOSTIC_ID 6
+#define FRM_ACK "ACK"
+#define FRM_ACK_ID 7
+#define FRM_NACK "NACK"
+#define FRM_NACK_ID 8
 
 #include "../server/data/message/with_timestamp.h"
 #include "../lib/associative_array.h"
